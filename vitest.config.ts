@@ -11,6 +11,6 @@ export default defineConfig({
     environment: 'node',
     environmentMatchGlobs: [['src/features/**', 'jsdom'], ['src/ui/**', 'jsdom']],
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'supabase/functions/**/*.test.ts'],
   },
 });

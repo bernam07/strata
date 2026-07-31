@@ -27,5 +27,6 @@ export const toTransaction = (row: TransactionRow): Transaction => ({
   source: row.source,
   externalId: row.external_id,
   transferGroupId: row.transfer_group_id,
+  instrumentId: row.instrument_id,
   createdAt: row.created_at,
 });

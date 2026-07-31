@@ -7,6 +7,12 @@ const links = [
   { to: '/', label: 'Resumo', end: true },
   { to: '/accounts', label: 'Contas', end: false },
   { to: '/transactions', label: 'Transações', end: false },
+  { to: '/positions', label: 'Posições', end: false },
+  { to: '/dividends', label: 'Dividendos', end: false },
+  { to: '/analytics', label: 'Análise', end: false },
+  { to: '/expenses', label: 'Despesas', end: false },
+  { to: '/tax', label: 'Fiscalidade', end: false },
+  { to: '/integrations', label: 'Integrações', end: false },
 ];
 
 export const AppShell = ({ children }: { children: ReactNode }) => {

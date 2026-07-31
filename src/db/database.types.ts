@@ -1,5 +1,14 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
 export type AccountType = 'investment' | 'cash' | 'liability';
 export type TransactionSource = 'manual' | 't212_sync' | 'csv_import';
+export type SyncStatus = 'running' | 'success' | 'error';
 export type TransactionKind =
   | 'deposit'
   | 'withdrawal'
@@ -89,6 +98,7 @@ export interface Database {
           source: TransactionSource;
           external_id: string | null;
           transfer_group_id: string | null;
+          instrument_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -105,6 +115,7 @@ export interface Database {
           source?: TransactionSource;
           external_id?: string | null;
           transfer_group_id?: string | null;
+          instrument_id?: string | null;
         };
         Update: {
           note?: string | null;
@@ -118,13 +129,214 @@ export interface Database {
           },
         ];
       };
+      instruments: {
+        Row: {
+          id: string;
+          user_id: string;
+          isin: string | null;
+          ticker: string;
+          t212_ticker: string | null;
+          name: string;
+          currency: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          isin?: string | null;
+          ticker: string;
+          t212_ticker?: string | null;
+          name: string;
+          currency?: string;
+        };
+        Update: {
+          isin?: string | null;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      provider_credentials: {
+        Row: {
+          user_id: string;
+          provider: string;
+          secret_id: string;
+          use_demo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          provider: string;
+          secret_id: string;
+          use_demo?: boolean;
+        };
+        Update: {
+          use_demo?: boolean;
+        };
+        Relationships: [];
+      };
+      sync_state: {
+        Row: {
+          user_id: string;
+          provider: string;
+          stream: string;
+          cursor: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          provider: string;
+          stream: string;
+          cursor?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          cursor?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      sync_runs: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: string;
+          status: SyncStatus;
+          started_at: string;
+          finished_at: string | null;
+          inserted_rows: number;
+          error_message: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider: string;
+          status?: SyncStatus;
+          finished_at?: string | null;
+          inserted_rows?: number;
+          error_message?: string | null;
+        };
+        Update: {
+          status?: SyncStatus;
+          finished_at?: string | null;
+          inserted_rows?: number;
+          error_message?: string | null;
+        };
+        Relationships: [];
+      };
+      prices: {
+        Row: {
+          id: string;
+          user_id: string;
+          instrument_id: string;
+          as_of: string;
+          close: string;
+          currency: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          instrument_id: string;
+          as_of: string;
+          close: string;
+          currency?: string;
+        };
+        Update: {
+          close?: string;
+          currency?: string;
+        };
+        Relationships: [];
+      };
+      fx_rates: {
+        Row: {
+          base: string;
+          quote: string;
+          as_of: string;
+          rate: string;
+          created_at: string;
+        };
+        Insert: {
+          base: string;
+          quote: string;
+          as_of: string;
+          rate: string;
+        };
+        Update: {
+          rate?: string;
+        };
+        Relationships: [];
+      };
+      categories: {
+        Row: {
+          id: string;
+          user_id: string;
+          parent_id: string | null;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          parent_id?: string | null;
+          name: string;
+        };
+        Update: {
+          parent_id?: string | null;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      transaction_categories: {
+        Row: {
+          transaction_id: string;
+          user_id: string;
+          category_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          transaction_id: string;
+          user_id?: string;
+          category_id: string;
+        };
+        Update: {
+          category_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Functions: {
+      upsert_prices: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
+      upsert_fx_rates: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
+      set_t212_api_key: {
+        Args: { p_key: string; p_use_demo?: boolean };
+        Returns: undefined;
+      };
+      remove_t212_api_key: {
+        Args: Record<never, never>;
+        Returns: undefined;
+      };
+      provider_secret: {
+        Args: { p_user: string; p_provider: string };
+        Returns: { secret: string; use_demo: boolean }[];
+      };
+      ingest_transactions: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
+    };
     Enums: {
       account_type: AccountType;
       transaction_source: TransactionSource;
       transaction_kind: TransactionKind;
+      sync_status: SyncStatus;
     };
     CompositeTypes: Record<never, never>;
   };

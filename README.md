@@ -27,6 +27,107 @@ Fatia vertical mínima:
 uma despesa de 30 €, ver 70 €. Levar a conta a negativo e vê-la no bloco de
 passivos. Coberto por testes em `src/core`.
 
+## Estado — Fase 2
+
+Integração Trading 212:
+
+- Edge Function `t212-sync` (Deno) que importa ordens, dividendos e movimentos
+  de caixa através da API oficial (`live` ou `demo`)
+- Chave da API guardada cifrada no Supabase Vault, definida por RPC — nunca no
+  browser, nunca em texto simples, nunca no repositório
+- Backoff exponencial que respeita o `Retry-After` e cursor persistido por
+  stream para não reprocessar o histórico completo
+- Normalização dos tickers `AAPL_US_EQ` e mapeamento para ISIN numa tabela de
+  instrumentos persistida
+- Todas as escritas via `on conflict do nothing` na constraint de unicidade
+- Estado da sincronização (última execução, sucesso/falha, mensagem de erro)
+  visível no separador **Integrações**
+
+Lógica pura (normalização, backoff, cursor, mapeamento) coberta por testes em
+`supabase/functions/_shared/t212`.
+
+### Ligar o Trading 212
+
+1. Aplicar a migração `0002_phase2_trading212.sql` (`supabase db push`).
+2. Publicar a função: `supabase functions deploy t212-sync`.
+3. Na app, separador **Integrações**, colar a chave da API (usa o ambiente de
+   demonstração durante o desenvolvimento).
+4. Criar uma conta com a instituição Trading 212.
+5. `Sincronizar agora`, ou deixar o agendamento correr.
+
+## Estado — Fase 3
+
+Posições e dividendos:
+
+- Posições agregadas derivadas do livro-razão (custo médio ponderado, base de
+  custo, valor de mercado e mais-valia latente), com preços e câmbios a serem
+  a única entrada externa
+- Snapshot de preços do portefólio Trading 212 e câmbios diários (ECB via
+  frankfurter, sem chave) guardados em tabelas próprias com histórico
+- Separador de dividendos com duas vistas: histórico recebido e calendário
+  projetado a partir da periodicidade histórica (mensal/trimestral/etc.), com
+  os valores estimados visualmente distintos (opacidade, traço interrompido,
+  etiqueta)
+
+Custo médio e projeção de dividendos cobertos por testes em `src/core`.
+
+## Estado — Fase 4
+
+Análise, calculada a pedido a partir do livro-razão (sem tabela de snapshots):
+
+- Evolução do património ao longo do tempo, com seletor de período
+- Rendimento ponderado pelo tempo (TWR), encadeando retornos por sub-período
+- Rendimento ponderado pelo dinheiro (XIRR), por Newton-Raphson com bisseção de
+  recurso quando não converge
+- Repartição por ano civil
+- Diversificação por geografia (prefixo ISIN) e moeda
+
+TWR e XIRR têm testes unitários com casos de valor conhecido, e a construção dos
+inputs a partir do livro-razão também é testada. O gráfico do Recharts é
+carregado em lazy num chunk próprio.
+
+> Nota: a série usa custo de aquisição; performance de mercado histórica torna-se
+> exata à medida que os snapshots diários de preços acumulam. Setor e classe de
+> ativo ficam pendentes de metadados de instrumento mais ricos.
+
+## Estado — Fase 5
+
+Despesas e fiscalidade:
+
+- Categorias hierárquicas (raiz e subcategoria), categorização de transações
+  numa tabela lateral que preserva o append-only das transações
+- Resumo mensal de despesas por categoria e comparação mês vs. mês anterior
+- Mais-valias realizadas por FIFO, com comissões incorporadas no custo de
+  aquisição, agregadas por ano civil e exportáveis em CSV (base para o Anexo G)
+
+FIFO, resumo de despesas e geração de CSV cobertos por testes em `src/core`.
+
+> Nota: a decomposição Anexo J (resultado do ativo vs. cambial) exige capturar
+> os montantes em moeda nativa na sincronização; o FIFO atual liquida em EUR.
+
+### Agendamento
+
+A função corre para todos os utilizadores com chave configurada quando é
+invocada com a chave de serviço. Exemplo com `pg_cron` + `pg_net` (substituir
+`<PROJECT_REF>` e guardar a chave de serviço no Vault, nunca em texto simples):
+
+```sql
+select cron.schedule(
+  't212-sync-hourly',
+  '0 * * * *',
+  $$
+    select net.http_post(
+      url := 'https://<PROJECT_REF>.functions.supabase.co/t212-sync',
+      headers := jsonb_build_object(
+        'Authorization',
+        'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                      where name = 'service_role_key')
+      )
+    );
+  $$
+);
+```
+
 ## Arranque
 
 ```bash
@@ -60,11 +161,14 @@ convenção de sinais é derivado das transações, nunca guardado.
 src/
   core/          lógica financeira pura (money, balances, networth, kinds)
   db/            cliente Supabase, tipos, mappers
-  features/      auth · accounts · transactions · dashboard
+  features/      auth · accounts · transactions · dashboard · integrations
   ui/            primitivas neumórficas + tema claro/escuro
   app/           router, providers, shell
 supabase/
   migrations/    schema versionado (RLS em todas as tabelas)
+  functions/
+    t212-sync/   Edge Function de sincronização (Deno)
+    _shared/     lógica pura T212, partilhada e testada
 ```
 
 ### Decisões deliberadas
