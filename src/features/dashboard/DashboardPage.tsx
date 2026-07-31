@@ -6,6 +6,12 @@ import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { AccountBalanceCard } from './AccountBalanceCard';
 import { NetWorthSummary } from './NetWorthSummary';
 
+const SectionTitle = ({ children }: { children: string }) => (
+  <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+    {children}
+  </h2>
+);
+
 export const DashboardPage = () => {
   const accountsQuery = useAccounts();
   const transactionsQuery = useTransactions();
@@ -21,19 +27,24 @@ export const DashboardPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-[var(--text-strong)]">Resumo</h1>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Overview
+        </h1>
+        <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+          Everything you own and owe, in one cross-section.
+        </p>
+      </div>
 
       {loading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : (
         <>
           <NetWorthSummary netWorth={netWorth} />
 
           {netWorth.assets.length > 0 && (
             <section className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                Ativos
-              </h2>
+              <SectionTitle>Assets</SectionTitle>
               <div className="grid gap-3 sm:grid-cols-2">
                 {netWorth.assets.map((entry) => (
                   <AccountBalanceCard key={entry.account.id} entry={entry} />
@@ -44,9 +55,7 @@ export const DashboardPage = () => {
 
           {netWorth.liabilities.length > 0 && (
             <section className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                Passivos
-              </h2>
+              <SectionTitle>Liabilities</SectionTitle>
               <div className="grid gap-3 sm:grid-cols-2">
                 {netWorth.liabilities.map((entry) => (
                   <AccountBalanceCard key={entry.account.id} entry={entry} />
@@ -58,7 +67,7 @@ export const DashboardPage = () => {
           {netWorth.assets.length === 0 &&
             netWorth.liabilities.length === 0 && (
               <p className="text-sm text-[var(--text-muted)]">
-                Ainda não tens contas. Cria a primeira no separador Contas.
+                No accounts yet. Create your first one under Accounts.
               </p>
             )}
         </>

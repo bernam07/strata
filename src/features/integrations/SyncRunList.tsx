@@ -2,12 +2,12 @@ import { Surface } from '@/ui/Surface';
 import type { SyncRun } from './api/useT212';
 
 const statusMeta: Record<SyncRun['status'], { label: string; color: string }> = {
-  running: { label: 'Em curso', color: 'var(--text-muted)' },
-  success: { label: 'Sucesso', color: 'var(--positive)' },
-  error: { label: 'Falha', color: 'var(--negative)' },
+  running: { label: 'Running', color: 'var(--text-muted)' },
+  success: { label: 'Success', color: 'var(--positive)' },
+  error: { label: 'Failed', color: 'var(--negative)' },
 };
 
-const formatter = new Intl.DateTimeFormat('pt-PT', {
+const formatter = new Intl.DateTimeFormat('en-GB', {
   dateStyle: 'short',
   timeStyle: 'short',
 });
@@ -20,16 +20,12 @@ export const SyncRunList = ({
   loading: boolean;
 }) => {
   if (loading) {
-    return (
-      <p className="text-sm text-[var(--text-muted)]">A carregar histórico…</p>
-    );
+    return <p className="text-sm text-[var(--text-muted)]">Loading history…</p>;
   }
 
   if (runs.length === 0) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Ainda não houve nenhuma sincronização.
-      </p>
+      <p className="text-sm text-[var(--text-muted)]">No syncs yet.</p>
     );
   }
 
@@ -50,7 +46,7 @@ export const SyncRunList = ({
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-[var(--text-strong)]">
                 {meta.label}
-                {run.status === 'success' && ` · ${run.insertedRows} novas`}
+                {run.status === 'success' && ` · ${run.insertedRows} new`}
               </p>
               {run.errorMessage && (
                 <p className="truncate text-xs text-[var(--negative)]">

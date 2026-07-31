@@ -10,17 +10,17 @@ interface KindMeta {
 }
 
 export const kindMeta: Record<TransactionKind, KindMeta> = {
-  deposit: { label: 'Depósito', direction: 'inflow' },
-  income: { label: 'Receita', direction: 'inflow' },
-  sell: { label: 'Venda', direction: 'inflow' },
-  dividend: { label: 'Dividendo', direction: 'inflow' },
-  interest: { label: 'Juros', direction: 'inflow' },
-  withdrawal: { label: 'Levantamento', direction: 'outflow' },
-  expense: { label: 'Despesa', direction: 'outflow' },
-  buy: { label: 'Compra', direction: 'outflow' },
-  fee: { label: 'Comissão', direction: 'outflow' },
-  transfer: { label: 'Transferência', direction: 'outflow' },
-  adjustment: { label: 'Ajuste', direction: 'inflow' },
+  deposit: { label: 'Deposit', direction: 'inflow' },
+  income: { label: 'Income', direction: 'inflow' },
+  sell: { label: 'Sell', direction: 'inflow' },
+  dividend: { label: 'Dividend', direction: 'inflow' },
+  interest: { label: 'Interest', direction: 'inflow' },
+  withdrawal: { label: 'Withdrawal', direction: 'outflow' },
+  expense: { label: 'Expense', direction: 'outflow' },
+  buy: { label: 'Buy', direction: 'outflow' },
+  fee: { label: 'Fee', direction: 'outflow' },
+  transfer: { label: 'Transfer', direction: 'outflow' },
+  adjustment: { label: 'Adjustment', direction: 'inflow' },
 };
 
 export const manualKinds: readonly TransactionKind[] = [

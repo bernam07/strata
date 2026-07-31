@@ -7,9 +7,9 @@ import { useCreateAccount } from '../api/useAccounts';
 import { InstitutionLogo } from './InstitutionLogo';
 
 const accountTypes: { value: AccountType; label: string }[] = [
-  { value: 'cash', label: 'Dinheiro' },
-  { value: 'investment', label: 'Investimento' },
-  { value: 'liability', label: 'Passivo' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'investment', label: 'Investment' },
+  { value: 'liability', label: 'Liability' },
 ];
 
 export const AccountForm = ({ onDone }: { onDone: () => void }) => {
@@ -31,10 +31,10 @@ export const AccountForm = ({ onDone }: { onDone: () => void }) => {
       <div className="flex items-center gap-3">
         <InstitutionLogo institutionId={institutionId} />
         <span className="text-sm text-[var(--text-muted)]">
-          Escolhe a instituição
+          Choose an institution
         </span>
       </div>
-      <Labelled label="Instituição">
+      <Labelled label="Institution">
         <Select
           value={institutionId}
           onChange={(event) => setInstitutionId(event.target.value)}
@@ -46,15 +46,15 @@ export const AccountForm = ({ onDone }: { onDone: () => void }) => {
           ))}
         </Select>
       </Labelled>
-      <Labelled label="Nome da conta">
+      <Labelled label="Account name">
         <TextInput
           value={name}
           required
-          placeholder="Revolut principal"
+          placeholder="Main Revolut"
           onChange={(event) => setName(event.target.value)}
         />
       </Labelled>
-      <Labelled label="Tipo">
+      <Labelled label="Type">
         <Select
           value={type}
           onChange={(event) => setType(event.target.value as AccountType)}
@@ -68,15 +68,15 @@ export const AccountForm = ({ onDone }: { onDone: () => void }) => {
       </Labelled>
       {create.isError && (
         <p className="text-sm text-[var(--negative)]">
-          Não foi possível criar a conta.
+          Couldn't create the account.
         </p>
       )}
       <div className="mt-2 flex gap-3">
         <Button type="submit" disabled={create.isPending}>
-          Criar conta
+          Create account
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>
-          Cancelar
+          Cancel
         </Button>
       </div>
     </form>

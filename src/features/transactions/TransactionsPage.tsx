@@ -28,12 +28,12 @@ export const TransactionsPage = () => {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[var(--text-strong)]">
-          Transações
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Transactions
         </h1>
         {!adding && (
           <Button onClick={() => setAdding(true)} disabled={accounts.length === 0}>
-            Nova transação
+            New transaction
           </Button>
         )}
       </div>
@@ -49,14 +49,14 @@ export const TransactionsPage = () => {
 
       <Card>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Labelled label="Conta">
+          <Labelled label="Account">
             <Select
               value={filter.accountId ?? ''}
               onChange={(event) =>
                 patchFilter({ accountId: event.target.value || undefined })
               }
             >
-              <option value="">Todas</option>
+              <option value="">All</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
@@ -64,7 +64,7 @@ export const TransactionsPage = () => {
               ))}
             </Select>
           </Labelled>
-          <Labelled label="De">
+          <Labelled label="From">
             <TextInput
               type="date"
               value={filter.from?.slice(0, 10) ?? ''}
@@ -77,7 +77,7 @@ export const TransactionsPage = () => {
               }
             />
           </Labelled>
-          <Labelled label="Até">
+          <Labelled label="To">
             <TextInput
               type="date"
               value={filter.to?.slice(0, 10) ?? ''}
@@ -94,7 +94,7 @@ export const TransactionsPage = () => {
       </Card>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : (
         <TransactionList transactions={transactions} accounts={accounts} />
       )}

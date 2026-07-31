@@ -32,19 +32,19 @@ export const CategoryManager = () => {
   return (
     <div className="flex flex-col gap-5">
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <Labelled label="Nova categoria">
+        <Labelled label="New category">
           <TextInput
             value={name}
-            placeholder="Alimentação"
+            placeholder="Groceries"
             onChange={(event) => setName(event.target.value)}
           />
         </Labelled>
-        <Labelled label="Dentro de">
+        <Labelled label="Inside">
           <Select
             value={parentId}
             onChange={(event) => setParentId(event.target.value)}
           >
-            <option value="">Raiz</option>
+            <option value="">Root</option>
             {roots.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -53,12 +53,12 @@ export const CategoryManager = () => {
           </Select>
         </Labelled>
         <Button type="submit" disabled={create.isPending || !name.trim()}>
-          Adicionar
+          Add
         </Button>
       </form>
 
       {roots.length === 0 ? (
-        <p className="text-sm text-[var(--text-muted)]">Sem categorias ainda.</p>
+        <p className="text-sm text-[var(--text-muted)]">No categories yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {roots.map((root) => (
@@ -72,7 +72,7 @@ export const CategoryManager = () => {
                   className="text-xs text-[var(--text-muted)]"
                   onClick={() => remove.mutate(root.id)}
                 >
-                  remover
+                  remove
                 </button>
               </div>
               {childrenOf(categories, root.id).map((child) => (
@@ -88,7 +88,7 @@ export const CategoryManager = () => {
                     className="text-xs text-[var(--text-muted)]"
                     onClick={() => remove.mutate(child.id)}
                   >
-                    remover
+                    remove
                   </button>
                 </div>
               ))}

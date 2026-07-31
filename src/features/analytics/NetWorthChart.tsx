@@ -9,13 +9,13 @@ import {
 } from 'recharts';
 import type { SeriesPoint } from '@/core/analytics/series';
 
-const eur = new Intl.NumberFormat('pt-PT', {
+const eur = new Intl.NumberFormat('en-GB', {
   style: 'currency',
   currency: 'EUR',
   maximumFractionDigits: 0,
 });
 
-const monthDay = new Intl.DateTimeFormat('pt-PT', {
+const monthDay = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
 });
@@ -36,7 +36,7 @@ const ChartTooltip = ({
   return (
     <div className="rounded-[var(--radius-neu-sm)] neu-raised px-3 py-2 text-xs">
       <p className="text-[var(--text-muted)]">
-        {new Date(point.date).toLocaleDateString('pt-PT')}
+        {new Date(point.date).toLocaleDateString('en-GB')}
       </p>
       <p className="font-semibold tabular-nums text-[var(--text-strong)]">
         {eur.format(point.value)}
@@ -49,7 +49,7 @@ export const NetWorthChart = ({ series }: { series: SeriesPoint[] }) => {
   if (series.length < 2) {
     return (
       <p className="py-12 text-center text-sm text-[var(--text-muted)]">
-        Sem dados suficientes para o período.
+        Not enough data for this period.
       </p>
     );
   }

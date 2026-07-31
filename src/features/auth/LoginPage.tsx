@@ -3,6 +3,7 @@ import { supabase } from '@/db/supabase';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Labelled, TextInput } from '@/ui/Field';
+import { StrataMark } from '@/app/icons';
 
 type Mode = 'signin' | 'signup';
 
@@ -29,13 +30,14 @@ export const LoginPage = () => {
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <StrataMark size={44} />
           <div className="flex flex-col items-center">
-            <span className="text-3xl font-bold tracking-tight text-[var(--text-strong)]">
-              Strata
+            <span className="text-2xl font-extrabold tracking-[0.16em]">
+              STRATA
             </span>
             <span className="text-sm text-[var(--text-muted)]">
-              O teu património, camada a camada.
+              Your wealth, layer by layer.
             </span>
           </div>
         </div>
@@ -50,7 +52,7 @@ export const LoginPage = () => {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </Labelled>
-            <Labelled label="Palavra-passe">
+            <Labelled label="Password">
               <TextInput
                 type="password"
                 value={password}
@@ -61,16 +63,14 @@ export const LoginPage = () => {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </Labelled>
-            {error && (
-              <p className="text-sm text-[var(--negative)]">{error}</p>
-            )}
+            {error && <p className="text-sm text-[var(--negative)]">{error}</p>}
             <Button type="submit" disabled={pending} className="mt-2">
-              {mode === 'signin' ? 'Entrar' : 'Criar conta'}
+              {mode === 'signin' ? 'Sign in' : 'Create account'}
             </Button>
           </form>
           <button
             type="button"
-            className="mt-4 w-full text-center text-xs text-[var(--text-muted)]"
+            className="tap mt-4 w-full text-center text-xs text-[var(--text-muted)] hover:text-[var(--text-strong)]"
             onClick={() =>
               setMode((current) =>
                 current === 'signin' ? 'signup' : 'signin',
@@ -78,8 +78,8 @@ export const LoginPage = () => {
             }
           >
             {mode === 'signin'
-              ? 'Ainda não tens conta? Criar uma.'
-              : 'Já tens conta? Entrar.'}
+              ? "Don't have an account? Create one."
+              : 'Already have an account? Sign in.'}
           </button>
         </Card>
       </div>

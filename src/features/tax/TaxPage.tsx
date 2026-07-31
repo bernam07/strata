@@ -8,7 +8,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 
-const dateFormat = new Intl.DateTimeFormat('pt-PT', {
+const dateFormat = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
@@ -43,19 +43,19 @@ export const TaxPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-[var(--text-strong)]">
-        Fiscalidade
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+        Tax
       </h1>
       <p className="text-sm text-[var(--text-muted)]">
-        Mais-valias realizadas por FIFO, com comissões incorporadas no custo de
-        aquisição. Base para o Anexo G.
+        Realized capital gains by FIFO, with fees folded into the acquisition
+        cost. Basis for the Portuguese Anexo G.
       </p>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : years.length === 0 ? (
         <p className="text-sm text-[var(--text-muted)]">
-          Ainda não há alienações realizadas.
+          No realized disposals yet.
         </p>
       ) : (
         years
@@ -71,8 +71,8 @@ export const TaxPage = () => {
                       {year.year}
                     </h2>
                     <p className="text-xs text-[var(--text-muted)]">
-                      {year.disposals.length} alienações ·{' '}
-                      {formatEur(year.proceeds)} realizado
+                      {year.disposals.length} disposals ·{' '}
+                      {formatEur(year.proceeds)} proceeds
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -95,7 +95,7 @@ export const TaxPage = () => {
                         )
                       }
                     >
-                      Exportar CSV
+                      Export CSV
                     </Button>
                   </div>
                 </div>

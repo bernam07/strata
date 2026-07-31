@@ -34,7 +34,7 @@ describe('disposalsToCsv', () => {
     const csv = disposalsToCsv(disposals, () => 'Apple Inc.');
     const lines = csv.split('\n');
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toContain('Mais-valia EUR');
+    expect(lines[0]).toContain('Gain EUR');
     expect(lines[1]).toBe('Apple Inc.,10,2025-01-01,2025-06-01,100.00,130.00,30.00');
   });
 

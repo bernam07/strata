@@ -45,7 +45,7 @@ export const TransactionForm = ({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Labelled label="Conta">
+      <Labelled label="Account">
         <Select
           value={accountId}
           onChange={(event) => setAccountId(event.target.value)}
@@ -58,7 +58,7 @@ export const TransactionForm = ({
         </Select>
       </Labelled>
       <div className="grid grid-cols-2 gap-4">
-        <Labelled label="Tipo">
+        <Labelled label="Type">
           <Select
             value={kind}
             onChange={(event) =>
@@ -72,7 +72,7 @@ export const TransactionForm = ({
             ))}
           </Select>
         </Labelled>
-        <Labelled label="Valor (EUR)">
+        <Labelled label="Amount (EUR)">
           <TextInput
             type="number"
             step="0.01"
@@ -80,41 +80,41 @@ export const TransactionForm = ({
             required
             inputMode="decimal"
             value={magnitude}
-            placeholder="0,00"
+            placeholder="0.00"
             onChange={(event) => setMagnitude(event.target.value)}
           />
         </Labelled>
       </div>
-      <Labelled label="Data">
+      <Labelled label="Date">
         <TextInput
           type="date"
           value={date}
           onChange={(event) => setDate(event.target.value)}
         />
       </Labelled>
-      <Labelled label="Nota (opcional)">
+      <Labelled label="Note (optional)">
         <TextInput
           value={note}
-          placeholder="Café, salário, transferência…"
+          placeholder="Coffee, salary, transfer…"
           onChange={(event) => setNote(event.target.value)}
         />
       </Labelled>
       <p className="text-xs text-[var(--text-muted)]">
         {kindMeta[kind].direction === 'outflow'
-          ? 'Sai da conta — registado como negativo.'
-          : 'Entra na conta — registado como positivo.'}
+          ? 'Leaves the account — recorded as negative.'
+          : 'Enters the account — recorded as positive.'}
       </p>
       {create.isError && (
         <p className="text-sm text-[var(--negative)]">
-          Não foi possível registar a transação.
+          Couldn't record the transaction.
         </p>
       )}
       <div className="mt-2 flex gap-3">
         <Button type="submit" disabled={create.isPending || !accountId}>
-          Registar
+          Record
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>
-          Cancelar
+          Cancel
         </Button>
       </div>
     </form>

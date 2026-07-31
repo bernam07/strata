@@ -4,13 +4,13 @@ import { Surface } from '@/ui/Surface';
 import { usePositions, type InstrumentMeta } from './api/usePositions';
 import type { Position } from '@/core/positions/derivePositions';
 
-const percent = new Intl.NumberFormat('pt-PT', {
+const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 });
 
-const quantityFormat = new Intl.NumberFormat('pt-PT', {
+const quantityFormat = new Intl.NumberFormat('en-GB', {
   maximumFractionDigits: 4,
 });
 
@@ -36,8 +36,8 @@ const PositionRow = ({
           {instrument?.name ?? instrument?.ticker ?? 'Instrumento'}
         </p>
         <p className="text-xs text-[var(--text-muted)]">
-          {quantityFormat.format(position.quantity.toNumber())} ·{' '}
-          {formatEur(position.averageCost)} médio
+          {quantityFormat.format(position.quantity.toNumber())} sh ·{' '}
+          {formatEur(position.averageCost)} avg
         </p>
       </div>
       <div className="text-right">
@@ -71,27 +71,29 @@ export const PositionsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-[var(--text-strong)]">Posições</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+        Positions
+      </h1>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : positions.length === 0 ? (
         <p className="text-sm text-[var(--text-muted)]">
-          Sem posições abertas. Sincroniza o Trading 212 nas Integrações.
+          No open positions. Sync Trading 212 under Integrations.
         </p>
       ) : (
         <>
           <Card className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                Valor de mercado
+                Market value
               </p>
               <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
                 {formatEur(totalMarket)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-[var(--text-muted)]">Mais-valia latente</p>
+              <p className="text-xs text-[var(--text-muted)]">Unrealized gain</p>
               <p
                 className="mt-1 text-lg font-semibold tabular-nums"
                 style={{
