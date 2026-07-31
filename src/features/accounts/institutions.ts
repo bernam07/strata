@@ -16,7 +16,7 @@ export const institutions: readonly Institution[] = [
   { id: 'novo_banco', displayName: 'Novo Banco', brandColor: '#C4161C', logoPath: '/institutions/novo-banco.svg' },
   { id: 'santander', displayName: 'Santander', brandColor: '#EC0000', logoPath: '/institutions/santander.svg' },
   { id: 'activobank', displayName: 'ActivoBank', brandColor: '#00B0AA', logoPath: '/institutions/activobank.svg' },
-  { id: 'cash', displayName: 'Dinheiro físico', brandColor: '#6B7280', logoPath: '/institutions/cash.svg' },
+  { id: 'cash', displayName: 'Physical cash', brandColor: '#6B7280', logoPath: '/institutions/cash.svg' },
 ];
 
 const byId = new Map(institutions.map((entry) => [entry.id, entry]));

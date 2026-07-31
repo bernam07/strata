@@ -1,12 +1,12 @@
 import type { Slice } from '@/core/analytics/series';
 
-const eur = new Intl.NumberFormat('pt-PT', {
+const eur = new Intl.NumberFormat('en-GB', {
   style: 'currency',
   currency: 'EUR',
   maximumFractionDigits: 0,
 });
 
-const percent = new Intl.NumberFormat('pt-PT', {
+const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
   maximumFractionDigits: 1,
 });
@@ -23,7 +23,7 @@ export const DiversificationBars = ({
       {title}
     </h3>
     {slices.length === 0 ? (
-      <p className="text-sm text-[var(--text-muted)]">Sem dados.</p>
+      <p className="text-sm text-[var(--text-muted)]">No data.</p>
     ) : (
       <ul className="flex flex-col gap-2.5">
         {slices.map((slice) => (

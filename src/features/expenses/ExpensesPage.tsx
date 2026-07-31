@@ -18,7 +18,7 @@ import {
 
 const monthLabel = (month: string): string => {
   const [year, m] = month.split('-');
-  return new Date(Number(year), Number(m) - 1, 1).toLocaleDateString('pt-PT', {
+  return new Date(Number(year), Number(m) - 1, 1).toLocaleDateString('en-GB', {
     month: 'long',
     year: 'numeric',
   });
@@ -40,7 +40,7 @@ export const ExpensesPage = () => {
     const byId = new Map(categories.map((category) => [category.id, category.name]));
     const categoryOf: CategoryLookup = (transactionId) => {
       const categoryId = assignments?.get(transactionId);
-      return (categoryId && byId.get(categoryId)) || 'Sem categoria';
+      return (categoryId && byId.get(categoryId)) || 'Uncategorized';
     };
     return categoryOf;
   }, [categories, assignments]);
@@ -66,11 +66,13 @@ export const ExpensesPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-[var(--text-strong)]">Despesas</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+        Expenses
+      </h1>
 
       <Card>
         <h2 className="mb-4 font-semibold text-[var(--text-strong)]">
-          Categorias
+          Categories
         </h2>
         <CategoryManager />
       </Card>
@@ -78,7 +80,7 @@ export const ExpensesPage = () => {
       {comparison.length > 0 && (
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold text-[var(--text-strong)]">
-            Este mês vs. anterior
+            This month vs. last
           </h2>
           <ul className="flex flex-col gap-2">
             {comparison.map((row) => {
@@ -114,7 +116,7 @@ export const ExpensesPage = () => {
       {months.length > 0 && (
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold text-[var(--text-strong)]">
-            Resumo mensal
+            Monthly summary
           </h2>
           <div className="flex flex-col gap-4">
             {months.slice(0, 6).map((month) => (
@@ -144,9 +146,9 @@ export const ExpensesPage = () => {
       )}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-semibold text-[var(--text-strong)]">Categorizar</h2>
+        <h2 className="font-semibold text-[var(--text-strong)]">Categorize</h2>
         {expenses.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)]">Sem despesas.</p>
+          <p className="text-sm text-[var(--text-muted)]">No expenses.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {expenses.slice(0, 40).map((transaction) => (
@@ -157,7 +159,7 @@ export const ExpensesPage = () => {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
-                    {transaction.note || 'Despesa'}
+                    {transaction.note || 'Expense'}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
                     {transaction.occurredAt.slice(0, 10)}
@@ -175,7 +177,7 @@ export const ExpensesPage = () => {
                     })
                   }
                 >
-                  <option value="">Sem categoria</option>
+                  <option value="">Uncategorized</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}

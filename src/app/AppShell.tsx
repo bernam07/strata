@@ -1,68 +1,233 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
+import { icons, StrataMark, type IconName } from './icons';
 
-const links = [
-  { to: '/', label: 'Resumo', end: true },
-  { to: '/accounts', label: 'Contas', end: false },
-  { to: '/transactions', label: 'Transações', end: false },
-  { to: '/positions', label: 'Posições', end: false },
-  { to: '/dividends', label: 'Dividendos', end: false },
-  { to: '/analytics', label: 'Análise', end: false },
-  { to: '/expenses', label: 'Despesas', end: false },
-  { to: '/tax', label: 'Fiscalidade', end: false },
-  { to: '/integrations', label: 'Integrações', end: false },
+interface NavEntry {
+  to: string;
+  label: string;
+  icon: IconName;
+  end?: boolean;
+}
+
+interface NavSection {
+  group: string;
+  items: NavEntry[];
+}
+
+const sections: NavSection[] = [
+  {
+    group: 'Ledger',
+    items: [
+      { to: '/', label: 'Overview', icon: 'overview', end: true },
+      { to: '/accounts', label: 'Accounts', icon: 'accounts' },
+      { to: '/transactions', label: 'Transactions', icon: 'transactions' },
+    ],
+  },
+  {
+    group: 'Invest',
+    items: [
+      { to: '/positions', label: 'Positions', icon: 'positions' },
+      { to: '/dividends', label: 'Dividends', icon: 'dividends' },
+      { to: '/analytics', label: 'Analytics', icon: 'analytics' },
+    ],
+  },
+  {
+    group: 'Spend & tax',
+    items: [
+      { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+      { to: '/tax', label: 'Tax', icon: 'tax' },
+      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+    ],
+  },
 ];
 
-export const AppShell = ({ children }: { children: ReactNode }) => {
-  const { theme, toggle } = useTheme();
-  const { signOut } = useAuth();
+const primaryTabs: NavEntry[] = [
+  { to: '/', label: 'Overview', icon: 'overview', end: true },
+  { to: '/accounts', label: 'Accounts', icon: 'accounts' },
+  { to: '/transactions', label: 'Activity', icon: 'transactions' },
+  { to: '/positions', label: 'Positions', icon: 'positions' },
+];
 
+const secondaryLinks: NavEntry[] = [
+  { to: '/dividends', label: 'Dividends', icon: 'dividends' },
+  { to: '/analytics', label: 'Analytics', icon: 'analytics' },
+  { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+  { to: '/tax', label: 'Tax', icon: 'tax' },
+  { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+];
+
+const navItemClass = (isActive: boolean): string =>
+  `tap flex items-center gap-3 rounded-[var(--radius-field)] px-2.5 py-2.5 text-sm font-medium ${
+    isActive
+      ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_2px_0_0_var(--accent)]'
+      : 'text-[var(--text-2)] hover:bg-[var(--surface-flat)] hover:text-[var(--text-strong)]'
+  }`;
+
+const ThemeButton = () => {
+  const { theme, toggle } = useTheme();
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-8 sm:px-8">
-      <header className="flex items-center justify-between">
-        <span className="text-xl font-bold tracking-tight text-[var(--text-strong)]">
-          Strata
-        </span>
-        <nav className="flex items-center gap-2 rounded-[var(--radius-neu-sm)] neu-sunken p-1.5">
-          {links.map((link) => (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label="Toggle theme"
+      className="tap grid h-9 w-9 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)]"
+    >
+      {theme === 'dark' ? '☾' : '☀'}
+    </button>
+  );
+};
+
+const Sidebar = () => {
+  const { signOut } = useAuth();
+  return (
+    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-6 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 py-5 lg:flex">
+      <div className="flex items-center gap-2.5 px-2">
+        <StrataMark />
+        <div>
+          <div className="text-[15px] font-extrabold tracking-[0.14em]">STRATA</div>
+          <div className="text-[10.5px] text-[var(--text-muted)]">
+            Your wealth, layer by layer
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex flex-col gap-0.5">
+        {sections.map((section) => (
+          <div key={section.group}>
+            <p className="px-2.5 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
+              {section.group}
+            </p>
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => navItemClass(isActive)}
+              >
+                <span className="h-[18px] w-[18px] [&>svg]:h-full [&>svg]:w-full">
+                  {icons[item.icon]}
+                </span>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className="mt-auto flex items-center gap-2 border-t border-[var(--line)] pt-3">
+        <ThemeButton />
+        <button
+          type="button"
+          onClick={signOut}
+          className="tap ml-auto text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+        >
+          Sign out
+        </button>
+      </div>
+    </aside>
+  );
+};
+
+const MoreSheet = ({ onClose }: { onClose: () => void }) => {
+  const { signOut } = useAuth();
+  return (
+    <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-[var(--line)] bg-[var(--surface-raised)] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--line)]" />
+        <div className="grid grid-cols-3 gap-3">
+          {secondaryLinks.map((item) => (
             <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
               className={({ isActive }) =>
-                `rounded-[var(--radius-neu-sm)] px-4 py-1.5 text-sm font-semibold transition ${
+                `tap flex flex-col items-center gap-2 rounded-[var(--radius-card)] px-2 py-4 text-xs font-semibold ${
                   isActive
-                    ? 'neu-flat text-[var(--accent)]'
-                    : 'text-[var(--text-muted)]'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                    : 'neu-flat text-[var(--text-2)]'
                 }`
               }
             >
-              {link.label}
+              <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
+                {icons[item.icon]}
+              </span>
+              {item.label}
             </NavLink>
           ))}
-        </nav>
-        <div className="flex items-center gap-2">
+        </div>
+        <div className="mt-5 flex items-center justify-between border-t border-[var(--line)] pt-4">
+          <ThemeButton />
           <button
             type="button"
-            onClick={toggle}
-            aria-label="Alternar tema"
-            className="flex h-10 w-10 items-center justify-center rounded-full neu-flat text-[var(--text-muted)]"
+            onClick={() => {
+              onClose();
+              void signOut();
+            }}
+            className="tap text-sm font-semibold text-[var(--text-muted)]"
           >
-            {theme === 'dark' ? '☾' : '☀'}
-          </button>
-          <button
-            type="button"
-            onClick={signOut}
-            className="flex h-10 w-10 items-center justify-center rounded-full neu-flat text-[var(--text-muted)]"
-            aria-label="Terminar sessão"
-          >
-            ⎋
+            Sign out
           </button>
         </div>
-      </header>
-      <main className="flex-1">{children}</main>
+      </div>
+    </div>
+  );
+};
+
+const BottomBar = ({ onMore }: { onMore: () => void }) => (
+  <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+    {primaryTabs.map((item) => (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end={item.end}
+        className={({ isActive }) =>
+          `tap flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold ${
+            isActive ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'
+          }`
+        }
+      >
+        <span className="h-[22px] w-[22px] [&>svg]:h-full [&>svg]:w-full">
+          {icons[item.icon]}
+        </span>
+        {item.label}
+      </NavLink>
+    ))}
+    <button
+      type="button"
+      onClick={onMore}
+      className="tap flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold text-[var(--text-muted)]"
+    >
+      <span className="h-[22px] w-[22px] [&>svg]:h-full [&>svg]:w-full">
+        {icons.more}
+      </span>
+      More
+    </button>
+  </nav>
+);
+
+export const AppShell = ({ children }: { children: ReactNode }) => {
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-2.5 border-b border-[var(--line)] px-4 py-3 lg:hidden">
+          <StrataMark size={26} />
+          <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
+        </header>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+          {children}
+        </main>
+      </div>
+      <BottomBar onMore={() => setMoreOpen(true)} />
+      {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
     </div>
   );
 };

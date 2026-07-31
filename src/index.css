@@ -1,53 +1,65 @@
 @import 'tailwindcss';
 
 @theme {
-  --radius-neu: 1.5rem;
-  --radius-neu-sm: 0.9rem;
+  --radius-card: 16px;
+  --radius-field: 11px;
+  --radius-pill: 999px;
 }
 
 :root,
 :root[data-theme='light'] {
-  --surface: #e8ebf2;
-  --surface-raised: #edf0f6;
-  --surface-sunken: #dfe3ec;
-  --text-strong: #2b3350;
-  --text-muted: #6b7391;
-  --accent: #5b6ee1;
-  --positive: #2fa27a;
-  --negative: #d0567b;
-  --shadow-light: #ffffff;
-  --shadow-dark: #c2c7d6;
-  --shadow-offset: 7px;
-  --shadow-blur: 14px;
+  --bg: #edeae3;
+  --surface-raised: #f7f5f0;
+  --surface-flat: #fffefb;
+  --surface-sunken: #e7e3da;
+  --line: #e2ded4;
+  --text-strong: #241f18;
+  --text-2: #4b463d;
+  --text-muted: #746e63;
+  --accent: #b07a24;
+  --accent-ink: #fff8ec;
+  --accent-soft: rgba(176, 122, 36, 0.12);
+  --positive: #2f9068;
+  --negative: #cf5560;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 14px 30px -20px rgba(60, 50, 30, 0.35);
 }
 
 :root[data-theme='dark'] {
-  --surface: #23262f;
-  --surface-raised: #272b35;
-  --surface-sunken: #1e212a;
-  --text-strong: #e7ebf5;
-  --text-muted: #949bb3;
-  --accent: #7c8bff;
-  --positive: #4fd6a5;
-  --negative: #ff7fa3;
-  --shadow-light: #2c303c;
-  --shadow-dark: #14161d;
-  --shadow-offset: 7px;
-  --shadow-blur: 16px;
+  --bg: #131519;
+  --surface-raised: #1a1d24;
+  --surface-flat: #21252e;
+  --surface-sunken: #14171d;
+  --line: #2c3140;
+  --text-strong: #ece7dd;
+  --text-2: #b9bdca;
+  --text-muted: #838999;
+  --accent: #e0a44a;
+  --accent-ink: #1a140a;
+  --accent-soft: rgba(224, 164, 74, 0.14);
+  --positive: #57bd90;
+  --negative: #e2717d;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 12px 30px -18px rgba(0, 0, 0, 0.7);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --surface: #23262f;
-    --surface-raised: #272b35;
-    --surface-sunken: #1e212a;
-    --text-strong: #e7ebf5;
-    --text-muted: #949bb3;
-    --accent: #7c8bff;
-    --positive: #4fd6a5;
-    --negative: #ff7fa3;
-    --shadow-light: #2c303c;
-    --shadow-dark: #14161d;
+    --bg: #131519;
+    --surface-raised: #1a1d24;
+    --surface-flat: #21252e;
+    --surface-sunken: #14171d;
+    --line: #2c3140;
+    --text-strong: #ece7dd;
+    --text-2: #b9bdca;
+    --text-muted: #838999;
+    --accent: #e0a44a;
+    --accent-ink: #1a140a;
+    --accent-soft: rgba(224, 164, 74, 0.14);
+    --positive: #57bd90;
+    --negative: #e2717d;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+      0 12px 30px -18px rgba(0, 0, 0, 0.7);
   }
 }
 
@@ -59,36 +71,31 @@ body,
 
 body {
   margin: 0;
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text-strong);
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
-  transition: background 0.35s ease, color 0.35s ease;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 @utility neu-raised {
-  background: var(--surface);
-  box-shadow:
-    calc(var(--shadow-offset) * -1) calc(var(--shadow-offset) * -1)
-      var(--shadow-blur) var(--shadow-light),
-    var(--shadow-offset) var(--shadow-offset) var(--shadow-blur)
-      var(--shadow-dark);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+@utility neu-flat {
+  background: var(--surface-flat);
+  border: 1px solid var(--line);
 }
 
 @utility neu-sunken {
   background: var(--surface-sunken);
-  box-shadow:
-    inset calc(var(--shadow-offset) * -1) calc(var(--shadow-offset) * -1)
-      calc(var(--shadow-blur) * 0.7) var(--shadow-light),
-    inset var(--shadow-offset) var(--shadow-offset)
-      calc(var(--shadow-blur) * 0.7) var(--shadow-dark);
+  border: 1px solid var(--line);
 }
 
-@utility neu-flat {
-  background: var(--surface);
-  box-shadow:
-    calc(var(--shadow-offset) * -0.5) calc(var(--shadow-offset) * -0.5)
-      calc(var(--shadow-blur) * 0.6) var(--shadow-light),
-    calc(var(--shadow-offset) * 0.5) calc(var(--shadow-offset) * 0.5)
-      calc(var(--shadow-blur) * 0.6) var(--shadow-dark);
+@utility tap {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease;
 }

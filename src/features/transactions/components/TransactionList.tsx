@@ -4,7 +4,7 @@ import { kindMeta } from '@/core/transactions/kinds';
 import { formatEur, isNegative, money } from '@/core/money/money';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 
-const dateFormatter = new Intl.DateTimeFormat('pt-PT', {
+const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
@@ -25,7 +25,7 @@ export const TransactionList = ({
   if (transactions.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-[var(--text-muted)]">
-        Sem transações neste filtro.
+        No transactions for this filter.
       </p>
     );
   }

@@ -8,9 +8,9 @@ import { InstitutionLogo } from './components/InstitutionLogo';
 import { getInstitution } from './institutions';
 
 const typeLabel: Record<string, string> = {
-  cash: 'Dinheiro',
-  investment: 'Investimento',
-  liability: 'Passivo',
+  cash: 'Cash',
+  investment: 'Investment',
+  liability: 'Liability',
 };
 
 export const AccountsPage = () => {
@@ -20,9 +20,11 @@ export const AccountsPage = () => {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[var(--text-strong)]">Contas</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Accounts
+        </h1>
         {!creating && (
-          <Button onClick={() => setCreating(true)}>Nova conta</Button>
+          <Button onClick={() => setCreating(true)}>New account</Button>
         )}
       </div>
 
@@ -33,7 +35,7 @@ export const AccountsPage = () => {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : accounts && accounts.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {accounts.map((account) => (
@@ -57,9 +59,7 @@ export const AccountsPage = () => {
         </div>
       ) : (
         !creating && (
-          <p className="text-sm text-[var(--text-muted)]">
-            Ainda não tens contas.
-          </p>
+          <p className="text-sm text-[var(--text-muted)]">No accounts yet.</p>
         )
       )}
     </div>

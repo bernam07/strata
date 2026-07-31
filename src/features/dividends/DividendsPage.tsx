@@ -7,17 +7,17 @@ import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 
 type Tab = 'received' | 'expected';
 
-const dateFormat = new Intl.DateTimeFormat('pt-PT', {
+const dateFormat = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
 });
 
 const cadenceLabel: Record<string, string> = {
-  monthly: 'mensal',
-  quarterly: 'trimestral',
-  semiannual: 'semestral',
-  annual: 'anual',
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  semiannual: 'semiannual',
+  annual: 'annual',
 };
 
 const nameOf = (
@@ -26,7 +26,7 @@ const nameOf = (
 ): string =>
   instruments.get(instrumentId)?.name ??
   instruments.get(instrumentId)?.ticker ??
-  'Instrumento';
+  'Instrument';
 
 export const DividendsPage = () => {
   const { data, isLoading } = useDividends();
@@ -41,40 +41,42 @@ export const DividendsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-[var(--text-strong)]">Dividendos</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+        Dividends
+      </h1>
 
-      <div className="flex gap-2 rounded-[var(--radius-neu-sm)] neu-sunken p-1.5 self-start">
+      <div className="flex gap-1 self-start rounded-[var(--radius-field)] neu-sunken p-1">
         <button
           type="button"
           onClick={() => setTab('received')}
-          className={`rounded-[var(--radius-neu-sm)] px-4 py-1.5 text-sm font-semibold ${
+          className={`tap rounded-[var(--radius-field)] px-4 py-1.5 text-sm font-semibold ${
             tab === 'received'
               ? 'neu-flat text-[var(--accent)]'
               : 'text-[var(--text-muted)]'
           }`}
         >
-          Recebidos
+          Received
         </button>
         <button
           type="button"
           onClick={() => setTab('expected')}
-          className={`rounded-[var(--radius-neu-sm)] px-4 py-1.5 text-sm font-semibold ${
+          className={`tap rounded-[var(--radius-field)] px-4 py-1.5 text-sm font-semibold ${
             tab === 'expected'
               ? 'neu-flat text-[var(--accent)]'
               : 'text-[var(--text-muted)]'
           }`}
         >
-          Calendário
+          Calendar
         </button>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : tab === 'received' ? (
         <>
           <Card>
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Total recebido
+              Total received
             </p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
               {formatEur(receivedTotal)}
@@ -82,7 +84,7 @@ export const DividendsPage = () => {
           </Card>
           {received.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">
-              Ainda não há dividendos recebidos.
+              No dividends received yet.
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -112,7 +114,7 @@ export const DividendsPage = () => {
         <>
           <Card>
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Estimativa próximos 12 meses
+              Estimated next 12 months
             </p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-muted)]">
               {formatEur(expectedTotal)}
@@ -120,7 +122,7 @@ export const DividendsPage = () => {
           </Card>
           {expected.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">
-              Sem histórico suficiente para projetar um calendário.
+              Not enough history to project a calendar.
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -139,7 +141,7 @@ export const DividendsPage = () => {
                       <p className="text-sm font-semibold text-[var(--text-strong)]">
                         {nameOf(instruments, item.instrumentId)}
                         <span className="ml-2 rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-                          estimado · {cadenceLabel[item.cadence]}
+                          estimated · {cadenceLabel[item.cadence]}
                         </span>
                       </p>
                       <p className="text-xs text-[var(--text-muted)]">

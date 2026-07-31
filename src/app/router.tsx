@@ -24,7 +24,7 @@ export const AppRouter = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-[var(--text-muted)]">
-        A carregar…
+        Loading…
       </div>
     );
   }
@@ -47,7 +47,7 @@ export const AppRouter = () => {
             element={
               <Suspense
                 fallback={
-                  <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+                  <p className="text-sm text-[var(--text-muted)]">Loading…</p>
                 }
               >
                 <AnalyticsPage />

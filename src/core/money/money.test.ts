@@ -25,7 +25,7 @@ describe('money', () => {
   });
 
   it('formats euros with banker rounding to two places', () => {
-    expect(formatEur(money('70'))).toContain('70,00');
-    expect(formatEur(money('-1234.5'))).toContain('1234,50');
+    expect(formatEur(money('70'))).toContain('70.00');
+    expect(formatEur(money('-1234.5'))).toContain('1,234.50');
   });
 });

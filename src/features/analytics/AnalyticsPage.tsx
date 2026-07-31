@@ -17,13 +17,13 @@ import { Surface } from '@/ui/Surface';
 import { NetWorthChart } from './NetWorthChart';
 import { DiversificationBars } from './DiversificationBars';
 
-const eur = new Intl.NumberFormat('pt-PT', {
+const eur = new Intl.NumberFormat('en-GB', {
   style: 'currency',
   currency: 'EUR',
   maximumFractionDigits: 0,
 });
 
-const percent = new Intl.NumberFormat('pt-PT', {
+const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -32,8 +32,8 @@ const percent = new Intl.NumberFormat('pt-PT', {
 const periods = [
   { key: '1M', days: 30 },
   { key: '3M', days: 91 },
-  { key: '1A', days: 365 },
-  { key: 'Tudo', days: null },
+  { key: '1Y', days: 365 },
+  { key: 'All', days: null },
 ] as const;
 
 const StatTile = ({ label, value }: { label: string; value: string }) => (
@@ -50,7 +50,7 @@ const StatTile = ({ label, value }: { label: string; value: string }) => (
 export const AnalyticsPage = () => {
   const transactionsQuery = useTransactions();
   const positionsQuery = usePositions();
-  const [period, setPeriod] = useState<(typeof periods)[number]['key']>('Tudo');
+  const [period, setPeriod] = useState<(typeof periods)[number]['key']>('All');
 
   const model = useMemo(() => {
     const transactions = transactionsQuery.data ?? [];
@@ -103,15 +103,17 @@ export const AnalyticsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-[var(--text-strong)]">Análise</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+        Analytics
+      </h1>
 
       {loading ? (
-        <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <StatTile
-              label="Património"
+              label="Net worth"
               value={eur.format(model.netWorthMarket)}
             />
             <StatTile
@@ -127,7 +129,7 @@ export const AnalyticsPage = () => {
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-[var(--text-strong)]">
-                Evolução do património
+                Net worth over time
               </h2>
               <div className="flex gap-1 rounded-[var(--radius-neu-sm)] neu-sunken p-1">
                 {periods.map((entry) => (
@@ -148,30 +150,30 @@ export const AnalyticsPage = () => {
             </div>
             <NetWorthChart series={shownSeries} />
             <p className="text-xs text-[var(--text-muted)]">
-              Série a custo de aquisição. O valor de mercado histórico entra à
-              medida que os snapshots diários acumulam.
+              Series at acquisition cost. Historical market value fills in as
+              daily snapshots accumulate.
             </p>
           </Card>
 
           <Card className="grid gap-8 sm:grid-cols-2">
-            <DiversificationBars title="Geografia (ISIN)" slices={model.geography} />
-            <DiversificationBars title="Moeda" slices={model.currency} />
+            <DiversificationBars title="Geography (ISIN)" slices={model.geography} />
+            <DiversificationBars title="Currency" slices={model.currency} />
           </Card>
 
           {model.years.length > 0 && (
             <Card className="flex flex-col gap-4">
               <h2 className="font-semibold text-[var(--text-strong)]">
-                Repartição por ano
+                By calendar year
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                      <th className="pb-2 pr-4">Ano</th>
-                      <th className="pb-2 pr-4 text-right">Entradas</th>
-                      <th className="pb-2 pr-4 text-right">Dividendos</th>
-                      <th className="pb-2 pr-4 text-right">Despesas</th>
-                      <th className="pb-2 text-right">Variação</th>
+                      <th className="pb-2 pr-4">Year</th>
+                      <th className="pb-2 pr-4 text-right">Inflows</th>
+                      <th className="pb-2 pr-4 text-right">Dividends</th>
+                      <th className="pb-2 pr-4 text-right">Expenses</th>
+                      <th className="pb-2 text-right">Net change</th>
                     </tr>
                   </thead>
                   <tbody>

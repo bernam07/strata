@@ -34,7 +34,7 @@ export const toNumber = (value: Money): number => value.toNumber();
 
 export const formatEur = (
   value: Money,
-  locale = 'pt-PT',
+  locale = 'en-GB',
 ): string =>
   new Intl.NumberFormat(locale, {
     style: 'currency',

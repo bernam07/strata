@@ -3,13 +3,13 @@ import type { Disposal } from './fifo';
 export type InstrumentName = (instrumentId: string) => string;
 
 const header = [
-  'Instrumento',
-  'Quantidade',
-  'Data aquisicao',
-  'Data realizacao',
-  'Valor aquisicao EUR',
-  'Valor realizacao EUR',
-  'Mais-valia EUR',
+  'Instrument',
+  'Quantity',
+  'Acquired',
+  'Disposed',
+  'Cost EUR',
+  'Proceeds EUR',
+  'Gain EUR',
 ];
 
 const isoDate = (iso: string): string => iso.slice(0, 10);
