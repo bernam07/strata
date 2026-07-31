@@ -90,6 +90,21 @@ carregado em lazy num chunk próprio.
 > exata à medida que os snapshots diários de preços acumulam. Setor e classe de
 > ativo ficam pendentes de metadados de instrumento mais ricos.
 
+## Estado — Fase 5
+
+Despesas e fiscalidade:
+
+- Categorias hierárquicas (raiz e subcategoria), categorização de transações
+  numa tabela lateral que preserva o append-only das transações
+- Resumo mensal de despesas por categoria e comparação mês vs. mês anterior
+- Mais-valias realizadas por FIFO, com comissões incorporadas no custo de
+  aquisição, agregadas por ano civil e exportáveis em CSV (base para o Anexo G)
+
+FIFO, resumo de despesas e geração de CSV cobertos por testes em `src/core`.
+
+> Nota: a decomposição Anexo J (resultado do ativo vs. cambial) exige capturar
+> os montantes em moeda nativa na sincronização; o FIFO atual liquida em EUR.
+
 ### Agendamento
 
 A função corre para todos os utilizadores com chave configurada quando é

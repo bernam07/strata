@@ -267,6 +267,43 @@ export interface Database {
         };
         Relationships: [];
       };
+      categories: {
+        Row: {
+          id: string;
+          user_id: string;
+          parent_id: string | null;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          parent_id?: string | null;
+          name: string;
+        };
+        Update: {
+          parent_id?: string | null;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      transaction_categories: {
+        Row: {
+          transaction_id: string;
+          user_id: string;
+          category_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          transaction_id: string;
+          user_id?: string;
+          category_id: string;
+        };
+        Update: {
+          category_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {

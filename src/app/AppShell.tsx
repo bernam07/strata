@@ -10,6 +10,8 @@ const links = [
   { to: '/positions', label: 'Posições', end: false },
   { to: '/dividends', label: 'Dividendos', end: false },
   { to: '/analytics', label: 'Análise', end: false },
+  { to: '/expenses', label: 'Despesas', end: false },
+  { to: '/tax', label: 'Fiscalidade', end: false },
   { to: '/integrations', label: 'Integrações', end: false },
 ];
 

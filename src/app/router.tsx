@@ -8,6 +8,8 @@ import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { PositionsPage } from '@/features/positions/PositionsPage';
 import { DividendsPage } from '@/features/dividends/DividendsPage';
+import { ExpensesPage } from '@/features/expenses/ExpensesPage';
+import { TaxPage } from '@/features/tax/TaxPage';
 import { AppShell } from './AppShell';
 
 const AnalyticsPage = lazy(() =>
@@ -38,6 +40,8 @@ export const AppRouter = () => {
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/dividends" element={<DividendsPage />} />
+          <Route path="/expenses" element={<ExpensesPage />} />
+          <Route path="/tax" element={<TaxPage />} />
           <Route
             path="/analytics"
             element={
