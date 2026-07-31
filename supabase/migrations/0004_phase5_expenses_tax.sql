@@ -22,6 +22,9 @@ create policy categories_update on categories for update to authenticated
 create policy categories_delete on categories for delete to authenticated
   using ((select auth.uid()) = user_id);
 
+alter table transactions add constraint transactions_id_user_key
+  unique (id, user_id);
+
 create table transaction_categories (
   transaction_id uuid not null,
   user_id        uuid not null default auth.uid(),
