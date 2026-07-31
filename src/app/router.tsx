@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { LoginPage } from '@/features/auth/LoginPage';
@@ -8,6 +9,12 @@ import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { PositionsPage } from '@/features/positions/PositionsPage';
 import { DividendsPage } from '@/features/dividends/DividendsPage';
 import { AppShell } from './AppShell';
+
+const AnalyticsPage = lazy(() =>
+  import('@/features/analytics/AnalyticsPage').then((module) => ({
+    default: module.AnalyticsPage,
+  })),
+);
 
 export const AppRouter = () => {
   const { session, loading } = useAuth();
@@ -31,6 +38,18 @@ export const AppRouter = () => {
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/dividends" element={<DividendsPage />} />
+          <Route
+            path="/analytics"
+            element={
+              <Suspense
+                fallback={
+                  <p className="text-sm text-[var(--text-muted)]">A carregar…</p>
+                }
+              >
+                <AnalyticsPage />
+              </Suspense>
+            }
+          />
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

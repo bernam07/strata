@@ -71,6 +71,25 @@ Posições e dividendos:
 
 Custo médio e projeção de dividendos cobertos por testes em `src/core`.
 
+## Estado — Fase 4
+
+Análise, calculada a pedido a partir do livro-razão (sem tabela de snapshots):
+
+- Evolução do património ao longo do tempo, com seletor de período
+- Rendimento ponderado pelo tempo (TWR), encadeando retornos por sub-período
+- Rendimento ponderado pelo dinheiro (XIRR), por Newton-Raphson com bisseção de
+  recurso quando não converge
+- Repartição por ano civil
+- Diversificação por geografia (prefixo ISIN) e moeda
+
+TWR e XIRR têm testes unitários com casos de valor conhecido, e a construção dos
+inputs a partir do livro-razão também é testada. O gráfico do Recharts é
+carregado em lazy num chunk próprio.
+
+> Nota: a série usa custo de aquisição; performance de mercado histórica torna-se
+> exata à medida que os snapshots diários de preços acumulam. Setor e classe de
+> ativo ficam pendentes de metadados de instrumento mais ricos.
+
 ### Agendamento
 
 A função corre para todos os utilizadores com chave configurada quando é
