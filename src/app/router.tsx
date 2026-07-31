@@ -4,6 +4,7 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
 import { TransactionsPage } from '@/features/transactions/TransactionsPage';
+import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { AppShell } from './AppShell';
 
 export const AppRouter = () => {
@@ -26,6 +27,7 @@ export const AppRouter = () => {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/integrations" element={<IntegrationsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>

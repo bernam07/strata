@@ -1,0 +1,69 @@
+import { Surface } from '@/ui/Surface';
+import type { SyncRun } from './api/useT212';
+
+const statusMeta: Record<SyncRun['status'], { label: string; color: string }> = {
+  running: { label: 'Em curso', color: 'var(--text-muted)' },
+  success: { label: 'Sucesso', color: 'var(--positive)' },
+  error: { label: 'Falha', color: 'var(--negative)' },
+};
+
+const formatter = new Intl.DateTimeFormat('pt-PT', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
+
+export const SyncRunList = ({
+  runs,
+  loading,
+}: {
+  runs: SyncRun[];
+  loading: boolean;
+}) => {
+  if (loading) {
+    return (
+      <p className="text-sm text-[var(--text-muted)]">A carregar histórico…</p>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <p className="text-sm text-[var(--text-muted)]">
+        Ainda não houve nenhuma sincronização.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {runs.map((run) => {
+        const meta = statusMeta[run.status];
+        return (
+          <Surface
+            key={run.id}
+            elevation="flat"
+            className="flex items-center gap-4 p-4"
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: meta.color }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[var(--text-strong)]">
+                {meta.label}
+                {run.status === 'success' && ` · ${run.insertedRows} novas`}
+              </p>
+              {run.errorMessage && (
+                <p className="truncate text-xs text-[var(--negative)]">
+                  {run.errorMessage}
+                </p>
+              )}
+            </div>
+            <span className="text-xs text-[var(--text-muted)]">
+              {formatter.format(new Date(run.startedAt))}
+            </span>
+          </Surface>
+        );
+      })}
+    </ul>
+  );
+};

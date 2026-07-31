@@ -27,6 +27,57 @@ Fatia vertical mínima:
 uma despesa de 30 €, ver 70 €. Levar a conta a negativo e vê-la no bloco de
 passivos. Coberto por testes em `src/core`.
 
+## Estado — Fase 2
+
+Integração Trading 212:
+
+- Edge Function `t212-sync` (Deno) que importa ordens, dividendos e movimentos
+  de caixa através da API oficial (`live` ou `demo`)
+- Chave da API guardada cifrada no Supabase Vault, definida por RPC — nunca no
+  browser, nunca em texto simples, nunca no repositório
+- Backoff exponencial que respeita o `Retry-After` e cursor persistido por
+  stream para não reprocessar o histórico completo
+- Normalização dos tickers `AAPL_US_EQ` e mapeamento para ISIN numa tabela de
+  instrumentos persistida
+- Todas as escritas via `on conflict do nothing` na constraint de unicidade
+- Estado da sincronização (última execução, sucesso/falha, mensagem de erro)
+  visível no separador **Integrações**
+
+Lógica pura (normalização, backoff, cursor, mapeamento) coberta por testes em
+`supabase/functions/_shared/t212`.
+
+### Ligar o Trading 212
+
+1. Aplicar a migração `0002_phase2_trading212.sql` (`supabase db push`).
+2. Publicar a função: `supabase functions deploy t212-sync`.
+3. Na app, separador **Integrações**, colar a chave da API (usa o ambiente de
+   demonstração durante o desenvolvimento).
+4. Criar uma conta com a instituição Trading 212.
+5. `Sincronizar agora`, ou deixar o agendamento correr.
+
+### Agendamento
+
+A função corre para todos os utilizadores com chave configurada quando é
+invocada com a chave de serviço. Exemplo com `pg_cron` + `pg_net` (substituir
+`<PROJECT_REF>` e guardar a chave de serviço no Vault, nunca em texto simples):
+
+```sql
+select cron.schedule(
+  't212-sync-hourly',
+  '0 * * * *',
+  $$
+    select net.http_post(
+      url := 'https://<PROJECT_REF>.functions.supabase.co/t212-sync',
+      headers := jsonb_build_object(
+        'Authorization',
+        'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                      where name = 'service_role_key')
+      )
+    );
+  $$
+);
+```
+
 ## Arranque
 
 ```bash
@@ -60,11 +111,14 @@ convenção de sinais é derivado das transações, nunca guardado.
 src/
   core/          lógica financeira pura (money, balances, networth, kinds)
   db/            cliente Supabase, tipos, mappers
-  features/      auth · accounts · transactions · dashboard
+  features/      auth · accounts · transactions · dashboard · integrations
   ui/            primitivas neumórficas + tema claro/escuro
   app/           router, providers, shell
 supabase/
   migrations/    schema versionado (RLS em todas as tabelas)
+  functions/
+    t212-sync/   Edge Function de sincronização (Deno)
+    _shared/     lógica pura T212, partilhada e testada
 ```
 
 ### Decisões deliberadas

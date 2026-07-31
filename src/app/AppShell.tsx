@@ -7,6 +7,7 @@ const links = [
   { to: '/', label: 'Resumo', end: true },
   { to: '/accounts', label: 'Contas', end: false },
   { to: '/transactions', label: 'Transações', end: false },
+  { to: '/integrations', label: 'Integrações', end: false },
 ];
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
