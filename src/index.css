@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+@theme {
+  --radius-neu: 1.5rem;
+  --radius-neu-sm: 0.9rem;
+}
+
+:root,
+:root[data-theme='light'] {
+  --surface: #e8ebf2;
+  --surface-raised: #edf0f6;
+  --surface-sunken: #dfe3ec;
+  --text-strong: #2b3350;
+  --text-muted: #6b7391;
+  --accent: #5b6ee1;
+  --positive: #2fa27a;
+  --negative: #d0567b;
+  --shadow-light: #ffffff;
+  --shadow-dark: #c2c7d6;
+  --shadow-offset: 7px;
+  --shadow-blur: 14px;
+}
+
+:root[data-theme='dark'] {
+  --surface: #23262f;
+  --surface-raised: #272b35;
+  --surface-sunken: #1e212a;
+  --text-strong: #e7ebf5;
+  --text-muted: #949bb3;
+  --accent: #7c8bff;
+  --positive: #4fd6a5;
+  --negative: #ff7fa3;
+  --shadow-light: #2c303c;
+  --shadow-dark: #14161d;
+  --shadow-offset: 7px;
+  --shadow-blur: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --surface: #23262f;
+    --surface-raised: #272b35;
+    --surface-sunken: #1e212a;
+    --text-strong: #e7ebf5;
+    --text-muted: #949bb3;
+    --accent: #7c8bff;
+    --positive: #4fd6a5;
+    --negative: #ff7fa3;
+    --shadow-light: #2c303c;
+    --shadow-dark: #14161d;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text-strong);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.35s ease, color 0.35s ease;
+}
+
+@utility neu-raised {
+  background: var(--surface);
+  box-shadow:
+    calc(var(--shadow-offset) * -1) calc(var(--shadow-offset) * -1)
+      var(--shadow-blur) var(--shadow-light),
+    var(--shadow-offset) var(--shadow-offset) var(--shadow-blur)
+      var(--shadow-dark);
+}
+
+@utility neu-sunken {
+  background: var(--surface-sunken);
+  box-shadow:
+    inset calc(var(--shadow-offset) * -1) calc(var(--shadow-offset) * -1)
+      calc(var(--shadow-blur) * 0.7) var(--shadow-light),
+    inset var(--shadow-offset) var(--shadow-offset)
+      calc(var(--shadow-blur) * 0.7) var(--shadow-dark);
+}
+
+@utility neu-flat {
+  background: var(--surface);
+  box-shadow:
+    calc(var(--shadow-offset) * -0.5) calc(var(--shadow-offset) * -0.5)
+      calc(var(--shadow-blur) * 0.6) var(--shadow-light),
+    calc(var(--shadow-offset) * 0.5) calc(var(--shadow-offset) * 0.5)
+      calc(var(--shadow-blur) * 0.6) var(--shadow-dark);
+}
