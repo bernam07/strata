@@ -10,6 +10,17 @@ export const money = (value: Decimal.Value): Money => new Decimal(value);
 
 export const add = (a: Money, b: Money): Money => a.plus(b);
 
+export const subtract = (a: Money, b: Money): Money => a.minus(b);
+
+export const mul = (a: Money, b: Money): Money => a.times(b);
+
+export const div = (a: Money, b: Money): Money => a.dividedBy(b);
+
+export const isZero = (value: Money): boolean => value.isZero();
+
+export const ratio = (part: Money, whole: Money): number =>
+  whole.isZero() ? 0 : part.dividedBy(whole).toNumber();
+
 export const sum = (values: readonly Money[]): Money =>
   values.reduce((total, value) => total.plus(value), zero());
 

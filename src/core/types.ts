@@ -38,5 +38,6 @@ export interface Transaction {
   source: TransactionSource;
   externalId: string | null;
   transferGroupId: string | null;
+  instrumentId: string | null;
   createdAt: string;
 }

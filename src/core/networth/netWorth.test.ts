@@ -30,6 +30,7 @@ const tx = (accountId: string, amount: string): Transaction => ({
   source: 'manual',
   externalId: null,
   transferGroupId: null,
+  instrumentId: null,
   createdAt: '2026-01-01T00:00:00Z',
 });
 

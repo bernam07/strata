@@ -55,6 +55,22 @@ Lógica pura (normalização, backoff, cursor, mapeamento) coberta por testes em
 4. Criar uma conta com a instituição Trading 212.
 5. `Sincronizar agora`, ou deixar o agendamento correr.
 
+## Estado — Fase 3
+
+Posições e dividendos:
+
+- Posições agregadas derivadas do livro-razão (custo médio ponderado, base de
+  custo, valor de mercado e mais-valia latente), com preços e câmbios a serem
+  a única entrada externa
+- Snapshot de preços do portefólio Trading 212 e câmbios diários (ECB via
+  frankfurter, sem chave) guardados em tabelas próprias com histórico
+- Separador de dividendos com duas vistas: histórico recebido e calendário
+  projetado a partir da periodicidade histórica (mensal/trimestral/etc.), com
+  os valores estimados visualmente distintos (opacidade, traço interrompido,
+  etiqueta)
+
+Custo médio e projeção de dividendos cobertos por testes em `src/core`.
+
 ### Agendamento
 
 A função corre para todos os utilizadores com chave configurada quando é

@@ -10,6 +10,14 @@ import {
 import type {
   InstrumentResolver,
 } from '../_shared/t212/map.ts';
+import {
+  portfolioToPriceRows,
+  type T212Position,
+} from '../_shared/t212/portfolio.ts';
+import {
+  invertToEur,
+  type FrankfurterResponse,
+} from '../_shared/fx/frankfurter.ts';
 import type {
   T212CashTransaction,
   T212Dividend,
@@ -125,6 +133,57 @@ const refreshInstruments = async (
     if (error) throw error;
   }
   return buildResolver(db, userId);
+};
+
+const syncPrices = async (
+  db: SupabaseClient,
+  userId: string,
+  apiKey: string,
+  useDemo: boolean,
+): Promise<void> => {
+  const { data: instruments } = await db
+    .from('instruments')
+    .select('id, t212_ticker, currency')
+    .eq('user_id', userId)
+    .not('t212_ticker', 'is', null);
+
+  const idByTicker = new Map<string, string>();
+  const currencyById = new Map<string, string>();
+  for (const row of instruments ?? []) {
+    if (row.t212_ticker) idByTicker.set(row.t212_ticker, row.id);
+    currencyById.set(row.id, row.currency);
+  }
+
+  const response = await t212Fetch(`${baseUrl(useDemo)}/equity/portfolio`, apiKey);
+  if (!response.ok) return;
+  const positions = (await response.json()) as T212Position[];
+  const asOf = new Date().toISOString().slice(0, 10);
+
+  const priceRows = portfolioToPriceRows(
+    userId,
+    asOf,
+    positions,
+    (ticker) => idByTicker.get(ticker) ?? null,
+    (instrumentId) => currencyById.get(instrumentId) ?? 'EUR',
+  );
+
+  const currencies = [...new Set(priceRows.map((row) => row.currency))].filter(
+    (currency) => currency !== 'EUR',
+  );
+
+  if (currencies.length > 0) {
+    const fxResponse = await fetch(
+      `https://api.frankfurter.app/latest?from=EUR&to=${currencies.join(',')}`,
+    );
+    if (fxResponse.ok) {
+      const fx = (await fxResponse.json()) as FrankfurterResponse;
+      await db.rpc('upsert_fx_rates', { p_rows: invertToEur(fx) });
+    }
+  }
+
+  if (priceRows.length > 0) {
+    await db.rpc('upsert_prices', { p_rows: priceRows });
+  }
 };
 
 const ingest = async (
@@ -255,6 +314,8 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
       identify: (cash) => `cash:${cash.reference}`,
       toRow: (cash) => cashTransactionToRow(userId, accountId, cash),
     });
+
+    await syncPrices(db, userId, credential.secret, credential.use_demo);
 
     await db
       .from('sync_runs')

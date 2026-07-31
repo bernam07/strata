@@ -224,9 +224,60 @@ export interface Database {
         };
         Relationships: [];
       };
+      prices: {
+        Row: {
+          id: string;
+          user_id: string;
+          instrument_id: string;
+          as_of: string;
+          close: string;
+          currency: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          instrument_id: string;
+          as_of: string;
+          close: string;
+          currency?: string;
+        };
+        Update: {
+          close?: string;
+          currency?: string;
+        };
+        Relationships: [];
+      };
+      fx_rates: {
+        Row: {
+          base: string;
+          quote: string;
+          as_of: string;
+          rate: string;
+          created_at: string;
+        };
+        Insert: {
+          base: string;
+          quote: string;
+          as_of: string;
+          rate: string;
+        };
+        Update: {
+          rate?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
+      upsert_prices: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
+      upsert_fx_rates: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
       set_t212_api_key: {
         Args: { p_key: string; p_use_demo?: boolean };
         Returns: undefined;
