@@ -80,8 +80,8 @@ const loadCredential = async (
   const { data, error } = await db
     .rpc('provider_secret', { p_user: userId, p_provider: 't212' })
     .single<Credential>();
-  if (error || !data) throw new Error('Sem chave Trading 212 configurada.');
-  return data;
+  if (error || !data) throw new Error('No Trading 212 key configured.');
+  return { secret: (data.secret ?? '').trim(), use_demo: data.use_demo };
 };
 
 const findAccount = async (
@@ -319,6 +319,7 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
   try {
     const credential = await loadCredential(db, userId);
     const accountId = await findAccount(db, userId);
+    const diag = `env=${credential.use_demo ? 'demo' : 'live'} keylen=${credential.secret.length}`;
 
     await step('instruments', () =>
       refreshInstruments(db, userId, credential.secret, credential.use_demo).then(
@@ -364,7 +365,7 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
         status: errors.length > 0 ? 'error' : 'success',
         finished_at: new Date().toISOString(),
         inserted_rows: inserted,
-        error_message: errors.length > 0 ? errors.join(' | ') : null,
+        error_message: errors.length > 0 ? `${diag} | ${errors.join(' | ')}` : null,
       })
       .eq('id', run.id);
     return inserted;
