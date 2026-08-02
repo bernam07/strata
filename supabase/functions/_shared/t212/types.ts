@@ -16,7 +16,7 @@ export interface T212Order {
   filledQuantity: number;
   filledValue: number;
   fillPrice: number;
-  taxes: T212Tax[];
+  taxes?: T212Tax[];
   dateExecuted: string;
 }
 

@@ -323,11 +323,17 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
   if (runError || !run) throw runError ?? new Error('Falha a iniciar sync.');
 
   const errors: string[] = [];
+  const skipped: string[] = [];
   const step = async (label: string, run: () => Promise<void>): Promise<void> => {
     try {
       await run();
     } catch (error) {
-      errors.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('HTTP 403')) {
+        skipped.push(`${label}: no API scope`);
+      } else {
+        errors.push(`${label}: ${message}`);
+      }
     }
   };
 
@@ -388,7 +394,12 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
         status: errors.length > 0 ? 'error' : 'success',
         finished_at: new Date().toISOString(),
         inserted_rows: inserted,
-        error_message: errors.length > 0 ? `${diag} | ${errors.join(' | ')}` : null,
+        error_message:
+          errors.length > 0
+            ? `${diag} | ${[...errors, ...skipped].join(' | ')}`
+            : skipped.length > 0
+              ? skipped.join(' | ')
+              : null,
       })
       .eq('id', run.id);
     return inserted;

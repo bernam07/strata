@@ -24,7 +24,7 @@ export const toInstrumentRow = (
 });
 
 const totalTaxes = (order: T212Order): number =>
-  order.taxes.reduce((sum, tax) => sum + tax.quantity, 0);
+  (order.taxes ?? []).reduce((sum, tax) => sum + (tax.quantity ?? 0), 0);
 
 export const orderToTransactionRow = (
   userId: string,
@@ -32,8 +32,9 @@ export const orderToTransactionRow = (
   order: T212Order,
   resolveInstrument: InstrumentResolver,
 ): TransactionRow => {
-  const isBuy = order.filledQuantity >= 0;
-  const value = Math.abs(order.filledValue);
+  const filledQuantity = order.filledQuantity ?? 0;
+  const isBuy = filledQuantity >= 0;
+  const value = Math.abs(order.filledValue ?? 0);
   const taxes = totalTaxes(order);
   const amount = isBuy ? -(value + taxes) : value - taxes;
   return {
@@ -42,7 +43,7 @@ export const orderToTransactionRow = (
     instrument_id: resolveInstrument(order.ticker),
     kind: isBuy ? 'buy' : 'sell',
     amount: round4(amount),
-    quantity: round8(order.filledQuantity),
+    quantity: round8(filledQuantity),
     currency: 'EUR',
     fx_rate: 1,
     occurred_at: order.dateExecuted,
