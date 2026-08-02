@@ -298,6 +298,21 @@ export interface Database {
         };
         Relationships: [];
       };
+      widget_tokens: {
+        Row: {
+          user_id: string;
+          token: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          token: string;
+        };
+        Update: {
+          token?: string;
+        };
+        Relationships: [];
+      };
       holdings: {
         Row: {
           user_id: string;
@@ -393,6 +408,10 @@ export interface Database {
       clear_sync_history: {
         Args: Record<never, never>;
         Returns: undefined;
+      };
+      create_widget_token: {
+        Args: Record<never, never>;
+        Returns: string;
       };
       set_t212_api_key: {
         Args: { p_key: string; p_secret: string; p_use_demo?: boolean };

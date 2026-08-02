@@ -11,3 +11,6 @@ additional_redirect_urls = ["http://localhost:5173"]
 [auth.email]
 enable_signup = true
 enable_confirmations = false
+
+[functions.widget]
+verify_jwt = false

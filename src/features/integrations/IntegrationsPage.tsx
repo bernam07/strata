@@ -14,6 +14,7 @@ import {
   useT212Connection,
 } from './api/useT212';
 import { SyncRunList } from './SyncRunList';
+import { WidgetCard } from './WidgetCard';
 
 export const IntegrationsPage = () => {
   const connection = useT212Connection();
@@ -178,6 +179,8 @@ export const IntegrationsPage = () => {
           </div>
         )}
       </Card>
+
+      <WidgetCard />
     </div>
   );
 };
