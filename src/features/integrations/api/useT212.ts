@@ -27,9 +27,10 @@ export const useT212Connection = () =>
 export const useSetT212Key = () => {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { key: string; useDemo: boolean }) => {
+    mutationFn: async (input: { key: string; secret: string; useDemo: boolean }) => {
       const { error } = await supabase.rpc('set_t212_api_key', {
         p_key: input.key,
+        p_secret: input.secret,
         p_use_demo: input.useDemo,
       });
       if (error) throw error;
