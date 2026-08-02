@@ -42,7 +42,12 @@ const t212Fetch = async (
 ): Promise<Response> => {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const response = await fetch(url, {
-      headers: { Authorization: apiKey },
+      headers: {
+        Authorization: apiKey,
+        Accept: 'application/json',
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+      },
     });
     if (response.status !== 429 && response.status < 500) return response;
     const wait = retryAfterMs(
