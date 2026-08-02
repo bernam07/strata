@@ -348,7 +348,24 @@ const resolveUserId = async (req: Request, db: SupabaseClient): Promise<string |
   return data.user?.id ?? null;
 };
 
+const corsHeaders: HeadersInit = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+const json = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   const db = admin();
 
   try {
@@ -356,7 +373,7 @@ Deno.serve(async (req) => {
 
     if (requestedUser) {
       const inserted = await syncUser(db, requestedUser);
-      return Response.json({ ok: true, inserted });
+      return json({ ok: true, inserted });
     }
 
     const { data: credentials } = await db
@@ -368,11 +385,11 @@ Deno.serve(async (req) => {
     for (const credential of credentials ?? []) {
       total += await syncUser(db, credential.user_id);
     }
-    return Response.json({ ok: true, users: credentials?.length ?? 0, inserted: total });
+    return json({ ok: true, users: credentials?.length ?? 0, inserted: total });
   } catch (error) {
-    return Response.json(
+    return json(
       { ok: false, error: error instanceof Error ? error.message : String(error) },
-      { status: 500 },
+      500,
     );
   }
 });
