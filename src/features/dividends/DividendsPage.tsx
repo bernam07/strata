@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { formatEur, money, sum } from '@/core/money/money';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
+import { DividendsBarChart } from './DividendsBarChart';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 
 type Tab = 'received' | 'expected';
@@ -40,6 +41,25 @@ export const DividendsPage = () => {
   const receivedTotal = sum(received.map((item) => money(item.amount)));
   const expectedTotal = sum(expected.map((item) => money(item.estimatedAmount)));
 
+  const monthlyBars = useMemo(() => {
+    const now = new Date();
+    const buckets: { key: string; label: string; value: number }[] = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-GB', { month: 'short' }),
+        value: 0,
+      });
+    }
+    const index = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+    for (const item of received) {
+      const bucket = index.get(item.paidAt.slice(0, 7));
+      if (bucket) bucket.value += Number(item.amount);
+    }
+    return buckets.map(({ label, value }) => ({ label, value }));
+  }, [received]);
+
   return (
     <div className="flex flex-col gap-8">
       <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
@@ -75,13 +95,23 @@ export const DividendsPage = () => {
         <SkeletonRows count={4} />
       ) : tab === 'received' ? (
         <>
-          <Card>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Total received
-            </p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
-              {formatEur(receivedTotal)}
-            </p>
+          <Card className="flex flex-col gap-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                Total received
+              </p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
+                {formatEur(receivedTotal)}
+              </p>
+            </div>
+            {received.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                  Last 12 months
+                </p>
+                <DividendsBarChart bars={monthlyBars} />
+              </div>
+            )}
           </Card>
           {received.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">

@@ -1,0 +1,133 @@
+import { useMemo } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { formatEur, isNegative, money } from '@/core/money/money';
+import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { TransactionList } from '@/features/transactions/components/TransactionList';
+import { Card } from '@/ui/Card';
+import { SkeletonRows } from '@/ui/Skeleton';
+import { usePositions } from './api/usePositions';
+import { StockAvatar } from './components/StockAvatar';
+
+const percent = new Intl.NumberFormat('en-GB', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+const quantity = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 });
+
+const Stat = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  <div className="rounded-[var(--radius-field)] neu-sunken p-4">
+    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+      {label}
+    </p>
+    <p
+      className="mt-1 text-lg font-bold tabular-nums"
+      style={{ color: color ?? 'var(--text-strong)' }}
+    >
+      {value}
+    </p>
+  </div>
+);
+
+export const InstrumentDetailPage = () => {
+  const { id = '' } = useParams();
+  const positionsQuery = usePositions();
+  const { data: transactions = [], isLoading } = useTransactions({
+    instrumentId: id,
+  });
+
+  const instrument = positionsQuery.data?.instruments.get(id);
+  const position = useMemo(
+    () => positionsQuery.data?.positions.find((entry) => entry.instrumentId === id),
+    [positionsQuery.data, id],
+  );
+
+  const instrumentsMap = positionsQuery.data?.instruments;
+  const dividends = transactions.filter((t) => t.kind === 'dividend');
+  const dividendTotal = dividends.reduce(
+    (sum, t) => sum.plus(money(t.amount)),
+    money('0'),
+  );
+
+  const gain = position?.unrealized ?? null;
+  const gainColor = gain
+    ? isNegative(gain)
+      ? 'var(--negative)'
+      : 'var(--positive)'
+    : 'var(--text-muted)';
+
+  return (
+    <div className="flex flex-col gap-8">
+      <Link
+        to="/positions"
+        className="tap text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+      >
+        ← Positions
+      </Link>
+
+      <Card className="flex items-center gap-4">
+        <StockAvatar ticker={instrument?.ticker ?? id} size={52} />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-bold text-[var(--text-strong)]">
+            {instrument?.name ?? instrument?.ticker ?? 'Instrument'}
+          </h1>
+          <p className="text-xs text-[var(--text-muted)]">
+            {instrument?.ticker}
+            {instrument?.isin ? ` · ${instrument.isin}` : ''}
+          </p>
+        </div>
+      </Card>
+
+      {position && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Shares" value={quantity.format(position.quantity.toNumber())} />
+          <Stat label="Avg cost" value={formatEur(position.averageCost)} />
+          <Stat
+            label="Market value"
+            value={formatEur(position.marketValue ?? position.costBasis)}
+          />
+          <Stat
+            label="Unrealized"
+            value={
+              gain
+                ? `${formatEur(gain)}${position.unrealizedPct !== null ? ` · ${percent.format(position.unrealizedPct)}` : ''}`
+                : '—'
+            }
+            color={gainColor}
+          />
+        </div>
+      )}
+
+      {dividends.length > 0 && (
+        <Card className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              Dividends received
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--positive)]">
+              {formatEur(dividendTotal)}
+            </p>
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">{dividends.length} payments</p>
+        </Card>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          History
+        </h2>
+        {isLoading ? (
+          <SkeletonRows count={4} />
+        ) : (
+          <TransactionList
+            transactions={transactions}
+            accounts={[]}
+            instruments={instrumentsMap}
+            showAccount={false}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
