@@ -128,7 +128,9 @@ const refreshInstruments = async (
   userId: string,
   apiKey: string,
   useDemo: boolean,
+  relevantTickers: ReadonlySet<string>,
 ): Promise<Map<string, string>> => {
+  if (relevantTickers.size === 0) return buildResolver(db, userId);
   const response = await t212Fetch(
     `${baseUrl(useDemo)}/equity/metadata/instruments`,
     apiKey,
@@ -137,7 +139,11 @@ const refreshInstruments = async (
   const instruments = (await response.json()) as T212Instrument[];
   const existing = await buildResolver(db, userId);
   const missing = instruments
-    .filter((instrument) => !existing.has(instrument.ticker))
+    .filter(
+      (instrument) =>
+        relevantTickers.has(instrument.ticker) &&
+        !existing.has(instrument.ticker),
+    )
     .map((instrument) => toInstrumentRow(userId, instrument));
   if (missing.length > 0) {
     const { error } = await db.from('instruments').insert(missing);
@@ -146,12 +152,19 @@ const refreshInstruments = async (
   return buildResolver(db, userId);
 };
 
+const fetchPositions = async (
+  apiKey: string,
+  useDemo: boolean,
+): Promise<T212Position[]> => {
+  const response = await t212Fetch(`${baseUrl(useDemo)}/equity/portfolio`, apiKey);
+  if (!response.ok) throw new Error(await httpError(response));
+  return (await response.json()) as T212Position[];
+};
+
 const syncPortfolio = async (
   db: SupabaseClient,
   userId: string,
-  _accountId: string,
-  apiKey: string,
-  useDemo: boolean,
+  positions: readonly T212Position[],
 ): Promise<void> => {
   const { data: instruments } = await db
     .from('instruments')
@@ -166,9 +179,6 @@ const syncPortfolio = async (
     currencyById.set(row.id, row.currency);
   }
 
-  const response = await t212Fetch(`${baseUrl(useDemo)}/equity/portfolio`, apiKey);
-  if (!response.ok) throw new Error(await httpError(response));
-  const positions = (await response.json()) as T212Position[];
   const asOf = new Date().toISOString().slice(0, 10);
 
   const priceRows = portfolioToPriceRows(
@@ -326,10 +336,20 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
     const accountId = await findAccount(db, userId);
     const diag = `env=${credential.use_demo ? 'demo' : 'live'} keylen=${credential.secret.length}`;
 
+    let positions: T212Position[] = [];
+    await step('portfolio-fetch', async () => {
+      positions = await fetchPositions(credential.secret, credential.use_demo);
+    });
+    const heldTickers = new Set(positions.map((position) => position.ticker));
+
     await step('instruments', () =>
-      refreshInstruments(db, userId, credential.secret, credential.use_demo).then(
-        () => undefined,
-      ),
+      refreshInstruments(
+        db,
+        userId,
+        credential.secret,
+        credential.use_demo,
+        heldTickers,
+      ).then(() => undefined),
     );
     const resolverMap = await buildResolver(db, userId);
     const resolve: InstrumentResolver = (ticker) => resolverMap.get(ticker) ?? null;
@@ -360,9 +380,7 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
       });
     });
 
-    await step('portfolio', () =>
-      syncPortfolio(db, userId, accountId, credential.secret, credential.use_demo),
-    );
+    await step('portfolio', () => syncPortfolio(db, userId, positions));
 
     await db
       .from('sync_runs')
