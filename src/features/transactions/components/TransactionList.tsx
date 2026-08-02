@@ -21,12 +21,14 @@ export const TransactionList = ({
   instruments,
   showAccount = true,
   onReverse,
+  onEdit,
 }: {
   transactions: Transaction[];
   accounts: Account[];
   instruments?: Map<string, InstrumentMeta>;
   showAccount?: boolean;
   onReverse?: (transaction: Transaction) => void;
+  onEdit?: (transaction: Transaction) => void;
 }) => {
   const accountsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -47,10 +49,11 @@ export const TransactionList = ({
         const account = accountsById.get(transaction.accountId);
         const amount = money(transaction.amount);
         const negative = isNegative(amount);
-        const canReverse =
-          onReverse &&
+        const isManual =
           transaction.source === 'manual' &&
           transaction.transferGroupId === null;
+        const canReverse = onReverse && isManual;
+        const canEdit = onEdit && isManual;
 
         const instrument = transaction.instrumentId
           ? instruments?.get(transaction.instrumentId)
@@ -93,6 +96,20 @@ export const TransactionList = ({
             >
               {formatEur(amount)}
             </span>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(transaction)}
+                title="Edit this entry"
+                aria-label="Edit this entry"
+                className="tap grid h-8 w-8 place-items-center rounded-[var(--radius-field)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--accent)]"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 20h4L18 10l-4-4L4 16v4z" />
+                  <path d="M13.5 6.5l4 4" />
+                </svg>
+              </button>
+            )}
             {canReverse && (
               <button
                 type="button"

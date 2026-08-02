@@ -118,6 +118,9 @@ export interface Database {
           instrument_id?: string | null;
         };
         Update: {
+          kind?: TransactionKind;
+          amount?: string;
+          occurred_at?: string;
           note?: string | null;
         };
         Relationships: [
@@ -381,6 +384,14 @@ export interface Database {
           p_ppl: number;
           p_total: number;
         };
+        Returns: undefined;
+      };
+      reset_t212_sync: {
+        Args: Record<never, never>;
+        Returns: undefined;
+      };
+      clear_sync_history: {
+        Args: Record<never, never>;
         Returns: undefined;
       };
       set_t212_api_key: {

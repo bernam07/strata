@@ -116,6 +116,8 @@ export const valuationPoints = (
   return points;
 };
 
+const contributionKinds: readonly TransactionKind[] = ['deposit', 'withdrawal'];
+
 export const externalCashFlows = (
   transactions: readonly Transaction[],
   terminalValue: number,
@@ -123,7 +125,7 @@ export const externalCashFlows = (
 ): CashFlow[] => {
   const flows: CashFlow[] = [];
   for (const transaction of transactions) {
-    if (boundaryKinds.includes(transaction.kind)) {
+    if (contributionKinds.includes(transaction.kind)) {
       flows.push({
         amount: -Number(transaction.amount),
         when: new Date(transaction.occurredAt),

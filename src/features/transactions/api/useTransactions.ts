@@ -101,6 +101,33 @@ export const useCreateTransfer = () => {
   });
 };
 
+export interface EditTransaction {
+  id: string;
+  kind: TransactionKind;
+  amount: string;
+  occurredAt: string;
+  note: string | null;
+}
+
+export const useUpdateTransaction = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: EditTransaction) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          kind: input.kind,
+          amount: input.amount,
+          occurred_at: input.occurredAt,
+          note: input.note,
+        })
+        .eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+};
+
 export const useReverseTransaction = () => {
   const client = useQueryClient();
   return useMutation({

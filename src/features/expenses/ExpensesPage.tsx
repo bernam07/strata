@@ -60,9 +60,7 @@ export const ExpensesPage = () => {
     return comparePeriods(current, previous, categoryName);
   }, [transactions, categoryName]);
 
-  const expenses = transactions.filter(
-    (t) => t.kind === 'expense' || t.kind === 'fee',
-  );
+  const expenses = transactions.filter((t) => t.kind === 'expense');
 
   return (
     <div className="flex flex-col gap-8">

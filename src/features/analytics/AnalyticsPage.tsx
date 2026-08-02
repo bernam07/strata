@@ -43,7 +43,15 @@ const periods = [
   { key: 'All', days: null },
 ] as const;
 
-const StatTile = ({ label, value }: { label: string; value: string }) => (
+const StatTile = ({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) => (
   <Surface elevation="sunken" className="flex flex-col gap-1 p-5">
     <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
       {label}
@@ -51,8 +59,15 @@ const StatTile = ({ label, value }: { label: string; value: string }) => (
     <span className="text-2xl font-bold tabular-nums text-[var(--text-strong)]">
       {value}
     </span>
+    {hint && <span className="text-[11px] text-[var(--text-muted)]">{hint}</span>}
   </Surface>
 );
+
+const sanePercent = (
+  value: number | null,
+  formatter: Intl.NumberFormat,
+): string =>
+  value === null || value < -0.95 || value > 5 ? '—' : formatter.format(value);
 
 export const AnalyticsPage = () => {
   const transactionsQuery = useTransactions();
@@ -135,11 +150,13 @@ export const AnalyticsPage = () => {
             />
             <StatTile
               label="TWR"
-              value={percent.format(model.twr)}
+              value={sanePercent(model.twr, percent)}
+              hint="Time-weighted return"
             />
             <StatTile
               label="XIRR"
-              value={model.irr === null ? '—' : percent.format(model.irr)}
+              value={sanePercent(model.irr, percent)}
+              hint="Money-weighted, annualized"
             />
           </div>
 

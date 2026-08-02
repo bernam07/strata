@@ -24,6 +24,7 @@ export const TransactionsPage = () => {
   const { data: transactions = [], isLoading } = useTransactions(filter);
   const { data: instruments } = useInstruments();
   const reverse = useReverseTransaction();
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   const patchFilter = (patch: Partial<TransactionFilter>) =>
     setFilter((current) => {
@@ -68,12 +69,21 @@ export const TransactionsPage = () => {
         )}
       </div>
 
-      {mode === 'transaction' && (
+      {editing && (
+        <Card>
+          <TransactionForm
+            accounts={accounts}
+            existing={editing}
+            onDone={() => setEditing(null)}
+          />
+        </Card>
+      )}
+      {mode === 'transaction' && !editing && (
         <Card>
           <TransactionForm accounts={accounts} onDone={() => setMode('none')} />
         </Card>
       )}
-      {mode === 'transfer' && (
+      {mode === 'transfer' && !editing && (
         <Card>
           <TransferForm accounts={accounts} onDone={() => setMode('none')} />
         </Card>
@@ -133,6 +143,10 @@ export const TransactionsPage = () => {
           accounts={accounts}
           instruments={instruments}
           onReverse={onReverse}
+          onEdit={(transaction) => {
+            setMode('none');
+            setEditing(transaction);
+          }}
         />
       )}
     </div>
