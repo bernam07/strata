@@ -345,7 +345,7 @@ export interface Database {
         Returns: number;
       };
       set_t212_api_key: {
-        Args: { p_key: string; p_use_demo?: boolean };
+        Args: { p_key: string; p_secret: string; p_use_demo?: boolean };
         Returns: undefined;
       };
       remove_t212_api_key: {

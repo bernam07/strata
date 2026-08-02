@@ -21,14 +21,20 @@ export const IntegrationsPage = () => {
   const runs = useSyncRuns();
 
   const [key, setKey_] = useState('');
+  const [secret, setSecret] = useState('');
   const [useDemo, setUseDemo] = useState(false);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!key.trim()) return;
+    if (!key.trim() || !secret.trim()) return;
     setKey.mutate(
-      { key: key.trim(), useDemo },
-      { onSuccess: () => setKey_('') },
+      { key: key.trim(), secret: secret.trim(), useDemo },
+      {
+        onSuccess: () => {
+          setKey_('');
+          setSecret('');
+        },
+      },
     );
   };
 
@@ -70,8 +76,17 @@ export const IntegrationsPage = () => {
               type="password"
               value={key}
               autoComplete="off"
-              placeholder="Paste your Trading 212 API key"
+              placeholder="Trading 212 API key"
               onChange={(event) => setKey_(event.target.value)}
+            />
+          </Labelled>
+          <Labelled label="API secret">
+            <TextInput
+              type="password"
+              value={secret}
+              autoComplete="off"
+              placeholder="Trading 212 API secret"
+              onChange={(event) => setSecret(event.target.value)}
             />
           </Labelled>
           <label className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
@@ -84,12 +99,15 @@ export const IntegrationsPage = () => {
           </label>
           {setKey.isError && (
             <p className="text-sm text-[var(--negative)]">
-              Couldn't save the key.
+              Couldn't save the credentials.
             </p>
           )}
           <div>
-            <Button type="submit" disabled={setKey.isPending || !key.trim()}>
-              Save key
+            <Button
+              type="submit"
+              disabled={setKey.isPending || !key.trim() || !secret.trim()}
+            >
+              Save credentials
             </Button>
           </div>
         </form>
