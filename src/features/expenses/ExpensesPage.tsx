@@ -88,7 +88,7 @@ export const ExpensesPage = () => {
               return (
                 <li
                   key={row.category}
-                  className="flex items-center justify-between rounded-[var(--radius-neu-sm)] neu-flat px-4 py-2.5"
+                  className="flex items-center justify-between rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
                 >
                   <span className="text-sm font-semibold text-[var(--text-strong)]">
                     {row.category}

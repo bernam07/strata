@@ -22,7 +22,7 @@ export const Surface = ({
   children,
 }: SurfaceProps) => (
   <Component
-    className={`rounded-[var(--radius-neu)] ${elevationClass[elevation]} ${className}`}
+    className={`rounded-[var(--radius-card)] ${elevationClass[elevation]} ${className}`}
   >
     {children}
   </Component>

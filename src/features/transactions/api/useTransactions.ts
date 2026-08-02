@@ -62,3 +62,59 @@ export const useCreateTransaction = () => {
     },
   });
 };
+
+export interface NewTransfer {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: string;
+  occurredAt: string;
+  note: string | null;
+}
+
+export const useCreateTransfer = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: NewTransfer) => {
+      const groupId = crypto.randomUUID();
+      const magnitude = Math.abs(Number(input.amount)).toFixed(4);
+      const { error } = await supabase.from('transactions').insert([
+        {
+          account_id: input.fromAccountId,
+          kind: 'transfer',
+          amount: `-${magnitude}`,
+          occurred_at: input.occurredAt,
+          note: input.note,
+          transfer_group_id: groupId,
+        },
+        {
+          account_id: input.toAccountId,
+          kind: 'transfer',
+          amount: magnitude,
+          occurred_at: input.occurredAt,
+          note: input.note,
+          transfer_group_id: groupId,
+        },
+      ]);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+};
+
+export const useReverseTransaction = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (transaction: Transaction) => {
+      const reversedAmount = (-Number(transaction.amount)).toFixed(4);
+      const { error } = await supabase.from('transactions').insert({
+        account_id: transaction.accountId,
+        kind: 'adjustment',
+        amount: reversedAmount,
+        occurred_at: new Date().toISOString(),
+        note: `Reversal: ${transaction.note ?? transaction.kind}`,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+};

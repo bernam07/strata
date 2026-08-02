@@ -13,9 +13,13 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', {
 export const TransactionList = ({
   transactions,
   accounts,
+  showAccount = true,
+  onReverse,
 }: {
   transactions: Transaction[];
   accounts: Account[];
+  showAccount?: boolean;
+  onReverse?: (transaction: Transaction) => void;
 }) => {
   const accountsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -36,16 +40,15 @@ export const TransactionList = ({
         const account = accountsById.get(transaction.accountId);
         const amount = money(transaction.amount);
         const negative = isNegative(amount);
+        const canReverse =
+          onReverse && transaction.source === 'manual' && transaction.transferGroupId === null;
         return (
           <li
             key={transaction.id}
-            className="flex items-center gap-4 rounded-[var(--radius-neu-sm)] px-3 py-3 neu-flat"
+            className="group flex items-center gap-4 rounded-[var(--radius-field)] px-3 py-3 neu-flat"
           >
-            {account && (
-              <InstitutionLogo
-                institutionId={account.institutionId}
-                size={36}
-              />
+            {showAccount && account && (
+              <InstitutionLogo institutionId={account.institutionId} size={36} />
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
@@ -53,18 +56,30 @@ export const TransactionList = ({
               </p>
               <p className="text-xs text-[var(--text-muted)]">
                 {kindMeta[transaction.kind].label}
-                {account ? ` · ${account.name}` : ''} ·{' '}
+                {showAccount && account ? ` · ${account.name}` : ''} ·{' '}
                 {dateFormatter.format(new Date(transaction.occurredAt))}
               </p>
             </div>
             <span
               className="text-sm font-semibold tabular-nums"
-              style={{
-                color: negative ? 'var(--negative)' : 'var(--positive)',
-              }}
+              style={{ color: negative ? 'var(--negative)' : 'var(--positive)' }}
             >
               {formatEur(amount)}
             </span>
+            {canReverse && (
+              <button
+                type="button"
+                onClick={() => onReverse(transaction)}
+                title="Reverse this entry"
+                aria-label="Reverse this entry"
+                className="tap grid h-8 w-8 place-items-center rounded-[var(--radius-field)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--negative)]"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 14L4 9l5-5" />
+                  <path d="M4 9h11a5 5 0 015 5v1" />
+                </svg>
+              </button>
+            )}
           </li>
         );
       })}

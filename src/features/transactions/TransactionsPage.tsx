@@ -1,20 +1,27 @@
 import { useState } from 'react';
+import type { Transaction } from '@/core/types';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Labelled, Select, TextInput } from '@/ui/Field';
+import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import {
+  useReverseTransaction,
   useTransactions,
   type TransactionFilter,
 } from './api/useTransactions';
 import { TransactionForm } from './components/TransactionForm';
+import { TransferForm } from './components/TransferForm';
 import { TransactionList } from './components/TransactionList';
+
+type AddMode = 'none' | 'transaction' | 'transfer';
 
 export const TransactionsPage = () => {
   const { data: accounts = [] } = useAccounts();
   const [filter, setFilter] = useState<TransactionFilter>({});
-  const [adding, setAdding] = useState(false);
+  const [mode, setMode] = useState<AddMode>('none');
   const { data: transactions = [], isLoading } = useTransactions(filter);
+  const reverse = useReverseTransaction();
 
   const patchFilter = (patch: Partial<TransactionFilter>) =>
     setFilter((current) => {
@@ -25,25 +32,48 @@ export const TransactionsPage = () => {
       return next;
     });
 
+  const onReverse = (transaction: Transaction) => {
+    if (
+      window.confirm(
+        'Reverse this entry? A matching adjustment will be added — the original stays in the ledger.',
+      )
+    ) {
+      reverse.mutate(transaction);
+    }
+  };
+
+  const noAccounts = accounts.length === 0;
+
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
           Transactions
         </h1>
-        {!adding && (
-          <Button onClick={() => setAdding(true)} disabled={accounts.length === 0}>
-            New transaction
-          </Button>
+        {mode === 'none' && (
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setMode('transfer')}
+              disabled={accounts.length < 2}
+            >
+              Transfer
+            </Button>
+            <Button onClick={() => setMode('transaction')} disabled={noAccounts}>
+              New
+            </Button>
+          </div>
         )}
       </div>
 
-      {adding && (
+      {mode === 'transaction' && (
         <Card>
-          <TransactionForm
-            accounts={accounts}
-            onDone={() => setAdding(false)}
-          />
+          <TransactionForm accounts={accounts} onDone={() => setMode('none')} />
+        </Card>
+      )}
+      {mode === 'transfer' && (
+        <Card>
+          <TransferForm accounts={accounts} onDone={() => setMode('none')} />
         </Card>
       )}
 
@@ -94,9 +124,13 @@ export const TransactionsPage = () => {
       </Card>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        <SkeletonRows count={5} />
       ) : (
-        <TransactionList transactions={transactions} accounts={accounts} />
+        <TransactionList
+          transactions={transactions}
+          accounts={accounts}
+          onReverse={onReverse}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatEur, money, sum } from '@/core/money/money';
 import { Card } from '@/ui/Card';
+import { SkeletonRows } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
@@ -71,7 +72,7 @@ export const DividendsPage = () => {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        <SkeletonRows count={4} />
       ) : tab === 'received' ? (
         <>
           <Card>

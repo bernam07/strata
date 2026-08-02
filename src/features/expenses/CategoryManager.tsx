@@ -63,7 +63,7 @@ export const CategoryManager = () => {
         <ul className="flex flex-col gap-2">
           {roots.map((root) => (
             <li key={root.id} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between rounded-[var(--radius-neu-sm)] neu-flat px-4 py-2">
+              <div className="flex items-center justify-between rounded-[var(--radius-field)] neu-flat px-4 py-2">
                 <span className="font-semibold text-[var(--text-strong)]">
                   {root.name}
                 </span>
@@ -78,7 +78,7 @@ export const CategoryManager = () => {
               {childrenOf(categories, root.id).map((child) => (
                 <div
                   key={child.id}
-                  className="ml-6 flex items-center justify-between rounded-[var(--radius-neu-sm)] neu-flat px-4 py-1.5"
+                  className="ml-6 flex items-center justify-between rounded-[var(--radius-field)] neu-flat px-4 py-1.5"
                 >
                   <span className="text-sm text-[var(--text-muted)]">
                     {child.name}

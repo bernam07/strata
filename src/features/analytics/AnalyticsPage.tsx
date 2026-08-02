@@ -13,6 +13,7 @@ import { xirr } from '@/core/analytics/xirr';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { usePositions } from '@/features/positions/api/usePositions';
 import { Card } from '@/ui/Card';
+import { Skeleton } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { NetWorthChart } from './NetWorthChart';
 import { DiversificationBars } from './DiversificationBars';
@@ -108,7 +109,14 @@ export const AnalyticsPage = () => {
       </h1>
 
       {loading ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Skeleton className="h-20 rounded-[var(--radius-card)]" />
+            <Skeleton className="h-20 rounded-[var(--radius-card)]" />
+            <Skeleton className="h-20 rounded-[var(--radius-card)]" />
+          </div>
+          <Skeleton className="h-72 rounded-[var(--radius-card)]" />
+        </div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -131,13 +139,13 @@ export const AnalyticsPage = () => {
               <h2 className="font-semibold text-[var(--text-strong)]">
                 Net worth over time
               </h2>
-              <div className="flex gap-1 rounded-[var(--radius-neu-sm)] neu-sunken p-1">
+              <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
                 {periods.map((entry) => (
                   <button
                     key={entry.key}
                     type="button"
                     onClick={() => setPeriod(entry.key)}
-                    className={`rounded-[var(--radius-neu-sm)] px-3 py-1 text-xs font-semibold ${
+                    className={`rounded-[var(--radius-field)] px-3 py-1 text-xs font-semibold ${
                       period === entry.key
                         ? 'neu-flat text-[var(--accent)]'
                         : 'text-[var(--text-muted)]'

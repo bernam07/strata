@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
+import { AccountDetailPage } from '@/features/accounts/AccountDetailPage';
 import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { PositionsPage } from '@/features/positions/PositionsPage';
@@ -37,6 +38,7 @@ export const AppRouter = () => {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/accounts/:id" element={<AccountDetailPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/dividends" element={<DividendsPage />} />

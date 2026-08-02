@@ -34,7 +34,7 @@ const ChartTooltip = ({
   if (!active || !payload || payload.length === 0) return null;
   const point = payload[0]!.payload;
   return (
-    <div className="rounded-[var(--radius-neu-sm)] neu-raised px-3 py-2 text-xs">
+    <div className="rounded-[var(--radius-field)] neu-raised px-3 py-2 text-xs">
       <p className="text-[var(--text-muted)]">
         {new Date(point.date).toLocaleDateString('en-GB')}
       </p>
