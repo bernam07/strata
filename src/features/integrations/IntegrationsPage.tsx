@@ -21,7 +21,7 @@ export const IntegrationsPage = () => {
   const runs = useSyncRuns();
 
   const [key, setKey_] = useState('');
-  const [useDemo, setUseDemo] = useState(true);
+  const [useDemo, setUseDemo] = useState(false);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

@@ -55,6 +55,12 @@ const t212Fetch = async (
   throw new Error(`Trading 212 esgotou as tentativas para ${url}`);
 };
 
+const httpError = async (response: Response): Promise<string> => {
+  const body = await response.text().catch(() => '');
+  const detail = body.trim().slice(0, 200);
+  return `HTTP ${response.status}${detail ? ` ${detail}` : ''}`;
+};
+
 const admin = (): SupabaseClient =>
   createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -156,7 +162,7 @@ const syncPortfolio = async (
   }
 
   const response = await t212Fetch(`${baseUrl(useDemo)}/equity/portfolio`, apiKey);
-  if (!response.ok) throw new Error(`portfolio: HTTP ${response.status}`);
+  if (!response.ok) throw new Error(await httpError(response));
   const positions = (await response.json()) as T212Position[];
   const asOf = new Date().toISOString().slice(0, 10);
 
@@ -272,7 +278,7 @@ const syncStream = async <T>(
     if (cursor) url.searchParams.set('cursor', cursor);
 
     const response = await t212Fetch(url.toString(), apiKey);
-    if (!response.ok) throw new Error(`${config.stream}: HTTP ${response.status}`);
+    if (!response.ok) throw new Error(await httpError(response));
     const body = (await response.json()) as T212Page<T>;
     const items = body.items ?? [];
     if (items.length === 0) break;
