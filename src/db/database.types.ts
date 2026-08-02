@@ -267,6 +267,34 @@ export interface Database {
         };
         Relationships: [];
       };
+      broker_accounts: {
+        Row: {
+          user_id: string;
+          provider: string;
+          free: string;
+          invested: string;
+          ppl: string;
+          total: string;
+          currency: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          provider: string;
+          free?: string;
+          invested?: string;
+          ppl?: string;
+          total?: string;
+          currency?: string;
+        };
+        Update: {
+          free?: string;
+          invested?: string;
+          ppl?: string;
+          total?: string;
+        };
+        Relationships: [];
+      };
       holdings: {
         Row: {
           user_id: string;
@@ -343,6 +371,17 @@ export interface Database {
       replace_holdings: {
         Args: { p_user: string; p_rows: Json };
         Returns: number;
+      };
+      upsert_broker_cash: {
+        Args: {
+          p_user: string;
+          p_provider: string;
+          p_free: number;
+          p_invested: number;
+          p_ppl: number;
+          p_total: number;
+        };
+        Returns: undefined;
       };
       set_t212_api_key: {
         Args: { p_key: string; p_secret: string; p_use_demo?: boolean };

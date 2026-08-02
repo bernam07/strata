@@ -10,8 +10,14 @@ import {
 } from '@/core/analytics/series';
 import { timeWeightedReturn } from '@/core/analytics/twr';
 import { xirr } from '@/core/analytics/xirr';
+import { deriveBalances } from '@/core/balances/deriveBalances';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { usePositions } from '@/features/positions/api/usePositions';
+import { useAccounts } from '@/features/accounts/api/useAccounts';
+import {
+  applyBrokerBalances,
+  useBrokerAccounts,
+} from '@/features/accounts/api/useBrokerAccounts';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
@@ -51,23 +57,26 @@ const StatTile = ({ label, value }: { label: string; value: string }) => (
 export const AnalyticsPage = () => {
   const transactionsQuery = useTransactions();
   const positionsQuery = usePositions();
+  const accountsQuery = useAccounts();
+  const brokersQuery = useBrokerAccounts();
   const [period, setPeriod] = useState<(typeof periods)[number]['key']>('All');
 
   const model = useMemo(() => {
     const transactions = transactionsQuery.data ?? [];
     const positions = positionsQuery.data?.positions ?? [];
     const instruments = positionsQuery.data?.instruments;
+    const accounts = accountsQuery.data ?? [];
+    const brokers = brokersQuery.data ?? new Map();
 
-    const cashTotal = transactions.reduce(
-      (total, transaction) => total + Number(transaction.amount),
-      0,
+    const balances = applyBrokerBalances(
+      deriveBalances(transactions),
+      accounts,
+      brokers,
     );
-    const positionsValue = positions.reduce(
-      (total, position) =>
-        total + (position.marketValue ?? position.costBasis).toNumber(),
-      0,
-    );
-    const netWorthMarket = cashTotal + positionsValue;
+    let netWorthMarket = 0;
+    for (const balance of balances.values()) {
+      netWorthMarket += balance.toNumber();
+    }
 
     const twr = timeWeightedReturn(valuationPoints(transactions));
     const irr = xirr(
@@ -90,7 +99,7 @@ export const AnalyticsPage = () => {
     );
 
     return { netWorthMarket, twr, irr, series, years, geography, currency };
-  }, [transactionsQuery.data, positionsQuery.data]);
+  }, [transactionsQuery.data, positionsQuery.data, accountsQuery.data, brokersQuery.data]);
 
   const activePeriod = periods.find((entry) => entry.key === period)!;
   const shownSeries = activePeriod.days
