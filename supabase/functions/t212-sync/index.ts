@@ -225,6 +225,32 @@ const syncPortfolio = async (
   await db.rpc('replace_holdings', { p_user: userId, p_rows: holdingRows });
 };
 
+interface T212Cash {
+  free?: number;
+  invested?: number;
+  ppl?: number;
+  total?: number;
+}
+
+const syncCash = async (
+  db: SupabaseClient,
+  userId: string,
+  apiKey: string,
+  useDemo: boolean,
+): Promise<void> => {
+  const response = await t212Fetch(`${baseUrl(useDemo)}/equity/account/cash`, apiKey);
+  if (!response.ok) throw new Error(await httpError(response));
+  const cash = (await response.json()) as T212Cash;
+  await db.rpc('upsert_broker_cash', {
+    p_user: userId,
+    p_provider: 't212',
+    p_free: cash.free ?? 0,
+    p_invested: cash.invested ?? 0,
+    p_ppl: cash.ppl ?? 0,
+    p_total: cash.total ?? 0,
+  });
+};
+
 const ingest = async (
   db: SupabaseClient,
   rows: TransactionRow[],
@@ -362,6 +388,9 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
     const resolve: InstrumentResolver = (ticker) => resolverMap.get(ticker) ?? null;
 
     await step('portfolio', () => syncPortfolio(db, userId, positions));
+    await step('cash-balance', () =>
+      syncCash(db, userId, credential.secret, credential.use_demo),
+    );
 
     let inserted = 0;
     await step('orders', async () => {

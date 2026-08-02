@@ -4,6 +4,7 @@ import type { Transaction } from '@/core/types';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { formatEur, isNegative } from '@/core/money/money';
 import { useAccounts } from './api/useAccounts';
+import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { getInstitution } from './institutions';
 import { InstitutionLogo } from './components/InstitutionLogo';
 import {
@@ -28,11 +29,16 @@ export const AccountDetailPage = () => {
   });
   const reverse = useReverseTransaction();
 
+  const { data: brokers } = useBrokerAccounts();
   const account = accounts.find((entry) => entry.id === id);
-  const balance = useMemo(
-    () => balanceOf(deriveBalances(transactions), id),
-    [transactions, id],
-  );
+  const balance = useMemo(() => {
+    const balances = applyBrokerBalances(
+      deriveBalances(transactions),
+      account ? [account] : [],
+      brokers ?? new Map(),
+    );
+    return balanceOf(balances, id);
+  }, [transactions, id, account, brokers]);
 
   const onReverse = (transaction: Transaction) => {
     if (

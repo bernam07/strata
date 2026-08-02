@@ -4,6 +4,10 @@ import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
 import { netWorthAtCostSeries } from '@/core/analytics/series';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
+import {
+  applyBrokerBalances,
+  useBrokerAccounts,
+} from '@/features/accounts/api/useBrokerAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
@@ -37,14 +41,21 @@ const SectionTitle = ({
 export const DashboardPage = () => {
   const accountsQuery = useAccounts();
   const transactionsQuery = useTransactions();
+  const brokersQuery = useBrokerAccounts();
 
   const model = useMemo(() => {
     const accounts = accountsQuery.data ?? [];
     const transactions = transactionsQuery.data ?? [];
+    const brokers = brokersQuery.data ?? new Map();
+    const balances = applyBrokerBalances(
+      deriveBalances(transactions),
+      accounts,
+      brokers,
+    );
     const netWorth =
       accounts.length === 0
         ? emptyNetWorth()
-        : computeNetWorth(accounts, deriveBalances(transactions));
+        : computeNetWorth(accounts, balances);
     const assets = [...netWorth.assets].sort((a, b) =>
       b.balance.comparedTo(a.balance),
     );
@@ -58,7 +69,7 @@ export const DashboardPage = () => {
       series: netWorthAtCostSeries(transactions),
       recent: transactions.slice(0, 5),
     };
-  }, [accountsQuery.data, transactionsQuery.data]);
+  }, [accountsQuery.data, transactionsQuery.data, brokersQuery.data]);
 
   const loading = accountsQuery.isLoading || transactionsQuery.isLoading;
   const accounts = accountsQuery.data ?? [];
