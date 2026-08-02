@@ -73,32 +73,40 @@ describe('extractCursor', () => {
 });
 
 describe('order mapping', () => {
-  const order: T212Order = {
-    id: 42,
-    ticker: 'AAPL_US_EQ',
-    filledQuantity: 2,
-    filledValue: 300,
-    fillPrice: 150,
-    taxes: [{ name: 'stamp', quantity: 1.5 }],
-    dateExecuted: '2026-01-02T10:00:00Z',
+  const buy: T212Order = {
+    order: {
+      id: 42,
+      ticker: 'AAPL_US_EQ',
+      side: 'BUY',
+      createdAt: '2026-01-02T10:00:00Z',
+    },
+    fill: {
+      quantity: 2,
+      filledAt: '2026-01-02T10:00:03Z',
+      walletImpact: { netValue: 300, taxes: [{ name: 'fee', quantity: -1.5 }] },
+    },
   };
 
-  it('maps a buy to a negative amount including taxes', () => {
-    const row = orderToTransactionRow('u1', 'acc', order, resolver({ AAPL_US_EQ: 'i1' }));
+  it('maps a buy to a negative amount including fees', () => {
+    const row = orderToTransactionRow('u1', 'acc', buy, resolver({ AAPL_US_EQ: 'i1' }));
     expect(row.kind).toBe('buy');
     expect(row.amount).toBe(-301.5);
     expect(row.quantity).toBe(2);
     expect(row.instrument_id).toBe('i1');
     expect(row.external_id).toBe('order:42');
+    expect(row.occurred_at).toBe('2026-01-02T10:00:03Z');
   });
 
-  it('maps a sell to a positive amount net of taxes', () => {
-    const row = orderToTransactionRow(
-      'u1',
-      'acc',
-      { ...order, filledQuantity: -2 },
-      resolver({}),
-    );
+  it('maps a sell to a positive amount net of fees, with negative quantity', () => {
+    const sell: T212Order = {
+      order: { id: 43, ticker: 'AAPL_US_EQ', side: 'SELL' },
+      fill: {
+        quantity: 2,
+        filledAt: '2026-02-01T10:00:00Z',
+        walletImpact: { netValue: 300, taxes: [{ name: 'fee', quantity: -1.5 }] },
+      },
+    };
+    const row = orderToTransactionRow('u1', 'acc', sell, resolver({}));
     expect(row.kind).toBe('sell');
     expect(row.amount).toBe(298.5);
     expect(row.quantity).toBe(-2);
