@@ -3,6 +3,7 @@ import type { Account, Transaction } from '@/core/types';
 import { kindMeta } from '@/core/transactions/kinds';
 import { formatEur, isNegative, money } from '@/core/money/money';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
+import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 
 const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
@@ -10,14 +11,20 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
 });
 
+const quantityFormatter = new Intl.NumberFormat('en-GB', {
+  maximumFractionDigits: 4,
+});
+
 export const TransactionList = ({
   transactions,
   accounts,
+  instruments,
   showAccount = true,
   onReverse,
 }: {
   transactions: Transaction[];
   accounts: Account[];
+  instruments?: Map<string, InstrumentMeta>;
   showAccount?: boolean;
   onReverse?: (transaction: Transaction) => void;
 }) => {
@@ -41,7 +48,29 @@ export const TransactionList = ({
         const amount = money(transaction.amount);
         const negative = isNegative(amount);
         const canReverse =
-          onReverse && transaction.source === 'manual' && transaction.transferGroupId === null;
+          onReverse &&
+          transaction.source === 'manual' &&
+          transaction.transferGroupId === null;
+
+        const instrument = transaction.instrumentId
+          ? instruments?.get(transaction.instrumentId)
+          : undefined;
+        const label = kindMeta[transaction.kind].label;
+        const title = instrument
+          ? instrument.name || instrument.ticker
+          : transaction.note || label;
+
+        const meta: string[] = [];
+        if (instrument && transaction.quantity !== null) {
+          meta.push(
+            `${label} ${quantityFormatter.format(Math.abs(Number(transaction.quantity)))} sh`,
+          );
+        } else {
+          meta.push(label);
+        }
+        if (showAccount && account) meta.push(account.name);
+        meta.push(dateFormatter.format(new Date(transaction.occurredAt)));
+
         return (
           <li
             key={transaction.id}
@@ -52,12 +81,10 @@ export const TransactionList = ({
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
-                {transaction.note || kindMeta[transaction.kind].label}
+                {title}
               </p>
-              <p className="text-xs text-[var(--text-muted)]">
-                {kindMeta[transaction.kind].label}
-                {showAccount && account ? ` · ${account.name}` : ''} ·{' '}
-                {dateFormatter.format(new Date(transaction.occurredAt))}
+              <p className="truncate text-xs text-[var(--text-muted)]">
+                {meta.join(' · ')}
               </p>
             </div>
             <span

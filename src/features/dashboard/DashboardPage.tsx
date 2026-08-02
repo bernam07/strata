@@ -9,6 +9,7 @@ import {
   useBrokerAccounts,
 } from '@/features/accounts/api/useBrokerAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { useInstruments } from '@/features/positions/api/usePositions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -42,6 +43,7 @@ export const DashboardPage = () => {
   const accountsQuery = useAccounts();
   const transactionsQuery = useTransactions();
   const brokersQuery = useBrokerAccounts();
+  const { data: instruments } = useInstruments();
 
   const model = useMemo(() => {
     const accounts = accountsQuery.data ?? [];
@@ -143,6 +145,7 @@ export const DashboardPage = () => {
               <TransactionList
                 transactions={model.recent}
                 accounts={accounts}
+                instruments={instruments}
               />
             </section>
           )}

@@ -11,6 +11,7 @@ import {
   useReverseTransaction,
   useTransactions,
 } from '@/features/transactions/api/useTransactions';
+import { useInstruments } from '@/features/positions/api/usePositions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
@@ -30,6 +31,7 @@ export const AccountDetailPage = () => {
   const reverse = useReverseTransaction();
 
   const { data: brokers } = useBrokerAccounts();
+  const { data: instruments } = useInstruments();
   const account = accounts.find((entry) => entry.id === id);
   const balance = useMemo(() => {
     const balances = applyBrokerBalances(
@@ -109,6 +111,7 @@ export const AccountDetailPage = () => {
           <TransactionList
             transactions={transactions}
             accounts={account ? [account] : []}
+            instruments={instruments}
             showAccount={false}
             onReverse={onReverse}
           />

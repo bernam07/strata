@@ -176,7 +176,15 @@ export const yearlyBreakdown = (
       dividends: round2(sumByKind(rows, ['dividend', 'interest'])),
       expenses: round2(sumByKind(rows, ['expense', 'fee'])),
       netChange: round2(
-        rows.reduce((total, row) => total + Number(row.amount), 0),
+        sumByKind(rows, [
+          'deposit',
+          'income',
+          'withdrawal',
+          'dividend',
+          'interest',
+          'expense',
+          'fee',
+        ]),
       ),
     }));
 };
