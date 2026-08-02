@@ -42,7 +42,7 @@ export const InstitutionLogo = ({
       <img
         src={src}
         alt={institution.displayName}
-        className="h-full w-full object-contain p-1.5"
+        className="h-full w-full object-cover"
         onError={() => setIndex((current) => current + 1)}
       />
     </div>

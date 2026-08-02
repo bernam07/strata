@@ -76,6 +76,9 @@ body {
   font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
   transition: background 0.3s ease, color 0.3s ease;
 }
 
