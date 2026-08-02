@@ -1,6 +1,9 @@
+import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
+import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
+import { SkeletonRows } from '@/ui/Skeleton';
 import { usePositions, type InstrumentMeta } from './api/usePositions';
 import type { Position } from '@/core/positions/derivePositions';
 
@@ -76,11 +79,16 @@ export const PositionsPage = () => {
       </h1>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        <SkeletonRows count={4} />
       ) : positions.length === 0 ? (
-        <p className="text-sm text-[var(--text-muted)]">
-          No open positions. Sync Trading 212 under Integrations.
-        </p>
+        <Card className="flex flex-col items-start gap-4">
+          <p className="text-sm text-[var(--text-muted)]">
+            No open positions yet. Connect Trading 212 to import your holdings.
+          </p>
+          <Link to="/integrations">
+            <Button>Go to Integrations</Button>
+          </Link>
+        </Card>
       ) : (
         <>
           <Card className="flex items-center justify-between">

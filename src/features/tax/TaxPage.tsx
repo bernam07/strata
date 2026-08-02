@@ -6,6 +6,7 @@ import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { usePositions } from '@/features/positions/api/usePositions';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { SkeletonRows } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', {
@@ -52,7 +53,7 @@ export const TaxPage = () => {
       </p>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        <SkeletonRows count={3} />
       ) : years.length === 0 ? (
         <p className="text-sm text-[var(--text-muted)]">
           No realized disposals yet.
