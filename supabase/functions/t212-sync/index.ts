@@ -231,7 +231,11 @@ const ingest = async (
 ): Promise<number> => {
   if (rows.length === 0) return 0;
   const { data, error } = await db.rpc('ingest_transactions', { p_rows: rows });
-  if (error) throw error;
+  if (error) {
+    throw new Error(
+      `ingest ${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`.trim(),
+    );
+  }
   return (data as number) ?? 0;
 };
 

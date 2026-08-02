@@ -46,7 +46,11 @@ export const orderToTransactionRow = (
     quantity: round8(filledQuantity),
     currency: 'EUR',
     fx_rate: 1,
-    occurred_at: order.dateExecuted,
+    occurred_at:
+      order.dateExecuted ??
+      order.dateModified ??
+      order.dateCreated ??
+      new Date().toISOString(),
     note: null,
     source: 't212_sync',
     external_id: `order:${order.id}`,

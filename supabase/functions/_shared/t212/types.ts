@@ -17,7 +17,9 @@ export interface T212Order {
   filledValue: number;
   fillPrice: number;
   taxes?: T212Tax[];
-  dateExecuted: string;
+  dateExecuted?: string;
+  dateModified?: string;
+  dateCreated?: string;
 }
 
 export interface T212Dividend {
