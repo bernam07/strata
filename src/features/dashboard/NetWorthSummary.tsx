@@ -3,6 +3,13 @@ import type { NetWorth } from '@/core/networth/netWorth';
 
 export const NetWorthSummary = ({ netWorth }: { netWorth: NetWorth }) => (
   <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6">
+    <div
+      className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
+      style={{
+        background:
+          'radial-gradient(circle, var(--accent-soft), transparent 70%)',
+      }}
+    />
     <div className="pointer-events-none absolute inset-0 opacity-50">
       {[32, 52, 70, 85].map((top) => (
         <span

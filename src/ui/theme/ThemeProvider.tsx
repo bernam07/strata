@@ -22,9 +22,7 @@ const storageKey = 'strata-theme';
 const readInitialTheme = (): Theme => {
   const stored = localStorage.getItem(storageKey);
   if (stored === 'light' || stored === 'dark') return stored;
-  return window.matchMedia('(prefers-color-scheme: light)').matches
-    ? 'light'
-    : 'dark';
+  return 'dark';
 };
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
