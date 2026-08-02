@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { getInstitution, monogram } from '../institutions';
 
 interface InstitutionLogoProps {
@@ -11,11 +11,18 @@ export const InstitutionLogo = ({
   size = 44,
 }: InstitutionLogoProps) => {
   const institution = getInstitution(institutionId);
-  const [failed, setFailed] = useState(institution.logoPath === '');
 
+  const candidates = useMemo(() => {
+    const list = [`/institutions/${institution.id}.png`];
+    if (institution.logoPath) list.push(institution.logoPath);
+    return list;
+  }, [institution.id, institution.logoPath]);
+
+  const [index, setIndex] = useState(0);
   const dimension = { width: size, height: size };
+  const src = candidates[index];
 
-  if (failed) {
+  if (!src) {
     return (
       <div
         className="flex items-center justify-center rounded-full text-sm font-bold text-white"
@@ -33,11 +40,10 @@ export const InstitutionLogo = ({
       style={dimension}
     >
       <img
-        src={institution.logoPath}
+        src={src}
         alt={institution.displayName}
-        width={size * 0.62}
-        height={size * 0.62}
-        onError={() => setFailed(true)}
+        className="h-full w-full object-contain p-1.5"
+        onError={() => setIndex((current) => current + 1)}
       />
     </div>
   );

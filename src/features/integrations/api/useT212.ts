@@ -81,6 +81,30 @@ export const useSyncRuns = () =>
     },
   });
 
+export const useClearSyncHistory = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('clear_sync_history');
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: syncRunsKey }),
+  });
+};
+
+export const useResetSync = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('reset_t212_sync');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      client.invalidateQueries();
+    },
+  });
+};
+
 export const useRunSync = () => {
   const client = useQueryClient();
   return useMutation({

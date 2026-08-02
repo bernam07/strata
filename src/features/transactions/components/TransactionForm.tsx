@@ -1,38 +1,57 @@
 import { useState, type FormEvent } from 'react';
-import type { Account, TransactionKind } from '@/core/types';
+import type { Account, Transaction, TransactionKind } from '@/core/types';
 import { kindMeta, manualKinds, parseSignedAmount } from '@/core/transactions/kinds';
+import { money } from '@/core/money/money';
 import { Button } from '@/ui/Button';
 import { Labelled, Select, TextInput } from '@/ui/Field';
-import { useCreateTransaction } from '../api/useTransactions';
+import {
+  useCreateTransaction,
+  useUpdateTransaction,
+} from '../api/useTransactions';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export const TransactionForm = ({
   accounts,
+  existing,
   onDone,
 }: {
   accounts: Account[];
+  existing?: Transaction;
   onDone: () => void;
 }) => {
   const create = useCreateTransaction();
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
-  const [kind, setKind] = useState<TransactionKind>('expense');
-  const [magnitude, setMagnitude] = useState('');
-  const [date, setDate] = useState(today());
-  const [note, setNote] = useState('');
+  const update = useUpdateTransaction();
+  const editing = existing !== undefined;
+
+  const [accountId, setAccountId] = useState(
+    existing?.accountId ?? accounts[0]?.id ?? '',
+  );
+  const [kind, setKind] = useState<TransactionKind>(existing?.kind ?? 'expense');
+  const [magnitude, setMagnitude] = useState(
+    existing ? money(existing.amount).abs().toString() : '',
+  );
+  const [date, setDate] = useState(
+    existing ? existing.occurredAt.slice(0, 10) : today(),
+  );
+  const [note, setNote] = useState(existing?.note ?? '');
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!accountId) return;
     const amount = parseSignedAmount(kind, magnitude || '0').toFixed(4);
+    const occurredAt = new Date(`${date}T12:00:00`).toISOString();
+
+    if (editing) {
+      update.mutate(
+        { id: existing.id, kind, amount, occurredAt, note: note.trim() || null },
+        { onSuccess: onDone },
+      );
+      return;
+    }
+
     create.mutate(
-      {
-        accountId,
-        kind,
-        amount,
-        occurredAt: new Date(`${date}T12:00:00`).toISOString(),
-        note: note.trim() || null,
-      },
+      { accountId, kind, amount, occurredAt, note: note.trim() || null },
       {
         onSuccess: () => {
           setMagnitude('');
@@ -43,11 +62,15 @@ export const TransactionForm = ({
     );
   };
 
+  const pending = create.isPending || update.isPending;
+  const failed = create.isError || update.isError;
+
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <Labelled label="Account">
         <Select
           value={accountId}
+          disabled={editing}
           onChange={(event) => setAccountId(event.target.value)}
         >
           {accounts.map((account) => (
@@ -61,9 +84,7 @@ export const TransactionForm = ({
         <Labelled label="Type">
           <Select
             value={kind}
-            onChange={(event) =>
-              setKind(event.target.value as TransactionKind)
-            }
+            onChange={(event) => setKind(event.target.value as TransactionKind)}
           >
             {manualKinds.map((option) => (
               <option key={option} value={option}>
@@ -104,14 +125,14 @@ export const TransactionForm = ({
           ? 'Leaves the account — recorded as negative.'
           : 'Enters the account — recorded as positive.'}
       </p>
-      {create.isError && (
+      {failed && (
         <p className="text-sm text-[var(--negative)]">
-          Couldn't record the transaction.
+          Couldn't save the transaction.
         </p>
       )}
       <div className="mt-2 flex gap-3">
-        <Button type="submit" disabled={create.isPending || !accountId}>
-          Record
+        <Button type="submit" disabled={pending || !accountId}>
+          {editing ? 'Save changes' : 'Record'}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>
           Cancel

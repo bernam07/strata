@@ -4,7 +4,7 @@ import type { Transaction, TransactionKind } from '../types';
 
 export type CategoryLookup = (transactionId: string) => string;
 
-const expenseKinds: readonly TransactionKind[] = ['expense', 'fee'];
+const expenseKinds: readonly TransactionKind[] = ['expense'];
 
 const isExpense = (transaction: Transaction): boolean =>
   expenseKinds.includes(transaction.kind);

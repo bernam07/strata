@@ -5,6 +5,7 @@ import { toTransaction } from '@/db/mappers';
 
 export interface TransactionFilter {
   accountId?: string;
+  instrumentId?: string;
   from?: string;
   to?: string;
 }
@@ -22,6 +23,8 @@ export const useTransactions = (filter: TransactionFilter = {}) =>
         .order('occurred_at', { ascending: false });
 
       if (filter.accountId) query = query.eq('account_id', filter.accountId);
+      if (filter.instrumentId)
+        query = query.eq('instrument_id', filter.instrumentId);
       if (filter.from) query = query.gte('occurred_at', filter.from);
       if (filter.to) query = query.lte('occurred_at', filter.to);
 
@@ -95,6 +98,33 @@ export const useCreateTransfer = () => {
           transfer_group_id: groupId,
         },
       ]);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+};
+
+export interface EditTransaction {
+  id: string;
+  kind: TransactionKind;
+  amount: string;
+  occurredAt: string;
+  note: string | null;
+}
+
+export const useUpdateTransaction = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: EditTransaction) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          kind: input.kind,
+          amount: input.amount,
+          occurred_at: input.occurredAt,
+          note: input.note,
+        })
+        .eq('id', input.id);
       if (error) throw error;
     },
     onSuccess: () => client.invalidateQueries({ queryKey: ['transactions'] }),

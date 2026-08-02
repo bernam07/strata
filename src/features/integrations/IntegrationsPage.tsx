@@ -5,13 +5,16 @@ import { Labelled, TextInput } from '@/ui/Field';
 import { Surface } from '@/ui/Surface';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import {
+  useClearSyncHistory,
   useRemoveT212Key,
+  useResetSync,
   useRunSync,
   useSetT212Key,
   useSyncRuns,
   useT212Connection,
 } from './api/useT212';
 import { SyncRunList } from './SyncRunList';
+import { WidgetCard } from './WidgetCard';
 
 export const IntegrationsPage = () => {
   const connection = useT212Connection();
@@ -19,6 +22,8 @@ export const IntegrationsPage = () => {
   const removeKey = useRemoveT212Key();
   const runSync = useRunSync();
   const runs = useSyncRuns();
+  const clearHistory = useClearSyncHistory();
+  const resetSync = useResetSync();
 
   const [key, setKey_] = useState('');
   const [secret, setSecret] = useState('');
@@ -53,11 +58,14 @@ export const IntegrationsPage = () => {
             <p className="font-semibold text-[var(--text-strong)]">
               Trading 212
             </p>
-            <p className="text-xs text-[var(--text-muted)]">
-              {connected
-                ? `Connected · ${connection.data?.useDemo ? 'demo' : 'live'} environment`
-                : 'Not connected'}
-            </p>
+            {connected ? (
+              <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--positive)_16%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--positive)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+                Connected · {connection.data?.useDemo ? 'demo' : 'live'}
+              </span>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">Not connected</p>
+            )}
           </div>
           {connected && (
             <Button
@@ -143,7 +151,36 @@ export const IntegrationsPage = () => {
         )}
 
         <SyncRunList runs={runs.data ?? []} loading={runs.isLoading} />
+
+        {connected && (
+          <div className="flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
+            <Button
+              variant="ghost"
+              disabled={clearHistory.isPending}
+              onClick={() => clearHistory.mutate()}
+            >
+              Clear history
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={resetSync.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Delete all imported Trading 212 data (transactions, holdings, balances) and start over? Your API key stays connected.',
+                  )
+                ) {
+                  resetSync.mutate();
+                }
+              }}
+            >
+              Reset & re-import
+            </Button>
+          </div>
+        )}
       </Card>
+
+      <WidgetCard />
     </div>
   );
 };
