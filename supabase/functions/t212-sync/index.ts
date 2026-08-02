@@ -28,7 +28,7 @@ import type {
 } from '../_shared/t212/types.ts';
 
 const PAGE_LIMIT = 50;
-const MAX_PAGES = 200;
+const MAX_PAGES_PER_RUN = 6;
 const MAX_ATTEMPTS = 6;
 
 const baseUrl = (useDemo: boolean): string =>
@@ -282,12 +282,12 @@ const syncStream = async <T>(
   useDemo: boolean,
   config: StreamConfig<T>,
 ): Promise<number> => {
-  const watermark = await readWatermark(db, userId, config.stream);
-  let cursor: string | null = null;
+  const stored = await readWatermark(db, userId, config.stream);
+  let cursor: string | null = stored && stored.length > 0 ? stored : null;
   let inserted = 0;
-  let newestSeen: string | null = null;
+  let reachedEnd = false;
 
-  for (let page = 0; page < MAX_PAGES; page += 1) {
+  for (let page = 0; page < MAX_PAGES_PER_RUN; page += 1) {
     const url = new URL(`${baseUrl(useDemo)}${config.path}`);
     url.searchParams.set('limit', String(PAGE_LIMIT));
     if (cursor) url.searchParams.set('cursor', cursor);
@@ -296,21 +296,18 @@ const syncStream = async <T>(
     if (!response.ok) throw new Error(await httpError(response));
     const body = (await response.json()) as T212Page<T>;
     const items = body.items ?? [];
-    if (items.length === 0) break;
 
-    if (newestSeen === null && items[0]) newestSeen = config.identify(items[0]);
+    inserted += await ingest(db, items.map(config.toRow));
 
-    const rows = items.map(config.toRow);
-    const added = await ingest(db, rows);
-    inserted += added;
-
-    if (watermark && added === 0) break;
-
-    cursor = extractCursor(body.nextPagePath);
-    if (!cursor) break;
+    const next = extractCursor(body.nextPagePath);
+    if (!next) {
+      reachedEnd = true;
+      break;
+    }
+    cursor = next;
   }
 
-  if (newestSeen) await writeWatermark(db, userId, config.stream, newestSeen);
+  await writeWatermark(db, userId, config.stream, reachedEnd ? '' : cursor ?? '');
   return inserted;
 };
 
@@ -360,6 +357,8 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
     const resolverMap = await buildResolver(db, userId);
     const resolve: InstrumentResolver = (ticker) => resolverMap.get(ticker) ?? null;
 
+    await step('portfolio', () => syncPortfolio(db, userId, positions));
+
     let inserted = 0;
     await step('orders', async () => {
       inserted += await syncStream<T212Order>(db, userId, credential.secret, credential.use_demo, {
@@ -385,8 +384,6 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
         toRow: (cash) => cashTransactionToRow(userId, accountId, cash),
       });
     });
-
-    await step('portfolio', () => syncPortfolio(db, userId, positions));
 
     await db
       .from('sync_runs')
