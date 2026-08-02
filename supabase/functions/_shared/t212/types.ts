@@ -11,15 +11,20 @@ export interface T212Tax {
 }
 
 export interface T212Order {
-  id: number;
-  ticker: string;
-  filledQuantity: number;
-  filledValue: number;
-  fillPrice: number;
-  taxes?: T212Tax[];
-  dateExecuted?: string;
-  dateModified?: string;
-  dateCreated?: string;
+  order: {
+    id: number;
+    ticker: string;
+    side: string;
+    createdAt?: string;
+  };
+  fill: {
+    quantity: number;
+    filledAt?: string;
+    walletImpact?: {
+      netValue?: number;
+      taxes?: T212Tax[];
+    };
+  };
 }
 
 export interface T212Dividend {

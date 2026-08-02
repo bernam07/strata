@@ -397,8 +397,8 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
       inserted += await syncStream<T212Order>(db, userId, credential.secret, credential.use_demo, {
         stream: 'orders',
         path: '/equity/history/orders',
-        identify: (order) => `order:${order.id}`,
-        toRow: (order) => orderToTransactionRow(userId, accountId, order, resolve),
+        identify: (item) => `order:${item.order.id}`,
+        toRow: (item) => orderToTransactionRow(userId, accountId, item, resolve),
       });
     });
     await step('dividends', async () => {

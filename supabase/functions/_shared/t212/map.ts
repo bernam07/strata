@@ -23,34 +23,31 @@ export const toInstrumentRow = (
   currency: instrument.currencyCode.slice(0, 3).toUpperCase() || 'EUR',
 });
 
-const totalTaxes = (order: T212Order): number =>
-  (order.taxes ?? []).reduce((sum, tax) => sum + (tax.quantity ?? 0), 0);
-
 export const orderToTransactionRow = (
   userId: string,
   accountId: string,
-  order: T212Order,
+  item: T212Order,
   resolveInstrument: InstrumentResolver,
 ): TransactionRow => {
-  const filledQuantity = order.filledQuantity ?? 0;
-  const isBuy = filledQuantity >= 0;
-  const value = Math.abs(order.filledValue ?? 0);
-  const taxes = totalTaxes(order);
-  const amount = isBuy ? -(value + taxes) : value - taxes;
+  const { order, fill } = item;
+  const isBuy = order.side.toUpperCase() !== 'SELL';
+  const netValue = Math.abs(fill.walletImpact?.netValue ?? 0);
+  const taxes = (fill.walletImpact?.taxes ?? []).reduce(
+    (sum, tax) => sum + (tax.quantity ?? 0),
+    0,
+  );
+  const amount = (isBuy ? -netValue : netValue) + taxes;
+  const quantity = (isBuy ? 1 : -1) * (fill.quantity ?? 0);
   return {
     user_id: userId,
     account_id: accountId,
     instrument_id: resolveInstrument(order.ticker),
     kind: isBuy ? 'buy' : 'sell',
     amount: round4(amount),
-    quantity: round8(filledQuantity),
+    quantity: round8(quantity),
     currency: 'EUR',
     fx_rate: 1,
-    occurred_at:
-      order.dateExecuted ??
-      order.dateModified ??
-      order.dateCreated ??
-      new Date().toISOString(),
+    occurred_at: fill.filledAt ?? order.createdAt ?? new Date().toISOString(),
     note: null,
     source: 't212_sync',
     external_id: `order:${order.id}`,
