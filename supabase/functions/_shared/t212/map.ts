@@ -28,9 +28,10 @@ export const orderToTransactionRow = (
   accountId: string,
   item: T212Order,
   resolveInstrument: InstrumentResolver,
-): TransactionRow => {
+): TransactionRow | null => {
   const { order, fill } = item;
-  const isBuy = order.side.toUpperCase() !== 'SELL';
+  if (!fill || !order) return null;
+  const isBuy = order.side?.toUpperCase() !== 'SELL';
   const netValue = Math.abs(fill.walletImpact?.netValue ?? 0);
   const taxes = (fill.walletImpact?.taxes ?? []).reduce(
     (sum, tax) => sum + (tax.quantity ?? 0),

@@ -302,7 +302,7 @@ interface StreamConfig<T> {
   stream: string;
   path: string;
   identify: (item: T) => string;
-  toRow: (item: T) => TransactionRow;
+  toRow: (item: T) => TransactionRow | null;
 }
 
 const syncStream = async <T>(
@@ -327,7 +327,10 @@ const syncStream = async <T>(
     const body = (await response.json()) as T212Page<T>;
     const items = body.items ?? [];
 
-    inserted += await ingest(db, items.map(config.toRow));
+    const rows = items
+      .map(config.toRow)
+      .filter((row): row is TransactionRow => row !== null);
+    inserted += await ingest(db, rows);
 
     const next = extractCursor(body.nextPagePath);
     if (!next) {
