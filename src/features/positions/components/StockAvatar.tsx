@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const palette = [
   '#5b6ee1',
   '#2fa27a',
@@ -24,20 +26,31 @@ export const StockAvatar = ({
   ticker: string;
   size?: number;
 }) => {
-  const symbol = ticker.split('_')[0] ?? ticker;
-  const initials = symbol.slice(0, 3).toUpperCase();
+  const symbol = (ticker.split('_')[0] ?? ticker).toUpperCase();
+  const initials = symbol.slice(0, 3);
+  const [failed, setFailed] = useState(false);
+
   return (
     <div
-      className="flex items-center justify-center rounded-full font-bold text-white"
+      className="relative flex flex-none items-center justify-center overflow-hidden rounded-full font-bold text-white"
       style={{
         width: size,
         height: size,
         backgroundColor: colorFor(symbol),
         fontSize: size * 0.32,
       }}
-      aria-hidden
+      aria-label={symbol}
     >
-      {initials}
+      <span>{initials}</span>
+      {!failed && symbol && (
+        <img
+          src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
+          alt=""
+          className="absolute inset-0 h-full w-full bg-white object-contain"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      )}
     </div>
   );
 };

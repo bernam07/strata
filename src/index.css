@@ -8,6 +8,7 @@
 
 :root,
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --bg: #0a0a0b;
   --surface-raised: #131315;
   --surface-flat: #191a1d;
@@ -26,6 +27,7 @@
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
   --bg: #ecebe8;
   --surface-raised: #f8f7f5;
   --surface-flat: #ffffff;
@@ -76,6 +78,9 @@ body {
   font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
   transition: background 0.3s ease, color 0.3s ease;
 }
 

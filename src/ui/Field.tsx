@@ -5,7 +5,7 @@ import type {
 } from 'react';
 
 const controlClass =
-  'w-full rounded-[var(--radius-field)] neu-sunken px-3.5 py-2.5 text-sm text-[var(--text-strong)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]';
+  'block w-full min-w-0 appearance-none rounded-[var(--radius-field)] neu-sunken px-3.5 py-2.5 text-sm text-[var(--text-strong)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]';
 
 interface LabelledProps {
   label: string;

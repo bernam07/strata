@@ -9,55 +9,77 @@ import {
 } from './api/useWidget';
 
 const scriptableSource = (endpoint: string): string => `// Strata — iPhone widget
-// Scriptable: create a new script, paste this, then add a Scriptable
-// widget to your home screen and pick this script.
+// Scriptable: create a new script, paste this, add a Scriptable widget to your
+// home screen (any size) and pick this script.
 const ENDPOINT = "${endpoint}";
 
+const INK = new Color("#f3f0ea");
+const MUTED = new Color("#79776f");
+const UP = new Color("#52c48c");
+const DOWN = new Color("#ef6b78");
+
 const data = await new Request(ENDPOINT).loadJSON();
+const family = config.widgetFamily || "medium";
+
 const w = new ListWidget();
 w.backgroundColor = new Color("#0a0a0b");
-w.setPadding(14, 14, 14, 14);
 
-const bronze = new Color("#e0a44a");
-const up = new Color("#52c48c");
-const down = new Color("#ef6b78");
-const muted = new Color("#79776f");
+const eur = (n) =>
+  "€" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+const pct = (n) => (n >= 0 ? "+" : "") + n + "%";
+const changeColor = (n) => (n >= 0 ? UP : DOWN);
 
-const title = w.addText("STRATA");
-title.font = Font.mediumSystemFont(9);
-title.textColor = muted;
+const addTotal = (big) => {
+  const t = w.addText("STRATA");
+  t.font = Font.mediumSystemFont(9);
+  t.textColor = MUTED;
+  const v = w.addText(eur(data.total));
+  v.font = Font.boldSystemFont(big ? 28 : 22);
+  v.textColor = INK;
+  const c = w.addText(
+    (data.totalChangePct >= 0 ? "▲ " : "▼ ") + pct(data.totalChangePct)
+  );
+  c.font = Font.semiboldSystemFont(13);
+  c.textColor = changeColor(data.totalChangePct);
+};
 
-const total = w.addText("€" + Number(data.total).toLocaleString());
-total.font = Font.boldSystemFont(24);
-total.textColor = new Color("#f3f0ea");
+const addRows = (count) => {
+  for (const p of data.positions.slice(0, count)) {
+    const row = w.addStack();
+    row.centerAlignContent();
+    const name = row.addText(p.ticker || p.name);
+    name.font = Font.mediumSystemFont(12);
+    name.textColor = new Color("#b4b2ac");
+    name.lineLimit = 1;
+    row.addSpacer();
+    const c = row.addText(pct(p.changePct));
+    c.font = Font.semiboldSystemFont(12);
+    c.textColor = changeColor(p.changePct);
+    w.addSpacer(4);
+  }
+};
 
-const chg = w.addText(
-  (data.totalChangePct >= 0 ? "▲ " : "▼ ") + Math.abs(data.totalChangePct) + "%"
-);
-chg.font = Font.semiboldSystemFont(12);
-chg.textColor = data.totalChangePct >= 0 ? up : down;
-
-w.addSpacer(8);
-
-for (const p of data.positions.slice(0, 4)) {
-  const row = w.addStack();
-  row.centerAlignContent();
-  const name = row.addText(p.ticker || p.name);
-  name.font = Font.mediumSystemFont(12);
-  name.textColor = new Color("#b4b2ac");
-  row.addSpacer();
-  const pct = row.addText((p.changePct >= 0 ? "+" : "") + p.changePct + "%");
-  pct.font = Font.semiboldSystemFont(12);
-  pct.textColor = p.changePct >= 0 ? up : down;
-  w.addSpacer(3);
+if (family === "small") {
+  w.setPadding(14, 14, 14, 14);
+  addTotal(true);
+  w.addSpacer(6);
+  addRows(2);
+} else if (family === "large") {
+  w.setPadding(18, 18, 18, 18);
+  addTotal(true);
+  w.addSpacer(10);
+  addRows(8);
+} else {
+  w.setPadding(16, 16, 16, 16);
+  addTotal(false);
+  w.addSpacer(8);
+  addRows(4);
 }
 
-const foot = w.addText("Updated " + new Date(data.updatedAt).toLocaleTimeString());
-foot.font = Font.systemFont(8);
-foot.textColor = muted;
-
 Script.setWidget(w);
-w.presentMedium();
+if (family === "small") w.presentSmall();
+else if (family === "large") w.presentLarge();
+else w.presentMedium();
 Script.complete();
 `;
 
