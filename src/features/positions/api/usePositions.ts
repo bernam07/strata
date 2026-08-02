@@ -15,6 +15,18 @@ export interface InstrumentMeta {
   currency: string;
 }
 
+export const useInstruments = () =>
+  useQuery<Map<string, InstrumentMeta>>({
+    queryKey: ['instruments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('instruments')
+        .select('id, ticker, isin, name, currency');
+      if (error) throw error;
+      return new Map((data ?? []).map((row) => [row.id, row]));
+    },
+  });
+
 export interface PositionsData {
   positions: Position[];
   instruments: Map<string, InstrumentMeta>;

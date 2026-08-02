@@ -5,6 +5,7 @@ import { Card } from '@/ui/Card';
 import { Labelled, Select, TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
+import { useInstruments } from '@/features/positions/api/usePositions';
 import {
   useReverseTransaction,
   useTransactions,
@@ -21,6 +22,7 @@ export const TransactionsPage = () => {
   const [filter, setFilter] = useState<TransactionFilter>({});
   const [mode, setMode] = useState<AddMode>('none');
   const { data: transactions = [], isLoading } = useTransactions(filter);
+  const { data: instruments } = useInstruments();
   const reverse = useReverseTransaction();
 
   const patchFilter = (patch: Partial<TransactionFilter>) =>
@@ -129,6 +131,7 @@ export const TransactionsPage = () => {
         <TransactionList
           transactions={transactions}
           accounts={accounts}
+          instruments={instruments}
           onReverse={onReverse}
         />
       )}
