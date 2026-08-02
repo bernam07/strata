@@ -267,6 +267,31 @@ export interface Database {
         };
         Relationships: [];
       };
+      holdings: {
+        Row: {
+          user_id: string;
+          instrument_id: string;
+          quantity: string;
+          average_price: string;
+          current_price: string;
+          currency: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          instrument_id: string;
+          quantity: string;
+          average_price: string;
+          current_price: string;
+          currency?: string;
+        };
+        Update: {
+          quantity?: string;
+          average_price?: string;
+          current_price?: string;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;
@@ -313,6 +338,10 @@ export interface Database {
       };
       upsert_fx_rates: {
         Args: { p_rows: Json };
+        Returns: number;
+      };
+      replace_holdings: {
+        Args: { p_user: string; p_rows: Json };
         Returns: number;
       };
       set_t212_api_key: {

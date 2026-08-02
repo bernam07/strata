@@ -135,9 +135,10 @@ const refreshInstruments = async (
   return buildResolver(db, userId);
 };
 
-const syncPrices = async (
+const syncPortfolio = async (
   db: SupabaseClient,
   userId: string,
+  _accountId: string,
   apiKey: string,
   useDemo: boolean,
 ): Promise<void> => {
@@ -155,7 +156,7 @@ const syncPrices = async (
   }
 
   const response = await t212Fetch(`${baseUrl(useDemo)}/equity/portfolio`, apiKey);
-  if (!response.ok) return;
+  if (!response.ok) throw new Error(`portfolio: HTTP ${response.status}`);
   const positions = (await response.json()) as T212Position[];
   const asOf = new Date().toISOString().slice(0, 10);
 
@@ -184,6 +185,23 @@ const syncPrices = async (
   if (priceRows.length > 0) {
     await db.rpc('upsert_prices', { p_rows: priceRows });
   }
+
+  const holdingRows = positions
+    .map((position) => {
+      const instrumentId = idByTicker.get(position.ticker);
+      if (!instrumentId) return null;
+      return {
+        user_id: userId,
+        instrument_id: instrumentId,
+        quantity: position.quantity,
+        average_price: position.averagePrice,
+        current_price: position.currentPrice,
+        currency: currencyById.get(instrumentId) ?? 'EUR',
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  await db.rpc('replace_holdings', { p_user: userId, p_rows: holdingRows });
 };
 
 const ingest = async (
@@ -283,46 +301,64 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
     .single<{ id: string }>();
   if (runError || !run) throw runError ?? new Error('Falha a iniciar sync.');
 
+  const errors: string[] = [];
+  const step = async (label: string, run: () => Promise<void>): Promise<void> => {
+    try {
+      await run();
+    } catch (error) {
+      errors.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   try {
     const credential = await loadCredential(db, userId);
     const accountId = await findAccount(db, userId);
-    const resolverMap = await refreshInstruments(
-      db,
-      userId,
-      credential.secret,
-      credential.use_demo,
+
+    await step('instruments', () =>
+      refreshInstruments(db, userId, credential.secret, credential.use_demo).then(
+        () => undefined,
+      ),
     );
-    const resolve: InstrumentResolver = (ticker) =>
-      resolverMap.get(ticker) ?? null;
+    const resolverMap = await buildResolver(db, userId);
+    const resolve: InstrumentResolver = (ticker) => resolverMap.get(ticker) ?? null;
 
     let inserted = 0;
-    inserted += await syncStream<T212Order>(db, userId, credential.secret, credential.use_demo, {
-      stream: 'orders',
-      path: '/history/orders',
-      identify: (order) => `order:${order.id}`,
-      toRow: (order) => orderToTransactionRow(userId, accountId, order, resolve),
+    await step('orders', async () => {
+      inserted += await syncStream<T212Order>(db, userId, credential.secret, credential.use_demo, {
+        stream: 'orders',
+        path: '/equity/history/orders',
+        identify: (order) => `order:${order.id}`,
+        toRow: (order) => orderToTransactionRow(userId, accountId, order, resolve),
+      });
     });
-    inserted += await syncStream<T212Dividend>(db, userId, credential.secret, credential.use_demo, {
-      stream: 'dividends',
-      path: '/history/dividends',
-      identify: (dividend) => `dividend:${dividend.reference}`,
-      toRow: (dividend) => dividendToTransactionRow(userId, accountId, dividend, resolve),
+    await step('dividends', async () => {
+      inserted += await syncStream<T212Dividend>(db, userId, credential.secret, credential.use_demo, {
+        stream: 'dividends',
+        path: '/history/dividends',
+        identify: (dividend) => `dividend:${dividend.reference}`,
+        toRow: (dividend) => dividendToTransactionRow(userId, accountId, dividend, resolve),
+      });
     });
-    inserted += await syncStream<T212CashTransaction>(db, userId, credential.secret, credential.use_demo, {
-      stream: 'cash',
-      path: '/history/transactions',
-      identify: (cash) => `cash:${cash.reference}`,
-      toRow: (cash) => cashTransactionToRow(userId, accountId, cash),
+    await step('cash', async () => {
+      inserted += await syncStream<T212CashTransaction>(db, userId, credential.secret, credential.use_demo, {
+        stream: 'cash',
+        path: '/history/transactions',
+        identify: (cash) => `cash:${cash.reference}`,
+        toRow: (cash) => cashTransactionToRow(userId, accountId, cash),
+      });
     });
 
-    await syncPrices(db, userId, credential.secret, credential.use_demo);
+    await step('portfolio', () =>
+      syncPortfolio(db, userId, accountId, credential.secret, credential.use_demo),
+    );
 
     await db
       .from('sync_runs')
       .update({
-        status: 'success',
+        status: errors.length > 0 ? 'error' : 'success',
         finished_at: new Date().toISOString(),
         inserted_rows: inserted,
+        error_message: errors.length > 0 ? errors.join(' | ') : null,
       })
       .eq('id', run.id);
     return inserted;
