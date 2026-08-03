@@ -13,6 +13,7 @@ export interface InstrumentMeta {
   isin: string | null;
   name: string;
   currency: string;
+  yahoo_symbol?: string | null;
 }
 
 export interface PricePoint {
@@ -43,7 +44,7 @@ export const useInstruments = () =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('instruments')
-        .select('id, ticker, isin, name, currency');
+        .select('id, ticker, isin, name, currency, yahoo_symbol');
       if (error) throw error;
       return new Map((data ?? []).map((row) => [row.id, row]));
     },
@@ -76,7 +77,7 @@ export const usePositions = () =>
             .from('transactions')
             .select('*')
             .not('instrument_id', 'is', null),
-          supabase.from('instruments').select('id, ticker, isin, name, currency'),
+          supabase.from('instruments').select('id, ticker, isin, name, currency, yahoo_symbol'),
           supabase
             .from('prices')
             .select('instrument_id, close, currency, as_of')

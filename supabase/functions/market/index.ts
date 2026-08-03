@@ -168,6 +168,48 @@ const resolveSymbol = async (
   return bare || null;
 };
 
+const candidateSymbols = async (
+  isin: string | null,
+  ticker: string,
+  yahooSymbol: string | null,
+): Promise<string[]> => {
+  const list: string[] = [];
+  const push = (symbol: string | null | undefined) => {
+    if (symbol && !list.includes(symbol)) list.push(symbol);
+  };
+  push(yahooSymbol);
+  if (isin) {
+    try {
+      for (const match of await search(isin)) push(match.symbol);
+    } catch {
+      // ignore, fall through to ticker
+    }
+  }
+  push(ticker.split('_')[0]);
+  return list;
+};
+
+const quoteForInstrument = async (
+  isin: string | null,
+  ticker: string,
+  yahooSymbol: string | null,
+  range: string,
+): Promise<QuoteResult & { symbol: string }> => {
+  const candidates = await candidateSymbols(isin, ticker, yahooSymbol);
+  if (candidates.length === 0) throw new Error(`no symbol for ${ticker || isin}`);
+  let lastError = `no data for ${ticker || isin}`;
+  for (const symbol of candidates) {
+    try {
+      const data = await fetchQuote(symbol, range);
+      if (data.history.length >= 2) return { ...data, symbol };
+      lastError = `chart ${symbol}: only ${data.history.length} points`;
+    } catch (error) {
+      lastError = msg(error);
+    }
+  }
+  throw new Error(lastError);
+};
+
 const refresh = async (
   db: SupabaseClient,
 ): Promise<{ updated: number; errors: string[] }> => {
@@ -285,19 +327,22 @@ Deno.serve(async (req) => {
   }
 
   if (action === 'quote') {
+    const range = params.range ?? '1y';
     try {
-      let symbol = params.symbol ?? '';
-      if (!symbol && (params.isin || params.ticker || params.yahoo)) {
-        symbol =
-          (await resolveSymbol(
-            params.isin || null,
-            params.ticker || '',
-            params.yahoo || null,
-          )) ?? '';
+      if (params.symbol) {
+        const data = await fetchQuote(params.symbol, range);
+        return json({ ...data, symbol: params.symbol });
       }
-      if (!symbol) return json({ error: 'no symbol' });
-      const data = await fetchQuote(symbol, params.range ?? '1y');
-      return json({ ...data, symbol });
+      if (params.isin || params.ticker || params.yahoo) {
+        const data = await quoteForInstrument(
+          params.isin || null,
+          params.ticker || '',
+          params.yahoo || null,
+          range,
+        );
+        return json(data);
+      }
+      return json({ error: 'no symbol' });
     } catch (error) {
       return json({ error: msg(error) });
     }

@@ -49,15 +49,24 @@ export const useQuote = (symbol: string | null) =>
   });
 
 export const useInstrumentQuote = (
-  instrument: { isin: string | null; ticker: string } | null,
+  instrument:
+    | { isin: string | null; ticker: string; yahoo?: string | null }
+    | null,
 ) =>
   useQuery<QuoteData>({
-    queryKey: ['instrument-quote', instrument?.isin, instrument?.ticker],
+    queryKey: [
+      'instrument-quote',
+      instrument?.yahoo,
+      instrument?.isin,
+      instrument?.ticker,
+    ],
     enabled: instrument !== null,
     staleTime: 5 * 60 * 1000,
+    retry: false,
     queryFn: () =>
       invokeMarket<QuoteData>({
         action: 'quote',
+        yahoo: instrument?.yahoo ?? '',
         isin: instrument?.isin ?? '',
         ticker: instrument?.ticker ?? '',
         range: '1y',

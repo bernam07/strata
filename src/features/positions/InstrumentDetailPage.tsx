@@ -42,7 +42,13 @@ export const InstrumentDetailPage = () => {
 
   const instrument = positionsQuery.data?.instruments.get(id);
   const liveQuote = useInstrumentQuote(
-    instrument ? { isin: instrument.isin, ticker: instrument.ticker } : null,
+    instrument
+      ? {
+          isin: instrument.isin,
+          ticker: instrument.ticker,
+          yahoo: instrument.yahoo_symbol,
+        }
+      : null,
   );
   const position = useMemo(
     () => positionsQuery.data?.positions.find((entry) => entry.instrumentId === id),
@@ -114,14 +120,23 @@ export const InstrumentDetailPage = () => {
         </div>
       )}
 
-      {chartPoints.length >= 2 && (
+      {chartPoints.length >= 2 ? (
         <Card className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Price
           </p>
           <PriceChart points={chartPoints} currency={chartCurrency} />
         </Card>
-      )}
+      ) : liveQuote.data?.error ? (
+        <Card>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Price
+          </p>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Chart unavailable · {liveQuote.data.error}
+          </p>
+        </Card>
+      ) : null}
 
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">

@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { formatEur, money } from '@/core/money/money';
 import {
   comparePeriods,
   monthlyExpenses,
   type CategoryLookup,
 } from '@/core/expenses/summary';
+import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { TransactionForm } from '@/features/transactions/components/TransactionForm';
+import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { Select } from '@/ui/Field';
@@ -32,9 +35,11 @@ const monthKey = (offset: number): string => {
 
 export const ExpensesPage = () => {
   const { data: transactions = [] } = useTransactions();
+  const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: assignments } = useAssignments();
   const assign = useAssignCategory();
+  const [adding, setAdding] = useState(false);
 
   const categoryName = useMemo(() => {
     const byId = new Map(categories.map((category) => [category.id, category.name]));
@@ -64,9 +69,26 @@ export const ExpensesPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Expenses
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Expenses
+        </h1>
+        {!adding && (
+          <Button onClick={() => setAdding(true)} disabled={accounts.length === 0}>
+            Add expense
+          </Button>
+        )}
+      </div>
+
+      {adding && (
+        <Card>
+          <TransactionForm
+            accounts={accounts}
+            defaultKind="expense"
+            onDone={() => setAdding(false)}
+          />
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-4 font-semibold text-[var(--text-strong)]">
