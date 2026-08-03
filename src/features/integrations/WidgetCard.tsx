@@ -21,13 +21,14 @@ const DOWN = new Color("#ef6b78");
 const data = await new Request(ENDPOINT).loadJSON();
 const family = config.widgetFamily || "medium";
 
-const w = new ListWidget();
-w.backgroundColor = new Color("#0a0a0b");
-
 const eur = (n) =>
   "€" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
 const pct = (n) => (n >= 0 ? "+" : "") + n + "%";
+const arrow = (n) => (n >= 0 ? "▲ " : "▼ ");
 const changeColor = (n) => (n >= 0 ? UP : DOWN);
+const top = data.positions[0];
+
+const w = new ListWidget();
 
 const addTotal = (big) => {
   const t = w.addText("STRATA");
@@ -36,9 +37,7 @@ const addTotal = (big) => {
   const v = w.addText(eur(data.total));
   v.font = Font.boldSystemFont(big ? 28 : 22);
   v.textColor = INK;
-  const c = w.addText(
-    (data.totalChangePct >= 0 ? "▲ " : "▼ ") + pct(data.totalChangePct)
-  );
+  const c = w.addText(arrow(data.totalChangePct) + pct(data.totalChangePct));
   c.font = Font.semiboldSystemFont(13);
   c.textColor = changeColor(data.totalChangePct);
 };
@@ -59,17 +58,40 @@ const addRows = (count) => {
   }
 };
 
-if (family === "small") {
+if (family === "accessoryInline") {
+  w.addText("Strata " + arrow(data.totalChangePct) + pct(data.totalChangePct));
+} else if (family === "accessoryCircular") {
+  w.addSpacer();
+  const s = w.addStack();
+  s.addSpacer();
+  const t = s.addText(pct(Math.round(data.totalChangePct)));
+  t.font = Font.boldSystemFont(15);
+  s.addSpacer();
+  w.addSpacer();
+} else if (family === "accessoryRectangular") {
+  const l1 = w.addText("STRATA  " + eur(data.total));
+  l1.font = Font.semiboldSystemFont(13);
+  const l2 = w.addText(arrow(data.totalChangePct) + pct(data.totalChangePct));
+  l2.font = Font.mediumSystemFont(12);
+  if (top) {
+    const l3 = w.addText(top.ticker + "  " + pct(top.changePct));
+    l3.font = Font.systemFont(11);
+    l3.textColor = Color.gray();
+  }
+} else if (family === "small") {
+  w.backgroundColor = new Color("#0a0a0b");
   w.setPadding(14, 14, 14, 14);
   addTotal(true);
   w.addSpacer(6);
   addRows(2);
 } else if (family === "large") {
+  w.backgroundColor = new Color("#0a0a0b");
   w.setPadding(18, 18, 18, 18);
   addTotal(true);
   w.addSpacer(10);
   addRows(8);
 } else {
+  w.backgroundColor = new Color("#0a0a0b");
   w.setPadding(16, 16, 16, 16);
   addTotal(false);
   w.addSpacer(8);
@@ -79,7 +101,7 @@ if (family === "small") {
 Script.setWidget(w);
 if (family === "small") w.presentSmall();
 else if (family === "large") w.presentLarge();
-else w.presentMedium();
+else if (family === "medium") w.presentMedium();
 Script.complete();
 `;
 
@@ -126,7 +148,8 @@ export const WidgetCard = () => {
               <li>Install the free Scriptable app from the App Store.</li>
               <li>New script → paste the script below → name it Strata.</li>
               <li>
-                Home screen → add a Scriptable widget → choose the Strata script.
+                Add a Scriptable widget to your home screen or lock screen →
+                choose the Strata script. All sizes are supported.
               </li>
             </ol>
           </Surface>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const palette = [
   '#5b6ee1',
@@ -21,14 +21,25 @@ const colorFor = (seed: string): string => {
 
 export const StockAvatar = ({
   ticker,
+  isin,
   size = 40,
 }: {
   ticker: string;
+  isin?: string | null;
   size?: number;
 }) => {
   const symbol = (ticker.split('_')[0] ?? ticker).toUpperCase();
   const initials = symbol.slice(0, 3);
-  const [failed, setFailed] = useState(false);
+
+  const candidates = useMemo(() => {
+    const list: string[] = [];
+    if (isin) list.push(`https://assets.parqet.com/logos/isin/${isin}`);
+    if (symbol) list.push(`https://assets.parqet.com/logos/symbol/${symbol}`);
+    return list;
+  }, [isin, symbol]);
+
+  const [index, setIndex] = useState(0);
+  const src = candidates[index];
 
   return (
     <div
@@ -42,13 +53,13 @@ export const StockAvatar = ({
       aria-label={symbol}
     >
       <span>{initials}</span>
-      {!failed && symbol && (
+      {src && (
         <img
-          src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
+          src={src}
           alt=""
           className="absolute inset-0 h-full w-full bg-white object-contain"
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={() => setIndex((current) => current + 1)}
         />
       )}
     </div>
