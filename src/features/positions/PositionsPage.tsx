@@ -39,7 +39,11 @@ const PositionRow = ({
         elevation="flat"
         className="tap flex items-center gap-4 p-4 hover:border-[var(--accent)]"
       >
-        <StockAvatar ticker={instrument?.ticker ?? position.instrumentId} size={38} />
+        <StockAvatar
+          ticker={instrument?.ticker ?? position.instrumentId}
+          isin={instrument?.isin}
+          size={38}
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-[var(--text-strong)]">
             {instrument?.name ?? instrument?.ticker ?? 'Instrument'}

@@ -67,7 +67,11 @@ export const InstrumentDetailPage = () => {
       </Link>
 
       <Card className="flex items-center gap-4">
-        <StockAvatar ticker={instrument?.ticker ?? id} size={52} />
+        <StockAvatar
+          ticker={instrument?.ticker ?? id}
+          isin={instrument?.isin}
+          size={52}
+        />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl font-bold text-[var(--text-strong)]">
             {instrument?.name ?? instrument?.ticker ?? 'Instrument'}
