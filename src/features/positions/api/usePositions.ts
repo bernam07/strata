@@ -15,6 +15,28 @@ export interface InstrumentMeta {
   currency: string;
 }
 
+export interface PricePoint {
+  date: string;
+  value: number;
+}
+
+export const useInstrumentPrices = (instrumentId: string) =>
+  useQuery<PricePoint[]>({
+    queryKey: ['instrument-prices', instrumentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('prices')
+        .select('as_of, close')
+        .eq('instrument_id', instrumentId)
+        .order('as_of', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        date: row.as_of,
+        value: Number(row.close),
+      }));
+    },
+  });
+
 export const useInstruments = () =>
   useQuery<Map<string, InstrumentMeta>>({
     queryKey: ['instruments'],
