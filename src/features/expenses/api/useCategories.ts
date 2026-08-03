@@ -31,11 +31,16 @@ export const useCreateCategory = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (input: { name: string; parentId: string | null }) => {
-      const { error } = await supabase.from('categories').insert({
-        name: input.name,
-        parent_id: input.parentId,
-      });
+      const { data, error } = await supabase
+        .from('categories')
+        .insert({
+          name: input.name,
+          parent_id: input.parentId,
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+      return data.id as string;
     },
     onSuccess: () => client.invalidateQueries({ queryKey: categoriesKey }),
   });

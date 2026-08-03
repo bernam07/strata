@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
+import { formatEur, isNegative, type Money, sum } from '@/core/money/money';
+import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from './api/useAccounts';
+import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { AccountForm } from './components/AccountForm';
 import { InstitutionLogo } from './components/InstitutionLogo';
 import { getInstitution } from './institutions';
+import type { Account } from '@/core/types';
 
 const typeLabel: Record<string, string> = {
   cash: 'Cash',
@@ -15,9 +20,55 @@ const typeLabel: Record<string, string> = {
   liability: 'Liability',
 };
 
+interface Group {
+  institutionId: string;
+  accounts: Account[];
+  total: Money;
+}
+
+const Amount = ({ value }: { value: Money }) => (
+  <span
+    className="shrink-0 text-sm font-semibold tabular-nums"
+    style={{ color: isNegative(value) ? 'var(--negative)' : 'var(--text-strong)' }}
+  >
+    {formatEur(value)}
+  </span>
+);
+
 export const AccountsPage = () => {
   const { data: accounts, isLoading } = useAccounts();
+  const { data: transactions = [] } = useTransactions();
+  const { data: brokers } = useBrokerAccounts();
   const [creating, setCreating] = useState(false);
+
+  const groups = useMemo<Group[]>(() => {
+    const list = accounts ?? [];
+    const balances = applyBrokerBalances(
+      deriveBalances(transactions),
+      list,
+      brokers ?? new Map(),
+    );
+    const byInstitution = new Map<string, Account[]>();
+    for (const account of list) {
+      const bucket = byInstitution.get(account.institutionId) ?? [];
+      bucket.push(account);
+      byInstitution.set(account.institutionId, bucket);
+    }
+    return [...byInstitution.entries()].map(([institutionId, grouped]) => ({
+      institutionId,
+      accounts: grouped,
+      total: sum(grouped.map((account) => balanceOf(balances, account.id))),
+    }));
+  }, [accounts, transactions, brokers]);
+
+  const balanceById = useMemo(() => {
+    const balances = applyBrokerBalances(
+      deriveBalances(transactions),
+      accounts ?? [],
+      brokers ?? new Map(),
+    );
+    return (accountId: string) => balanceOf(balances, accountId);
+  }, [accounts, transactions, brokers]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -39,27 +90,46 @@ export const AccountsPage = () => {
       {isLoading ? (
         <SkeletonRows count={4} />
       ) : accounts && accounts.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {accounts.map((account) => (
-            <Link key={account.id} to={`/accounts/${account.id}`}>
-              <Surface
-                elevation="raised"
-                className="tap flex items-center gap-4 p-5 hover:border-[var(--accent)]"
-              >
-                <InstitutionLogo institutionId={account.institutionId} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[var(--text-strong)]">
-                    {account.name}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {getInstitution(account.institutionId).displayName} ·{' '}
-                    {typeLabel[account.type]}
-                  </p>
+        <div className="flex flex-col gap-6">
+          {groups.map((group) => {
+            const institution = getInstitution(group.institutionId);
+            const many = group.accounts.length > 1;
+            return (
+              <section key={group.institutionId} className="flex flex-col gap-2.5">
+                {many && (
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                      {institution.displayName}
+                    </span>
+                    <span className="text-xs font-semibold text-[var(--text-muted)]">
+                      Combined <Amount value={group.total} />
+                    </span>
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {group.accounts.map((account) => (
+                    <Link key={account.id} to={`/accounts/${account.id}`}>
+                      <Surface
+                        elevation="raised"
+                        className="tap flex items-center gap-4 p-5 hover:border-[var(--accent)]"
+                      >
+                        <InstitutionLogo institutionId={account.institutionId} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-[var(--text-strong)]">
+                            {account.name}
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {institution.displayName} · {typeLabel[account.type]}
+                          </p>
+                        </div>
+                        <Amount value={balanceById(account.id)} />
+                      </Surface>
+                    </Link>
+                  ))}
                 </div>
-                <span className="text-[var(--text-muted)]">›</span>
-              </Surface>
-            </Link>
-          ))}
+              </section>
+            );
+          })}
         </div>
       ) : (
         !creating && (
