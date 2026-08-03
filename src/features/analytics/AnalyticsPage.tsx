@@ -21,8 +21,37 @@ import {
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
+import { Link } from 'react-router-dom';
+import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { NetWorthChart } from './NetWorthChart';
 import { DiversificationBars } from './DiversificationBars';
+
+interface Mover {
+  instrumentId: string;
+  ticker: string;
+  isin: string | null;
+  name: string;
+  pct: number;
+}
+
+const MoverRow = ({ mover }: { mover: Mover }) => (
+  <Link
+    to={`/positions/${mover.instrumentId}`}
+    className="tap flex items-center gap-3"
+  >
+    <StockAvatar ticker={mover.ticker} isin={mover.isin} size={28} />
+    <span className="flex-1 truncate text-sm font-semibold text-[var(--text-strong)]">
+      {mover.name}
+    </span>
+    <span
+      className="text-sm font-semibold tabular-nums"
+      style={{ color: mover.pct >= 0 ? 'var(--positive)' : 'var(--negative)' }}
+    >
+      {mover.pct >= 0 ? '+' : ''}
+      {(mover.pct * 100).toFixed(1)}%
+    </span>
+  </Link>
+);
 
 const eur = new Intl.NumberFormat('en-GB', {
   style: 'currency',
@@ -113,7 +142,36 @@ export const AnalyticsPage = () => {
       (position) => (position.marketValue ?? position.costBasis).toNumber(),
     );
 
-    return { netWorthMarket, twr, irr, series, years, geography, currency };
+    const movers = positions
+      .filter((position) => position.unrealizedPct !== null)
+      .map((position) => {
+        const meta = instruments?.get(position.instrumentId);
+        return {
+          instrumentId: position.instrumentId,
+          ticker: meta?.ticker ?? position.instrumentId,
+          isin: meta?.isin ?? null,
+          name: meta?.name ?? meta?.ticker ?? position.instrumentId,
+          pct: position.unrealizedPct as number,
+        };
+      })
+      .sort((a, b) => b.pct - a.pct);
+    const gainers = movers.filter((m) => m.pct > 0).slice(0, 3);
+    const losers = movers
+      .filter((m) => m.pct < 0)
+      .slice(-3)
+      .reverse();
+
+    return {
+      netWorthMarket,
+      twr,
+      irr,
+      series,
+      years,
+      geography,
+      currency,
+      gainers,
+      losers,
+    };
   }, [transactionsQuery.data, positionsQuery.data, accountsQuery.data, brokersQuery.data]);
 
   const activePeriod = periods.find((entry) => entry.key === period)!;
@@ -188,6 +246,35 @@ export const AnalyticsPage = () => {
               daily snapshots accumulate.
             </p>
           </Card>
+
+          {(model.gainers.length > 0 || model.losers.length > 0) && (
+            <Card className="grid gap-8 sm:grid-cols-2">
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  Top gainers
+                </h3>
+                {model.gainers.length > 0 ? (
+                  model.gainers.map((mover) => (
+                    <MoverRow key={mover.instrumentId} mover={mover} />
+                  ))
+                ) : (
+                  <p className="text-sm text-[var(--text-muted)]">None.</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  Top losers
+                </h3>
+                {model.losers.length > 0 ? (
+                  model.losers.map((mover) => (
+                    <MoverRow key={mover.instrumentId} mover={mover} />
+                  ))
+                ) : (
+                  <p className="text-sm text-[var(--text-muted)]">None.</p>
+                )}
+              </div>
+            </Card>
+          )}
 
           <Card className="grid gap-8 sm:grid-cols-2">
             <DiversificationBars title="Geography (ISIN)" slices={model.geography} />

@@ -20,6 +20,7 @@ export const TransactionList = ({
   accounts,
   instruments,
   showAccount = true,
+  instrumentView = false,
   onReverse,
   onEdit,
 }: {
@@ -27,6 +28,7 @@ export const TransactionList = ({
   accounts: Account[];
   instruments?: Map<string, InstrumentMeta>;
   showAccount?: boolean;
+  instrumentView?: boolean;
   onReverse?: (transaction: Transaction) => void;
   onEdit?: (transaction: Transaction) => void;
 }) => {
@@ -74,6 +76,16 @@ export const TransactionList = ({
         if (showAccount && account) meta.push(account.name);
         meta.push(dateFormatter.format(new Date(transaction.occurredAt)));
 
+        let valueText = formatEur(amount);
+        let valueColor = negative ? 'var(--negative)' : 'var(--positive)';
+        if (instrumentView && transaction.kind === 'buy') {
+          valueText = formatEur(amount.abs());
+          valueColor = 'var(--text-2)';
+        } else if (instrumentView && transaction.kind === 'sell') {
+          valueText = `+${formatEur(amount.abs())}`;
+          valueColor = 'var(--positive)';
+        }
+
         return (
           <li
             key={transaction.id}
@@ -92,9 +104,9 @@ export const TransactionList = ({
             </div>
             <span
               className="text-sm font-semibold tabular-nums"
-              style={{ color: negative ? 'var(--negative)' : 'var(--positive)' }}
+              style={{ color: valueColor }}
             >
-              {formatEur(amount)}
+              {valueText}
             </span>
             {canEdit && (
               <button

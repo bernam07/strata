@@ -5,7 +5,8 @@ import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
-import { usePositions } from './api/usePositions';
+import { usePositions, useInstrumentPrices } from './api/usePositions';
+import { PriceChart } from './PriceChart';
 import { StockAvatar } from './components/StockAvatar';
 
 const percent = new Intl.NumberFormat('en-GB', {
@@ -36,6 +37,7 @@ export const InstrumentDetailPage = () => {
   const { data: transactions = [], isLoading } = useTransactions({
     instrumentId: id,
   });
+  const { data: prices = [] } = useInstrumentPrices(id);
 
   const instrument = positionsQuery.data?.instruments.get(id);
   const position = useMemo(
@@ -103,6 +105,15 @@ export const InstrumentDetailPage = () => {
         </div>
       )}
 
+      {prices.length >= 2 && (
+        <Card className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Price
+          </p>
+          <PriceChart points={prices} currency={instrument?.currency ?? 'EUR'} />
+        </Card>
+      )}
+
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">
           <div>
@@ -129,6 +140,7 @@ export const InstrumentDetailPage = () => {
             accounts={[]}
             instruments={instrumentsMap}
             showAccount={false}
+            instrumentView
           />
         )}
       </div>

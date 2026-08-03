@@ -141,6 +141,7 @@ export interface Database {
           t212_ticker: string | null;
           name: string;
           currency: string;
+          yahoo_symbol: string | null;
           created_at: string;
         };
         Insert: {
@@ -295,6 +296,25 @@ export interface Database {
           invested?: string;
           ppl?: string;
           total?: string;
+        };
+        Relationships: [];
+      };
+      watchlist: {
+        Row: {
+          user_id: string;
+          symbol: string;
+          name: string;
+          currency: string;
+          added_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          symbol: string;
+          name: string;
+          currency?: string;
+        };
+        Update: {
+          name?: string;
         };
         Relationships: [];
       };

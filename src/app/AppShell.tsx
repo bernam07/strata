@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { icons, StrataMark, type IconName } from './icons';
@@ -29,6 +29,7 @@ const sections: NavSection[] = [
     group: 'Invest',
     items: [
       { to: '/positions', label: 'Positions', icon: 'positions' },
+      { to: '/search', label: 'Search', icon: 'search' },
       { to: '/dividends', label: 'Dividends', icon: 'dividends' },
       { to: '/analytics', label: 'Analytics', icon: 'analytics' },
     ],
@@ -82,7 +83,7 @@ const ThemeButton = () => {
 const Sidebar = () => {
   const { signOut } = useAuth();
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-6 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 py-5 lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-6 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
       <div className="flex items-center gap-2.5 px-2">
         <StrataMark />
         <div>
@@ -213,17 +214,20 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2.5 border-b border-[var(--line)] px-4 py-3 lg:hidden">
+        <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
-          {children}
+          <div key={location.pathname} className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
       <BottomBar onMore={() => setMoreOpen(true)} />
