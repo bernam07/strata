@@ -128,6 +128,55 @@ select cron.schedule(
 );
 ```
 
+## Estado — Cotações e pesquisa
+
+Preços de mercado independentes da sincronização de trades:
+
+- Edge Function `market` (Deno) com três ações:
+  - `refresh` (agendada) — resolve o símbolo Yahoo de cada instrumento detido
+    (por ISIN, guardado em cache em `instruments.yahoo_symbol`), busca a cotação,
+    atualiza `holdings.current_price`, acumula o histórico em `prices` e recalcula
+    `broker_accounts.total` (caixa livre + Σ quantidade × preço × câmbio)
+  - `search` — pesquisa de ações e ETF por nome ou ticker
+  - `quote` — cotação atual, variação do dia e histórico de um ano
+- Separador **Search**: pesquisar e ver qualquer ação/ETF, mesmo sem a deter,
+  com gráfico de preço e lista de seguimento (`watchlist`, com RLS)
+
+O valor dos stocks passa a atualizar sozinho pelo agendamento; o `Sincronizar
+agora` do Trading 212 fica reservado para importar novas ordens e quantidades.
+
+> Fonte de cotações: Yahoo Finance (sem chave). A escrita dos preços, do
+> `current_price` e do `total` do broker é feita por RPCs `security definer`
+> restritas ao `service_role` — o browser nunca escreve estes valores.
+
+### Agendamento das cotações
+
+Aplicar a migração `0010_market_data.sql` e publicar a função
+(`supabase functions deploy market`). Depois agendar o `refresh` (a chamada leva
+a chave de serviço, que satisfaz o `verify_jwt`):
+
+```sql
+select cron.schedule(
+  'market-refresh',
+  '*/30 9-22 * * 1-5',
+  $$
+    select net.http_post(
+      url := 'https://<PROJECT_REF>.functions.supabase.co/market',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization',
+        'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                      where name = 'service_role_key')
+      ),
+      body := jsonb_build_object('action', 'refresh')
+    );
+  $$
+);
+```
+
+O intervalo `*/30 9-22 * * 1-5` corre de meia em meia hora, nas horas úteis de
+dias de semana; ajustar à conveniência.
+
 ## Arranque
 
 ```bash
@@ -168,6 +217,8 @@ supabase/
   migrations/    schema versionado (RLS em todas as tabelas)
   functions/
     t212-sync/   Edge Function de sincronização (Deno)
+    market/      Edge Function de cotações e pesquisa (Yahoo)
+    widget/      endpoint com token para o widget iOS (só investimentos)
     _shared/     lógica pura T212, partilhada e testada
 ```
 

@@ -29,6 +29,7 @@ const sections: NavSection[] = [
     group: 'Invest',
     items: [
       { to: '/positions', label: 'Positions', icon: 'positions' },
+      { to: '/search', label: 'Search', icon: 'search' },
       { to: '/dividends', label: 'Dividends', icon: 'dividends' },
       { to: '/analytics', label: 'Analytics', icon: 'analytics' },
     ],

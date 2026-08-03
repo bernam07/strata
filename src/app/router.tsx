@@ -9,6 +9,7 @@ import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { PositionsPage } from '@/features/positions/PositionsPage';
 import { InstrumentDetailPage } from '@/features/positions/InstrumentDetailPage';
+import { SearchPage } from '@/features/search/SearchPage';
 import { DividendsPage } from '@/features/dividends/DividendsPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
 import { TaxPage } from '@/features/tax/TaxPage';
@@ -43,6 +44,7 @@ export const AppRouter = () => {
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/positions/:id" element={<InstrumentDetailPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/dividends" element={<DividendsPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/tax" element={<TaxPage />} />
