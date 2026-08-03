@@ -52,6 +52,7 @@ const primaryTabs: NavEntry[] = [
 ];
 
 const secondaryLinks: NavEntry[] = [
+  { to: '/search', label: 'Search', icon: 'search' },
   { to: '/dividends', label: 'Dividends', icon: 'dividends' },
   { to: '/analytics', label: 'Analytics', icon: 'analytics' },
   { to: '/expenses', label: 'Expenses', icon: 'expenses' },

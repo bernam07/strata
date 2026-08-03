@@ -3,7 +3,7 @@ import type { Money } from '@/core/money/money';
 import { formatEur } from '@/core/money/money';
 import { budgetLines, totalBudget } from '@/core/expenses/budget';
 import { Button } from '@/ui/Button';
-import { Select, TextInput } from '@/ui/Field';
+import { MoneyInput, Select } from '@/ui/Field';
 import type { Category } from './api/useCategories';
 import { useBudgets, useSetBudget } from './api/useBudgets';
 
@@ -128,14 +128,10 @@ export const BudgetPanel = ({
             </Select>
           </div>
           <div className="w-full sm:w-32">
-            <TextInput
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
+            <MoneyInput
               placeholder="Limit €"
               value={newLimit}
-              onChange={(event) => setNewLimit(event.target.value)}
+              onChange={setNewLimit}
             />
           </div>
           <Button

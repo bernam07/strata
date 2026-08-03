@@ -44,3 +44,21 @@ export const useCreateAccount = () => {
     onSuccess: () => client.invalidateQueries({ queryKey: accountsKey }),
   });
 };
+
+export const useDeleteAccount = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (accountId: string) => {
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', accountId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: accountsKey });
+      client.invalidateQueries({ queryKey: ['transactions'] });
+      client.invalidateQueries({ queryKey: ['positions'] });
+    },
+  });
+};

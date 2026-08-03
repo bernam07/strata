@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { formatEur, isNegative } from '@/core/money/money';
-import { useAccounts } from './api/useAccounts';
+import { useAccounts, useDeleteAccount } from './api/useAccounts';
 import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { getInstitution } from './institutions';
 import { InstitutionLogo } from './components/InstitutionLogo';
@@ -11,8 +11,10 @@ import {
   useReverseTransaction,
   useTransactions,
 } from '@/features/transactions/api/useTransactions';
+import { TransactionForm } from '@/features/transactions/components/TransactionForm';
 import { useInstruments } from '@/features/positions/api/usePositions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
+import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
 
@@ -24,15 +26,29 @@ const typeLabel: Record<string, string> = {
 
 export const AccountDetailPage = () => {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const { data: accounts = [], isLoading: accountsLoading } = useAccounts();
   const { data: transactions = [], isLoading } = useTransactions({
     accountId: id,
   });
   const reverse = useReverseTransaction();
+  const remove = useDeleteAccount();
+  const [adding, setAdding] = useState(false);
 
   const { data: brokers } = useBrokerAccounts();
   const { data: instruments } = useInstruments();
   const account = accounts.find((entry) => entry.id === id);
+
+  const onDelete = () => {
+    if (!account) return;
+    if (
+      window.confirm(
+        `Delete "${account.name}"? This permanently removes the account and all of its transactions. This cannot be undone.`,
+      )
+    ) {
+      remove.mutate(id, { onSuccess: () => navigate('/accounts') });
+    }
+  };
   const balance = useMemo(() => {
     const balances = applyBrokerBalances(
       deriveBalances(transactions),
@@ -101,10 +117,26 @@ export const AccountDetailPage = () => {
         </div>
       </Card>
 
+      {adding && account && (
+        <Card>
+          <TransactionForm
+            accounts={[account]}
+            onDone={() => setAdding(false)}
+          />
+        </Card>
+      )}
+
       <div className="flex flex-col gap-3">
-        <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          History
-        </h2>
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            History
+          </h2>
+          {!adding && account && (
+            <Button variant="ghost" onClick={() => setAdding(true)}>
+              Add movement
+            </Button>
+          )}
+        </div>
         {isLoading ? (
           <SkeletonRows count={4} />
         ) : (
@@ -117,6 +149,19 @@ export const AccountDetailPage = () => {
           />
         )}
       </div>
+
+      {account && (
+        <div className="mt-2 flex justify-end border-t border-[var(--line)] pt-5">
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={remove.isPending}
+            className="tap text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
+          >
+            Delete account
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -56,9 +56,18 @@ export const InstrumentDetailPage = () => {
   );
 
   const liveHistory = liveQuote.data?.history ?? [];
-  const chartPoints = liveHistory.length >= 2 ? liveHistory : prices;
+  const chartPoints = [...(liveHistory.length >= 2 ? liveHistory : prices)].sort(
+    (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0),
+  );
   const chartCurrency =
     liveQuote.data?.quote?.currency ?? instrument?.currency ?? 'EUR';
+  const usingLive = liveHistory.length >= 2;
+  const liveError = usingLive
+    ? null
+    : liveQuote.data?.error ??
+      (liveQuote.isError && liveQuote.error instanceof Error
+        ? liveQuote.error.message
+        : null);
 
   const instrumentsMap = positionsQuery.data?.instruments;
   const dividends = transactions.filter((t) => t.kind === 'dividend');
@@ -122,18 +131,28 @@ export const InstrumentDetailPage = () => {
 
       {chartPoints.length >= 2 ? (
         <Card className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Price
-          </p>
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              Price
+            </p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+              {usingLive ? '1Y · live' : 'stored'}
+            </p>
+          </div>
           <PriceChart points={chartPoints} currency={chartCurrency} />
+          {liveError && (
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Live chart unavailable · {liveError}
+            </p>
+          )}
         </Card>
-      ) : liveQuote.data?.error ? (
+      ) : liveError ? (
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Price
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Chart unavailable · {liveQuote.data.error}
+            Chart unavailable · {liveError}
           </p>
         </Card>
       ) : null}
