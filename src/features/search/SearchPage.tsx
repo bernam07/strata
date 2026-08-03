@@ -5,6 +5,7 @@ import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { PriceChart } from '@/features/positions/PriceChart';
+import { RangeTabs } from '@/features/positions/RangeTabs';
 import {
   useQuote,
   useStockSearch,
@@ -21,7 +22,8 @@ const QuotePanel = ({
   name: string;
   onBack: () => void;
 }) => {
-  const { data, isLoading } = useQuote(symbol);
+  const [range, setRange] = useState('1y');
+  const { data, isLoading } = useQuote(symbol, range);
   const { data: watchlist = [] } = useWatchlist();
   const toggle = useToggleWatch();
 
@@ -86,7 +88,10 @@ const QuotePanel = ({
               </span>
             </div>
             {data?.history && data.history.length >= 2 && (
-              <PriceChart points={data.history} currency={q.currency} />
+              <div className="flex flex-col gap-3">
+                <PriceChart points={data.history} currency={q.currency} />
+                <RangeTabs value={range} onChange={setRange} />
+              </div>
             )}
           </>
         ) : (

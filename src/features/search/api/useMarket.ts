@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
 
 export interface SearchResult {
@@ -40,18 +45,20 @@ export const useStockSearch = (query: string) =>
     },
   });
 
-export const useQuote = (symbol: string | null) =>
+export const useQuote = (symbol: string | null, range = '1y') =>
   useQuery<QuoteData>({
-    queryKey: ['market-quote', symbol],
+    queryKey: ['market-quote', symbol, range],
     enabled: symbol !== null,
+    placeholderData: keepPreviousData,
     queryFn: () =>
-      invokeMarket<QuoteData>({ action: 'quote', symbol: symbol ?? '', range: '1y' }),
+      invokeMarket<QuoteData>({ action: 'quote', symbol: symbol ?? '', range }),
   });
 
 export const useInstrumentQuote = (
   instrument:
     | { isin: string | null; ticker: string; yahoo?: string | null }
     | null,
+  range = '1y',
 ) =>
   useQuery<QuoteData>({
     queryKey: [
@@ -59,17 +66,19 @@ export const useInstrumentQuote = (
       instrument?.yahoo,
       instrument?.isin,
       instrument?.ticker,
+      range,
     ],
     enabled: instrument !== null,
     staleTime: 5 * 60 * 1000,
     retry: false,
+    placeholderData: keepPreviousData,
     queryFn: () =>
       invokeMarket<QuoteData>({
         action: 'quote',
         yahoo: instrument?.yahoo ?? '',
         isin: instrument?.isin ?? '',
         ticker: instrument?.ticker ?? '',
-        range: '1y',
+        range,
       }),
   });
 

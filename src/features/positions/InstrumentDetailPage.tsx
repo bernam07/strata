@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { formatEur, isNegative, money } from '@/core/money/money';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
@@ -8,6 +8,7 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { useInstrumentQuote } from '@/features/search/api/useMarket';
 import { usePositions, useInstrumentPrices } from './api/usePositions';
 import { PriceChart } from './PriceChart';
+import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
 
 const percent = new Intl.NumberFormat('en-GB', {
@@ -40,6 +41,7 @@ export const InstrumentDetailPage = () => {
   });
   const { data: prices = [] } = useInstrumentPrices(id);
 
+  const [range, setRange] = useState('1y');
   const instrument = positionsQuery.data?.instruments.get(id);
   const liveQuote = useInstrumentQuote(
     instrument
@@ -49,6 +51,7 @@ export const InstrumentDetailPage = () => {
           yahoo: instrument.yahoo_symbol,
         }
       : null,
+    range,
   );
   const position = useMemo(
     () => positionsQuery.data?.positions.find((entry) => entry.instrumentId === id),
@@ -130,16 +133,17 @@ export const InstrumentDetailPage = () => {
       )}
 
       {chartPoints.length >= 2 ? (
-        <Card className="flex flex-col gap-2">
+        <Card className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
               Price
             </p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-              {usingLive ? '1Y · live' : 'stored'}
+              {usingLive ? 'live' : 'stored'}
             </p>
           </div>
           <PriceChart points={chartPoints} currency={chartCurrency} />
+          {usingLive && <RangeTabs value={range} onChange={setRange} />}
           {liveError && (
             <p className="text-[11px] text-[var(--text-muted)]">
               Live chart unavailable · {liveError}
