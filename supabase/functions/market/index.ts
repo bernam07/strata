@@ -236,7 +236,10 @@ const refresh = async (
   const rate = (c: string) => (c === 'EUR' ? 1 : (fx.get(c) ?? 1));
 
   const asOf = new Date().toISOString().slice(0, 10);
-  const priceByInstrument = new Map<string, { price: number; currency: string }>();
+  const priceByInstrument = new Map<
+    string,
+    { price: number; previousClose: number; currency: string }
+  >();
   let updated = 0;
 
   for (const instrument of instruments ?? []) {
@@ -253,6 +256,7 @@ const refresh = async (
       }
       priceByInstrument.set(instrument.id, {
         price: quoted.quote.price,
+        previousClose: quoted.quote.previousClose,
         currency: quoted.quote.currency,
       });
       updated += 1;
@@ -267,7 +271,7 @@ const refresh = async (
     if (!quoted) continue;
     await db
       .from('holdings')
-      .update({ current_price: quoted.price })
+      .update({ current_price: quoted.price, previous_close: quoted.previousClose })
       .eq('user_id', holding.user_id)
       .eq('instrument_id', holding.instrument_id);
     priceRows.push({

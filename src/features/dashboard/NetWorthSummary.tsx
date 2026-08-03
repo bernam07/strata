@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { formatEur, money } from '@/core/money/money';
+import { formatEur, isNegative, money, type Money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
 import type { SeriesPoint } from '@/core/analytics/series';
 
@@ -46,10 +46,14 @@ const Sparkline = ({ series }: { series: SeriesPoint[] }) => {
 export const NetWorthSummary = ({
   netWorth,
   series = [],
+  today = null,
+  basisLabel,
   control,
 }: {
   netWorth: NetWorth;
   series?: SeriesPoint[];
+  today?: Money | null;
+  basisLabel?: string;
   control?: ReactNode;
 }) => {
   const first = series[0]?.value ?? null;
@@ -80,15 +84,34 @@ export const NetWorthSummary = ({
             <p className="mt-1.5 text-[42px] font-extrabold leading-none tracking-tight text-[var(--text-strong)]">
               {formatEur(netWorth.net)}
             </p>
-            {change !== null && (
-              <p
-                className="mt-2 text-sm font-semibold tabular-nums"
-                style={{ color: up ? 'var(--positive)' : 'var(--negative)' }}
-              >
-                {up ? '▲' : '▼'} {formatEur(money(Math.abs(change)))}
-                {changePct !== null && ` · ${percent.format(changePct)}`}
-              </p>
-            )}
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              {change !== null && (
+                <p
+                  className="text-sm font-semibold tabular-nums"
+                  style={{ color: up ? 'var(--positive)' : 'var(--negative)' }}
+                >
+                  {up ? '▲' : '▼'} {formatEur(money(Math.abs(change)))}
+                  {changePct !== null && ` · ${percent.format(changePct)}`}
+                  {basisLabel && (
+                    <span className="ml-1 font-normal text-[var(--text-muted)]">
+                      {basisLabel}
+                    </span>
+                  )}
+                </p>
+              )}
+              {today !== null && (
+                <p
+                  className="text-xs font-semibold tabular-nums"
+                  style={{
+                    color: isNegative(today)
+                      ? 'var(--negative)'
+                      : 'var(--positive)',
+                  }}
+                >
+                  {isNegative(today) ? '▼' : '▲'} {formatEur(today)} today
+                </p>
+              )}
+            </div>
           </div>
           {control}
         </div>

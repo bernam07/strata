@@ -110,6 +110,23 @@ export const InstrumentDetailPage = () => {
             {instrument?.isin ? ` · ${instrument.isin}` : ''}
           </p>
         </div>
+        {position?.dayChange && position.dayChangePct !== null && (
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+              Today
+            </p>
+            <p
+              className="text-sm font-bold tabular-nums"
+              style={{
+                color: isNegative(position.dayChange)
+                  ? 'var(--negative)'
+                  : 'var(--positive)',
+              }}
+            >
+              {percent.format(position.dayChangePct)}
+            </p>
+          </div>
+        )}
       </Card>
 
       {position && (

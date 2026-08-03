@@ -340,6 +340,7 @@ export interface Database {
           quantity: string;
           average_price: string;
           current_price: string;
+          previous_close: string | null;
           currency: string;
           updated_at: string;
         };
@@ -349,12 +350,40 @@ export interface Database {
           quantity: string;
           average_price: string;
           current_price: string;
+          previous_close?: string | null;
           currency?: string;
         };
         Update: {
           quantity?: string;
           average_price?: string;
           current_price?: string;
+          previous_close?: string | null;
+        };
+        Relationships: [];
+      };
+      net_worth_snapshots: {
+        Row: {
+          user_id: string;
+          as_of: string;
+          net: number;
+          assets: number;
+          liabilities: number;
+          investments: number;
+          created_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          as_of: string;
+          net: number;
+          assets: number;
+          liabilities: number;
+          investments?: number;
+        };
+        Update: {
+          net?: number;
+          assets?: number;
+          liabilities?: number;
+          investments?: number;
         };
         Relationships: [];
       };
