@@ -9,13 +9,14 @@ export interface SearchResult {
 }
 
 export interface QuoteData {
-  quote: {
+  quote?: {
     symbol: string;
     price: number;
     previousClose: number;
     currency: string;
   };
-  history: { date: string; value: number }[];
+  history?: { date: string; value: number }[];
+  error?: string;
 }
 
 const invokeMarket = async <T>(body: Record<string, string>): Promise<T> => {
@@ -28,11 +29,13 @@ export const useStockSearch = (query: string) =>
   useQuery<SearchResult[]>({
     queryKey: ['market-search', query],
     enabled: query.trim().length >= 2,
+    retry: false,
     queryFn: async () => {
-      const data = await invokeMarket<{ results: SearchResult[] }>({
+      const data = await invokeMarket<{ results: SearchResult[]; error?: string }>({
         action: 'search',
         q: query.trim(),
       });
+      if (data.error) throw new Error(data.error);
       return data.results ?? [];
     },
   });
@@ -43,6 +46,22 @@ export const useQuote = (symbol: string | null) =>
     enabled: symbol !== null,
     queryFn: () =>
       invokeMarket<QuoteData>({ action: 'quote', symbol: symbol ?? '', range: '1y' }),
+  });
+
+export const useInstrumentQuote = (
+  instrument: { isin: string | null; ticker: string } | null,
+) =>
+  useQuery<QuoteData>({
+    queryKey: ['instrument-quote', instrument?.isin, instrument?.ticker],
+    enabled: instrument !== null,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () =>
+      invokeMarket<QuoteData>({
+        action: 'quote',
+        isin: instrument?.isin ?? '',
+        ticker: instrument?.ticker ?? '',
+        range: '1y',
+      }),
   });
 
 export interface WatchItem {

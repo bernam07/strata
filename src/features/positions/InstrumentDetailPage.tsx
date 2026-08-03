@@ -5,6 +5,7 @@ import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
+import { useInstrumentQuote } from '@/features/search/api/useMarket';
 import { usePositions, useInstrumentPrices } from './api/usePositions';
 import { PriceChart } from './PriceChart';
 import { StockAvatar } from './components/StockAvatar';
@@ -40,10 +41,18 @@ export const InstrumentDetailPage = () => {
   const { data: prices = [] } = useInstrumentPrices(id);
 
   const instrument = positionsQuery.data?.instruments.get(id);
+  const liveQuote = useInstrumentQuote(
+    instrument ? { isin: instrument.isin, ticker: instrument.ticker } : null,
+  );
   const position = useMemo(
     () => positionsQuery.data?.positions.find((entry) => entry.instrumentId === id),
     [positionsQuery.data, id],
   );
+
+  const liveHistory = liveQuote.data?.history ?? [];
+  const chartPoints = liveHistory.length >= 2 ? liveHistory : prices;
+  const chartCurrency =
+    liveQuote.data?.quote?.currency ?? instrument?.currency ?? 'EUR';
 
   const instrumentsMap = positionsQuery.data?.instruments;
   const dividends = transactions.filter((t) => t.kind === 'dividend');
@@ -105,12 +114,12 @@ export const InstrumentDetailPage = () => {
         </div>
       )}
 
-      {prices.length >= 2 && (
+      {chartPoints.length >= 2 && (
         <Card className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Price
           </p>
-          <PriceChart points={prices} currency={instrument?.currency ?? 'EUR'} />
+          <PriceChart points={chartPoints} currency={chartCurrency} />
         </Card>
       )}
 
