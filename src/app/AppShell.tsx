@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { icons, StrataMark, type IconName } from './icons';
@@ -213,6 +213,7 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex min-h-screen">
@@ -223,7 +224,9 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
-          {children}
+          <div key={location.pathname} className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
       <BottomBar onMore={() => setMoreOpen(true)} />

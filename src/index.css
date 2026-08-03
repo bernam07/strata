@@ -122,5 +122,21 @@ body {
 
 @utility tap {
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility page-enter {
+  animation: fade-rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
 }

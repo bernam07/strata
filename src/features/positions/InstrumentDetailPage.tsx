@@ -129,6 +129,7 @@ export const InstrumentDetailPage = () => {
             accounts={[]}
             instruments={instrumentsMap}
             showAccount={false}
+            instrumentView
           />
         )}
       </div>

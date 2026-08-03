@@ -5,6 +5,7 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
 import { DividendsBarChart } from './DividendsBarChart';
+import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 
 type Tab = 'received' | 'expected';
@@ -60,6 +61,27 @@ export const DividendsPage = () => {
     return buckets.map(({ label, value }) => ({ label, value }));
   }, [received]);
 
+  const topPayers = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const item of received) {
+      totals.set(
+        item.instrumentId,
+        (totals.get(item.instrumentId) ?? 0) + Number(item.amount),
+      );
+    }
+    return [...totals.entries()]
+      .map(([instrumentId, total]) => ({ instrumentId, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6);
+  }, [received]);
+
+  const thisYear = new Date().getFullYear().toString();
+  const thisYearTotal = sum(
+    received
+      .filter((item) => item.paidAt.startsWith(thisYear))
+      .map((item) => money(item.amount)),
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
@@ -96,13 +118,23 @@ export const DividendsPage = () => {
       ) : tab === 'received' ? (
         <>
           <Card className="flex flex-col gap-5">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                Total received
-              </p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
-                {formatEur(receivedTotal)}
-              </p>
+            <div className="flex flex-wrap gap-x-10 gap-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  Total received
+                </p>
+                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
+                  {formatEur(receivedTotal)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  {thisYear}
+                </p>
+                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
+                  {formatEur(thisYearTotal)}
+                </p>
+              </div>
             </div>
             {received.length > 0 && (
               <div>
@@ -113,6 +145,33 @@ export const DividendsPage = () => {
               </div>
             )}
           </Card>
+
+          {topPayers.length > 0 && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Top payers
+              </h2>
+              {topPayers.map((payer) => {
+                const meta = instruments.get(payer.instrumentId);
+                return (
+                  <div key={payer.instrumentId} className="flex items-center gap-3">
+                    <StockAvatar
+                      ticker={meta?.ticker ?? payer.instrumentId}
+                      isin={meta?.isin}
+                      size={30}
+                    />
+                    <span className="flex-1 truncate text-sm font-semibold text-[var(--text-strong)]">
+                      {nameOf(instruments, payer.instrumentId)}
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
+                      {formatEur(money(payer.total))}
+                    </span>
+                  </div>
+                );
+              })}
+            </Card>
+          )}
+
           {received.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">
               No dividends received yet.
