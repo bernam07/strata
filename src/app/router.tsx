@@ -14,6 +14,7 @@ import { DividendsPage } from '@/features/dividends/DividendsPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
 import { TaxPage } from '@/features/tax/TaxPage';
 import { AppShell } from './AppShell';
+import { useAppUpdate } from './useAppUpdate';
 
 const AnalyticsPage = lazy(() =>
   import('@/features/analytics/AnalyticsPage').then((module) => ({
@@ -23,6 +24,7 @@ const AnalyticsPage = lazy(() =>
 
 export const AppRouter = () => {
   const { session, loading } = useAuth();
+  useAppUpdate();
 
   if (loading) {
     return (
