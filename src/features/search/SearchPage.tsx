@@ -85,10 +85,14 @@ const QuotePanel = ({
                 {(dayPct * 100).toFixed(2)}% today
               </span>
             </div>
-            <PriceChart points={data.history} currency={q.currency} />
+            {data?.history && data.history.length >= 2 && (
+              <PriceChart points={data.history} currency={q.currency} />
+            )}
           </>
         ) : (
-          <p className="text-sm text-[var(--text-muted)]">No data for this symbol.</p>
+          <p className="text-sm text-[var(--text-muted)]">
+            {data?.error ?? 'No data for this symbol.'}
+          </p>
         )}
       </Card>
     </div>
@@ -107,7 +111,7 @@ export const SearchPage = () => {
     return () => clearTimeout(id);
   }, [text]);
 
-  const { data: results = [], isLoading, isError } = useStockSearch(query);
+  const { data: results = [], isLoading, isError, error } = useStockSearch(query);
   const { data: watchlist = [] } = useWatchlist();
 
   const showWatchlist = useMemo(
@@ -177,7 +181,9 @@ export const SearchPage = () => {
       ) : isLoading ? (
         <SkeletonRows count={4} />
       ) : isError ? (
-        <p className="text-sm text-[var(--negative)]">Search failed. Try again.</p>
+        <p className="text-sm text-[var(--negative)]">
+          {error instanceof Error ? error.message : 'Search failed. Try again.'}
+        </p>
       ) : results.length === 0 ? (
         <p className="text-sm text-[var(--text-muted)]">No matches.</p>
       ) : (

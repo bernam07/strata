@@ -1,12 +1,19 @@
 import { useMemo, useState } from 'react';
 import { formatEur, money, sum } from '@/core/money/money';
+import {
+  annualIncomeByInstrument,
+  expectedByMonth,
+} from '@/core/dividends/forecast';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
 import { DividendsBarChart } from './DividendsBarChart';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
-import type { InstrumentMeta } from '@/features/positions/api/usePositions';
+import {
+  usePositions,
+  type InstrumentMeta,
+} from '@/features/positions/api/usePositions';
 
 type Tab = 'received' | 'expected';
 
@@ -14,6 +21,12 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
+});
+
+const percent = new Intl.NumberFormat('en-GB', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
 });
 
 const cadenceLabel: Record<string, string> = {
@@ -33,6 +46,7 @@ const nameOf = (
 
 export const DividendsPage = () => {
   const { data, isLoading } = useDividends();
+  const positionsQuery = usePositions();
   const [tab, setTab] = useState<Tab>('received');
 
   const received = data?.received ?? [];
@@ -41,6 +55,40 @@ export const DividendsPage = () => {
 
   const receivedTotal = sum(received.map((item) => money(item.amount)));
   const expectedTotal = sum(expected.map((item) => money(item.estimatedAmount)));
+
+  const forecastBars = useMemo(
+    () => expectedByMonth(expected, new Date()),
+    [expected],
+  );
+
+  const forecastByHolding = useMemo(() => {
+    const annual = annualIncomeByInstrument(expected);
+    const costByInstrument = new Map(
+      (positionsQuery.data?.positions ?? []).map((position) => [
+        position.instrumentId,
+        position.costBasis.toNumber(),
+      ]),
+    );
+    return [...annual.entries()]
+      .map(([instrumentId, income]) => {
+        const cost = costByInstrument.get(instrumentId) ?? 0;
+        return {
+          instrumentId,
+          income,
+          yieldOnCost: cost > 0 ? income / cost : null,
+        };
+      })
+      .sort((a, b) => b.income - a.income);
+  }, [expected, positionsQuery.data]);
+
+  const costOfPayers = forecastByHolding.reduce((total, holding) => {
+    const cost = (positionsQuery.data?.positions ?? []).find(
+      (position) => position.instrumentId === holding.instrumentId,
+    )?.costBasis;
+    return total + (cost ? cost.toNumber() : 0);
+  }, 0);
+  const overallYield =
+    costOfPayers > 0 ? expectedTotal.toNumber() / costOfPayers : null;
 
   const monthlyBars = useMemo(() => {
     const now = new Date();
@@ -202,14 +250,71 @@ export const DividendsPage = () => {
         </>
       ) : (
         <>
-          <Card>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Estimated next 12 months
-            </p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-muted)]">
-              {formatEur(expectedTotal)}
-            </p>
+          <Card className="flex flex-col gap-5">
+            <div className="flex flex-wrap gap-x-10 gap-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  Estimated next 12 months
+                </p>
+                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
+                  {formatEur(expectedTotal)}
+                </p>
+              </div>
+              {overallYield !== null && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Yield on cost
+                  </p>
+                  <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--accent)]">
+                    {percent.format(overallYield)}
+                  </p>
+                </div>
+              )}
+            </div>
+            {expected.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                  Projected by month
+                </p>
+                <DividendsBarChart bars={forecastBars} />
+              </div>
+            )}
           </Card>
+
+          {forecastByHolding.length > 0 && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Projected annual income
+              </h2>
+              {forecastByHolding.slice(0, 8).map((holding) => {
+                const meta = instruments.get(holding.instrumentId);
+                return (
+                  <div
+                    key={holding.instrumentId}
+                    className="flex items-center gap-3"
+                  >
+                    <StockAvatar
+                      ticker={meta?.ticker ?? holding.instrumentId}
+                      isin={meta?.isin}
+                      size={30}
+                    />
+                    <span className="flex-1 truncate text-sm font-semibold text-[var(--text-strong)]">
+                      {nameOf(instruments, holding.instrumentId)}
+                    </span>
+                    {holding.yieldOnCost !== null && (
+                      <span className="text-xs tabular-nums text-[var(--text-muted)]">
+                        {percent.format(holding.yieldOnCost)} YoC
+                      </span>
+                    )}
+                    <span className="w-20 text-right text-sm font-semibold tabular-nums text-[var(--positive)]">
+                      ~{formatEur(money(holding.income))}
+                    </span>
+                  </div>
+                );
+              })}
+            </Card>
+          )}
+
           {expected.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">
               Not enough history to project a calendar.

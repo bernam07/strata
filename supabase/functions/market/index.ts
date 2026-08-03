@@ -15,6 +15,9 @@ const json = (body: unknown, status = 200): Response =>
     headers: { ...cors, 'Content-Type': 'application/json' },
   });
 
+const msg = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 const admin = (): SupabaseClient =>
   createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -22,8 +25,59 @@ const admin = (): SupabaseClient =>
     { auth: { persistSession: false } },
   );
 
-const yFetch = async (url: string): Promise<Response> =>
-  fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
+interface YahooAuth {
+  cookie: string;
+  crumb: string;
+}
+
+let cachedAuth: YahooAuth | null = null;
+
+const buildAuth = async (): Promise<YahooAuth> => {
+  const seed = await fetch('https://fc.yahoo.com/', {
+    headers: { 'User-Agent': UA, Accept: 'text/html' },
+  });
+  await seed.body?.cancel();
+  const cookie = (seed.headers.getSetCookie?.() ?? [])
+    .map((entry) => entry.split(';')[0])
+    .filter(Boolean)
+    .join('; ');
+
+  const crumbRes = await fetch(
+    'https://query1.finance.yahoo.com/v1/test/getcrumb',
+    { headers: { 'User-Agent': UA, Accept: 'text/plain', Cookie: cookie } },
+  );
+  const crumb = (await crumbRes.text()).trim();
+  return { cookie, crumb };
+};
+
+const getAuth = async (): Promise<YahooAuth> => {
+  if (cachedAuth) return cachedAuth;
+  cachedAuth = await buildAuth();
+  return cachedAuth;
+};
+
+const yFetch = async (url: string): Promise<Response> => {
+  const { cookie } = await getAuth();
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': UA,
+      Accept: 'application/json',
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+  });
+  if (res.status === 401 || res.status === 403) {
+    await res.body?.cancel();
+    cachedAuth = await buildAuth();
+    return fetch(url, {
+      headers: {
+        'User-Agent': UA,
+        Accept: 'application/json',
+        Cookie: cachedAuth.cookie,
+      },
+    });
+  }
+  return res;
+};
 
 interface Quote {
   symbol: string;
@@ -32,19 +86,25 @@ interface Quote {
   currency: string;
 }
 
-const fetchQuote = async (symbol: string, range = '1d'): Promise<
-  { quote: Quote; history: { date: string; value: number }[] } | null
-> => {
+interface QuoteResult {
+  quote: Quote;
+  history: { date: string; value: number }[];
+}
+
+const fetchQuote = async (symbol: string, range = '1y'): Promise<QuoteResult> => {
   const res = await yFetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`,
   );
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`chart ${symbol}: HTTP ${res.status}`);
   const body = await res.json();
   const result = body?.chart?.result?.[0];
-  if (!result?.meta) return null;
+  if (!result?.meta) {
+    const detail = body?.chart?.error?.description;
+    throw new Error(`chart ${symbol}: ${detail ?? 'no data'}`);
+  }
   const meta = result.meta;
   const price = Number(meta.regularMarketPrice);
-  if (!Number.isFinite(price)) return null;
+  if (!Number.isFinite(price)) throw new Error(`chart ${symbol}: no price`);
 
   const timestamps: number[] = result.timestamp ?? [];
   const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
@@ -67,11 +127,20 @@ const fetchQuote = async (symbol: string, range = '1d'): Promise<
   };
 };
 
-const search = async (q: string) => {
+interface SearchHit {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
+
+const search = async (q: string): Promise<SearchHit[]> => {
+  if (q.trim().length < 1) return [];
+  const { crumb } = await getAuth();
   const res = await yFetch(
-    `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`,
+    `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=12&newsCount=0&crumb=${encodeURIComponent(crumb)}`,
   );
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(`search: HTTP ${res.status}`);
   const body = await res.json();
   return (body?.quotes ?? [])
     .filter((x: Record<string, unknown>) =>
@@ -99,7 +168,51 @@ const resolveSymbol = async (
   return bare || null;
 };
 
-const refresh = async (db: SupabaseClient): Promise<{ updated: number; errors: string[] }> => {
+const candidateSymbols = async (
+  isin: string | null,
+  ticker: string,
+  yahooSymbol: string | null,
+): Promise<string[]> => {
+  const list: string[] = [];
+  const push = (symbol: string | null | undefined) => {
+    if (symbol && !list.includes(symbol)) list.push(symbol);
+  };
+  push(yahooSymbol);
+  if (isin) {
+    try {
+      for (const match of await search(isin)) push(match.symbol);
+    } catch {
+      // ignore, fall through to ticker
+    }
+  }
+  push(ticker.split('_')[0]);
+  return list;
+};
+
+const quoteForInstrument = async (
+  isin: string | null,
+  ticker: string,
+  yahooSymbol: string | null,
+  range: string,
+): Promise<QuoteResult & { symbol: string }> => {
+  const candidates = await candidateSymbols(isin, ticker, yahooSymbol);
+  if (candidates.length === 0) throw new Error(`no symbol for ${ticker || isin}`);
+  let lastError = `no data for ${ticker || isin}`;
+  for (const symbol of candidates) {
+    try {
+      const data = await fetchQuote(symbol, range);
+      if (data.history.length >= 2) return { ...data, symbol };
+      lastError = `chart ${symbol}: only ${data.history.length} points`;
+    } catch (error) {
+      lastError = msg(error);
+    }
+  }
+  throw new Error(lastError);
+};
+
+const refresh = async (
+  db: SupabaseClient,
+): Promise<{ updated: number; errors: string[] }> => {
   const errors: string[] = [];
   const { data: holdings } = await db
     .from('holdings')
@@ -134,13 +247,9 @@ const refresh = async (db: SupabaseClient): Promise<{ updated: number; errors: s
         instrument.yahoo_symbol,
       );
       if (!symbol) continue;
+      const quoted = await fetchQuote(symbol);
       if (!instrument.yahoo_symbol) {
         await db.rpc('set_instrument_yahoo', { p_id: instrument.id, p_symbol: symbol });
-      }
-      const quoted = await fetchQuote(symbol);
-      if (!quoted) {
-        errors.push(`${instrument.ticker}: no quote`);
-        continue;
       }
       priceByInstrument.set(instrument.id, {
         price: quoted.quote.price,
@@ -148,7 +257,7 @@ const refresh = async (db: SupabaseClient): Promise<{ updated: number; errors: s
       });
       updated += 1;
     } catch (error) {
-      errors.push(`${instrument.ticker}: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`${instrument.ticker}: ${msg(error)}`);
     }
   }
 
@@ -208,20 +317,41 @@ Deno.serve(async (req) => {
     }
   }
   const action = params.action ?? 'refresh';
-  const db = admin();
+
+  if (action === 'search') {
+    try {
+      return json({ results: await search(params.q ?? '') });
+    } catch (error) {
+      return json({ results: [], error: msg(error) });
+    }
+  }
+
+  if (action === 'quote') {
+    const range = params.range ?? '1y';
+    try {
+      if (params.symbol) {
+        const data = await fetchQuote(params.symbol, range);
+        return json({ ...data, symbol: params.symbol });
+      }
+      if (params.isin || params.ticker || params.yahoo) {
+        const data = await quoteForInstrument(
+          params.isin || null,
+          params.ticker || '',
+          params.yahoo || null,
+          range,
+        );
+        return json(data);
+      }
+      return json({ error: 'no symbol' });
+    } catch (error) {
+      return json({ error: msg(error) });
+    }
+  }
 
   try {
-    if (action === 'search') {
-      return json({ results: await search(params.q ?? '') });
-    }
-    if (action === 'quote') {
-      const data = await fetchQuote(params.symbol ?? '', params.range ?? '1y');
-      if (!data) return json({ error: 'not found' }, 404);
-      return json(data);
-    }
-    const result = await refresh(db);
+    const result = await refresh(admin());
     return json({ ok: true, ...result });
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+    return json({ ok: false, error: msg(error) }, 500);
   }
 });

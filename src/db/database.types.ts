@@ -395,6 +395,24 @@ export interface Database {
         };
         Relationships: [];
       };
+      budgets: {
+        Row: {
+          user_id: string;
+          category_id: string;
+          monthly_limit: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          category_id: string;
+          monthly_limit: number;
+        };
+        Update: {
+          monthly_limit?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {

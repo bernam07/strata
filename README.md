@@ -128,6 +128,20 @@ select cron.schedule(
 );
 ```
 
+## Estado — Orçamentos, previsão e movers
+
+- **Orçamentos por categoria** (migração `0011_budgets.sql`, RLS): limite
+  mensal por categoria, com barra de progresso, restante e aviso quando passa
+  do limite. O gasto é o do mês corrente, por categoria atribuída.
+- **Previsão de dividendos**: rendimento estimado a 12 meses distribuído por
+  mês, yield-on-cost global e rendimento anual projetado por posição (base de
+  custo vinda das posições).
+- **Dashboard vivo**: evolução do património com seletor de período
+  (1M/6M/1A/tudo) e variação no período, mais um bloco de _movers_ (líderes e
+  atrasados) por mais-valia latente, com atalho para cada ativo.
+
+Lógica de orçamentos e de previsão coberta por testes em `src/core`.
+
 ## Estado — Cotações e pesquisa
 
 Preços de mercado independentes da sincronização de trades:

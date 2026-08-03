@@ -1,14 +1,18 @@
-import { useMemo } from 'react';
-import { formatEur, money } from '@/core/money/money';
+import { useCallback, useMemo, useState } from 'react';
+import { formatEur, money, zero, type Money } from '@/core/money/money';
 import {
   comparePeriods,
   monthlyExpenses,
   type CategoryLookup,
 } from '@/core/expenses/summary';
+import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { TransactionForm } from '@/features/transactions/components/TransactionForm';
+import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { Select } from '@/ui/Field';
+import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import {
   useAssignCategory,
@@ -32,9 +36,11 @@ const monthKey = (offset: number): string => {
 
 export const ExpensesPage = () => {
   const { data: transactions = [] } = useTransactions();
+  const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: assignments } = useAssignments();
   const assign = useAssignCategory();
+  const [adding, setAdding] = useState(false);
 
   const categoryName = useMemo(() => {
     const byId = new Map(categories.map((category) => [category.id, category.name]));
@@ -60,13 +66,56 @@ export const ExpensesPage = () => {
     return comparePeriods(current, previous, categoryName);
   }, [transactions, categoryName]);
 
+  const spentThisMonth = useMemo(() => {
+    const currentMonth = monthKey(0);
+    const totals = new Map<string, Money>();
+    for (const transaction of transactions) {
+      if (transaction.kind !== 'expense') continue;
+      if (!transaction.occurredAt.startsWith(currentMonth)) continue;
+      const categoryId = assignments?.get(transaction.id);
+      if (!categoryId) continue;
+      totals.set(
+        categoryId,
+        (totals.get(categoryId) ?? zero()).plus(money(transaction.amount).abs()),
+      );
+    }
+    return totals;
+  }, [transactions, assignments]);
+
+  const spentOf = useCallback(
+    (categoryId: string) => spentThisMonth.get(categoryId) ?? zero(),
+    [spentThisMonth],
+  );
+
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Expenses
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Expenses
+        </h1>
+        {!adding && (
+          <Button onClick={() => setAdding(true)} disabled={accounts.length === 0}>
+            Add expense
+          </Button>
+        )}
+      </div>
+
+      {adding && (
+        <Card>
+          <TransactionForm
+            accounts={accounts}
+            defaultKind="expense"
+            onDone={() => setAdding(false)}
+          />
+        </Card>
+      )}
+
+      <Card className="flex flex-col gap-4">
+        <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
+        <BudgetPanel categories={categories} spentOf={spentOf} />
+      </Card>
 
       <Card>
         <h2 className="mb-4 font-semibold text-[var(--text-strong)]">
