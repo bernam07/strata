@@ -1,6 +1,13 @@
-import { formatEur } from '@/core/money/money';
+import type { ReactNode } from 'react';
+import { formatEur, money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
 import type { SeriesPoint } from '@/core/analytics/series';
+
+const percent = new Intl.NumberFormat('en-GB', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
 
 const Sparkline = ({ series }: { series: SeriesPoint[] }) => {
   if (series.length < 2) return null;
@@ -39,31 +46,56 @@ const Sparkline = ({ series }: { series: SeriesPoint[] }) => {
 export const NetWorthSummary = ({
   netWorth,
   series = [],
+  control,
 }: {
   netWorth: NetWorth;
   series?: SeriesPoint[];
-}) => (
-  <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6">
-    <div
-      className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
-      style={{
-        background:
-          'radial-gradient(circle, var(--accent-soft), transparent 70%)',
-      }}
-    />
-    <div className="relative flex flex-col gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          Net worth
-        </p>
-        <p className="mt-1.5 text-[42px] font-extrabold leading-none tracking-tight text-[var(--text-strong)]">
-          {formatEur(netWorth.net)}
-        </p>
-      </div>
+  control?: ReactNode;
+}) => {
+  const first = series[0]?.value ?? null;
+  const last = series[series.length - 1]?.value ?? null;
+  const change =
+    first !== null && last !== null && series.length >= 2 ? last - first : null;
+  const changePct =
+    change !== null && first !== null && first !== 0
+      ? change / Math.abs(first)
+      : null;
+  const up = change !== null && change >= 0;
 
-      <Sparkline series={series} />
+  return (
+    <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6">
+      <div
+        className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
+        style={{
+          background:
+            'radial-gradient(circle, var(--accent-soft), transparent 70%)',
+        }}
+      />
+      <div className="relative flex flex-col gap-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Net worth
+            </p>
+            <p className="mt-1.5 text-[42px] font-extrabold leading-none tracking-tight text-[var(--text-strong)]">
+              {formatEur(netWorth.net)}
+            </p>
+            {change !== null && (
+              <p
+                className="mt-2 text-sm font-semibold tabular-nums"
+                style={{ color: up ? 'var(--positive)' : 'var(--negative)' }}
+              >
+                {up ? '▲' : '▼'} {formatEur(money(Math.abs(change)))}
+                {changePct !== null && ` · ${percent.format(changePct)}`}
+              </p>
+            )}
+          </div>
+          {control}
+        </div>
 
-      <div className="grid grid-cols-2 gap-3">
+        <Sparkline series={series} />
+
+        <div className="grid grid-cols-2 gap-3">
         <div className="rounded-[var(--radius-field)] neu-sunken p-4">
           <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
             Assets
@@ -79,8 +111,9 @@ export const NetWorthSummary = ({
           <p className="mt-1 text-lg font-bold tabular-nums text-[var(--negative)]">
             {formatEur(netWorth.totalLiabilities)}
           </p>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};

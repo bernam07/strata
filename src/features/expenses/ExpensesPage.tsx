@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { formatEur, money } from '@/core/money/money';
+import { useCallback, useMemo, useState } from 'react';
+import { formatEur, money, zero, type Money } from '@/core/money/money';
 import {
   comparePeriods,
   monthlyExpenses,
@@ -12,6 +12,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { Select } from '@/ui/Field';
+import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import {
   useAssignCategory,
@@ -65,6 +66,27 @@ export const ExpensesPage = () => {
     return comparePeriods(current, previous, categoryName);
   }, [transactions, categoryName]);
 
+  const spentThisMonth = useMemo(() => {
+    const currentMonth = monthKey(0);
+    const totals = new Map<string, Money>();
+    for (const transaction of transactions) {
+      if (transaction.kind !== 'expense') continue;
+      if (!transaction.occurredAt.startsWith(currentMonth)) continue;
+      const categoryId = assignments?.get(transaction.id);
+      if (!categoryId) continue;
+      totals.set(
+        categoryId,
+        (totals.get(categoryId) ?? zero()).plus(money(transaction.amount).abs()),
+      );
+    }
+    return totals;
+  }, [transactions, assignments]);
+
+  const spentOf = useCallback(
+    (categoryId: string) => spentThisMonth.get(categoryId) ?? zero(),
+    [spentThisMonth],
+  );
+
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
   return (
@@ -89,6 +111,11 @@ export const ExpensesPage = () => {
           />
         </Card>
       )}
+
+      <Card className="flex flex-col gap-4">
+        <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
+        <BudgetPanel categories={categories} spentOf={spentOf} />
+      </Card>
 
       <Card>
         <h2 className="mb-4 font-semibold text-[var(--text-strong)]">

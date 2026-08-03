@@ -1,21 +1,58 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
-import { netWorthAtCostSeries } from '@/core/analytics/series';
+import { netWorthAtCostSeries, sliceFrom } from '@/core/analytics/series';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import {
   applyBrokerBalances,
   useBrokerAccounts,
 } from '@/features/accounts/api/useBrokerAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
-import { useInstruments } from '@/features/positions/api/usePositions';
+import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { AccountBalanceCard } from './AccountBalanceCard';
 import { NetWorthSummary } from './NetWorthSummary';
+import { Movers } from './Movers';
+
+type Period = '1M' | '6M' | '1Y' | 'All';
+
+const periods: Period[] = ['1M', '6M', '1Y', 'All'];
+
+const periodStart = (period: Period): Date | null => {
+  if (period === 'All') return null;
+  const now = new Date();
+  const months = period === '1M' ? 1 : period === '6M' ? 6 : 12;
+  return new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+};
+
+const PeriodToggle = ({
+  value,
+  onChange,
+}: {
+  value: Period;
+  onChange: (period: Period) => void;
+}) => (
+  <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
+    {periods.map((period) => (
+      <button
+        key={period}
+        type="button"
+        onClick={() => onChange(period)}
+        className={`tap rounded-[var(--radius-field)] px-2.5 py-1 text-xs font-semibold ${
+          value === period
+            ? 'neu-flat text-[var(--accent)]'
+            : 'text-[var(--text-muted)]'
+        }`}
+      >
+        {period}
+      </button>
+    ))}
+  </div>
+);
 
 const SectionTitle = ({
   children,
@@ -44,6 +81,8 @@ export const DashboardPage = () => {
   const transactionsQuery = useTransactions();
   const brokersQuery = useBrokerAccounts();
   const { data: instruments } = useInstruments();
+  const positionsQuery = usePositions();
+  const [period, setPeriod] = useState<Period>('1Y');
 
   const model = useMemo(() => {
     const accounts = accountsQuery.data ?? [];
@@ -73,9 +112,19 @@ export const DashboardPage = () => {
     };
   }, [accountsQuery.data, transactionsQuery.data, brokersQuery.data]);
 
+  const displayedSeries = useMemo(() => {
+    const start = periodStart(period);
+    return start ? sliceFrom(model.series, start) : model.series;
+  }, [model.series, period]);
+
   const loading = accountsQuery.isLoading || transactionsQuery.isLoading;
   const accounts = accountsQuery.data ?? [];
   const empty = !loading && accounts.length === 0;
+  const positions = positionsQuery.data?.positions ?? [];
+  const positionInstruments = positionsQuery.data?.instruments ?? new Map();
+  const rankablePositions = positions.filter(
+    (position) => position.unrealizedPct !== null,
+  ).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -113,7 +162,20 @@ export const DashboardPage = () => {
         </Card>
       ) : (
         <>
-          <NetWorthSummary netWorth={model.netWorth} series={model.series} />
+          <NetWorthSummary
+            netWorth={model.netWorth}
+            series={displayedSeries}
+            control={<PeriodToggle value={period} onChange={setPeriod} />}
+          />
+
+          {rankablePositions >= 2 && (
+            <section className="flex flex-col gap-3">
+              <SectionTitle action={{ to: '/positions', label: 'All positions' }}>
+                Movers
+              </SectionTitle>
+              <Movers positions={positions} instruments={positionInstruments} />
+            </section>
+          )}
 
           {model.assets.length > 0 && (
             <section className="flex flex-col gap-3">
