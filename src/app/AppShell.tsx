@@ -82,7 +82,7 @@ const ThemeButton = () => {
 const Sidebar = () => {
   const { signOut } = useAuth();
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-6 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 py-5 lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-6 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
       <div className="flex items-center gap-2.5 px-2">
         <StrataMark />
         <div>
@@ -219,7 +219,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2.5 border-b border-[var(--line)] px-4 py-3 lg:hidden">
+        <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
         </header>
