@@ -163,6 +163,8 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
 - **Fluxo de caixa** mensal (entradas vs. saídas) nas despesas,
   **rebalanceamento** com alvos por ativo e desvio sugerido (migração
   `0017`), e valores em **moeda nativa** na página do ativo.
+- **Alocação por setor** (migração `0018`): o refresh guarda o setor de cada
+  ação (Yahoo `assetProfile`) e as posições mostram a repartição por setor.
 
 - **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
   "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como

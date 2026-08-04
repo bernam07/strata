@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
+import { weightBy } from '@/core/analytics/series';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
@@ -100,6 +101,13 @@ export const PositionsPage = () => {
       weight: totalMarketNumber > 0 ? entry.value / totalMarketNumber : 0,
     }));
 
+  const sectorSlices = weightBy(
+    positions,
+    (position) => data?.instruments.get(position.instrumentId)?.sector ?? 'Other',
+    (position) => (position.marketValue ?? position.costBasis).toNumber(),
+  );
+  const hasSectors = sectorSlices.some((slice) => slice.group !== 'Other');
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-3">
@@ -191,6 +199,35 @@ export const PositionsPage = () => {
                   </div>
                 );
               })}
+            </Card>
+          )}
+
+          {hasSectors && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                By sector
+              </h2>
+              {sectorSlices.map((slice) => (
+                <div key={slice.group} className="flex flex-col gap-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                      {slice.group}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+                      {percent.format(slice.weight)}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full neu-sunken">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${slice.weight * 100}%`,
+                        background: 'var(--accent)',
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </Card>
           )}
 

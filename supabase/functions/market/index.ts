@@ -178,6 +178,22 @@ const search = async (q: string): Promise<SearchHit[]> => {
     }));
 };
 
+const fetchSector = async (symbol: string): Promise<string | null> => {
+  const { crumb } = await getAuth();
+  const res = await yFetch(
+    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile&crumb=${encodeURIComponent(crumb)}`,
+  );
+  if (!res.ok) {
+    await res.body?.cancel();
+    return null;
+  }
+  const body = await res.json();
+  const sector = body?.quoteSummary?.result?.[0]?.assetProfile?.sector;
+  return typeof sector === 'string' && sector.trim().length > 0
+    ? sector.trim()
+    : null;
+};
+
 const resolveSymbol = async (
   isin: string | null,
   ticker: string,
@@ -249,7 +265,7 @@ const refresh = async (
   const ids = [...new Set(holdings.map((h) => h.instrument_id))];
   const { data: instruments } = await db
     .from('instruments')
-    .select('id, isin, ticker, yahoo_symbol')
+    .select('id, isin, ticker, yahoo_symbol, sector')
     .in('id', ids);
 
   const { data: fxRows } = await db
@@ -279,6 +295,16 @@ const refresh = async (
       const quoted = await fetchQuote(symbol);
       if (!instrument.yahoo_symbol) {
         await db.rpc('set_instrument_yahoo', { p_id: instrument.id, p_symbol: symbol });
+      }
+      if (!instrument.sector) {
+        try {
+          const sector = await fetchSector(symbol);
+          if (sector) {
+            await db.rpc('set_instrument_sector', { p_id: instrument.id, p_sector: sector });
+          }
+        } catch {
+          // sector is best-effort
+        }
       }
       priceByInstrument.set(instrument.id, {
         price: quoted.quote.price,
