@@ -12,6 +12,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { Select } from '@/ui/Field';
+import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import {
@@ -87,6 +88,13 @@ export const ExpensesPage = () => {
     [spentThisMonth],
   );
 
+  const recurring = useMemo(() => detectRecurring(transactions), [transactions]);
+  const recurringMonthly = useMemo(
+    () =>
+      recurring.reduce((total, item) => total.plus(monthlyEquivalent(item)), money('0')),
+    [recurring],
+  );
+
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
   return (
@@ -116,6 +124,43 @@ export const ExpensesPage = () => {
         <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
         <BudgetPanel categories={categories} spentOf={spentOf} />
       </Card>
+
+      {recurring.length > 0 && (
+        <Card className="flex flex-col gap-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-semibold text-[var(--text-strong)]">
+              Recurring
+            </h2>
+            <span className="text-sm text-[var(--text-muted)]">
+              ~{formatEur(recurringMonthly)}/mo
+            </span>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {recurring.map((item) => (
+              <li
+                key={item.label}
+                className="flex items-center justify-between rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {item.cadence} · next{' '}
+                    {new Date(item.nextExpected).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                    })}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+                  {formatEur(item.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-4 font-semibold text-[var(--text-strong)]">

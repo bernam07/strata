@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Transaction } from '@/core/types';
+import { transactionsToCsv } from '@/core/transactions/exportCsv';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Labelled, Select, TextInput } from '@/ui/Field';
@@ -47,6 +48,22 @@ export const TransactionsPage = () => {
 
   const noAccounts = accounts.length === 0;
 
+  const exportCsv = () => {
+    const accountName = new Map(accounts.map((account) => [account.id, account.name]));
+    const csv = transactionsToCsv(
+      transactions,
+      (id) => (id ? accountName.get(id) ?? '' : ''),
+      (id) => (id ? instruments?.get(id)?.name ?? instruments?.get(id)?.ticker ?? '' : ''),
+    );
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `strata-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-3">
@@ -55,6 +72,11 @@ export const TransactionsPage = () => {
         </h1>
         {mode === 'none' && (
           <div className="flex gap-2">
+            {transactions.length > 0 && (
+              <Button variant="ghost" onClick={exportCsv}>
+                Export
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => setMode('transfer')}
