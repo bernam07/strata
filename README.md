@@ -142,6 +142,25 @@ select cron.schedule(
 
 Lógica de orçamentos e de previsão coberta por testes em `src/core`.
 
+## Estado — Evolução real, metas e utilidades
+
+- **Evolução a valor de mercado** (migração `0012`): tabela
+  `net_worth_snapshots` (RLS) com um registo por dia; o dashboard grava o
+  snapshot de hoje e passa a desenhar a série real (não o custo de aquisição)
+  assim que houver histórico.
+- **Variação do dia**: o refresh guarda o `previous_close` de cada posição, e
+  a app mostra o P/L de hoje no cartão de património, _movers_ "a subir/descer
+  hoje" e a variação diária na página do ativo.
+- **Meta de património** (migração `0013`, tabela `user_preferences`): define
+  um alvo e vê a barra de progresso no dashboard.
+- **Despesas recorrentes**: deteção de subscrições (mesma nota, cadência
+  regular) com custo mensal estimado.
+- **Exportar transações em CSV**, **atualizar preços manualmente** nas
+  posições, **preços na pesquisa/watchlist**, período e range do gráfico
+  memorizados, e rotas carregadas em lazy para arrancar mais depressa.
+
+Lógica de despesas recorrentes e exportação coberta por testes em `src/core`.
+
 ## Estado — Cotações e pesquisa
 
 Preços de mercado independentes da sincronização de trades:

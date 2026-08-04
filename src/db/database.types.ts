@@ -387,6 +387,21 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_preferences: {
+        Row: {
+          user_id: string;
+          net_worth_goal: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          net_worth_goal?: number | null;
+        };
+        Update: {
+          net_worth_goal?: number | null;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;

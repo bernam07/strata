@@ -18,6 +18,7 @@ import { Skeleton } from '@/ui/Skeleton';
 import { usePersistentState } from '@/app/usePersistentState';
 import { AccountBalanceCard } from './AccountBalanceCard';
 import { NetWorthSummary } from './NetWorthSummary';
+import { GoalCard } from './GoalCard';
 import { Movers } from './Movers';
 import {
   useNetWorthHistory,
@@ -211,6 +212,8 @@ export const DashboardPage = () => {
             basisLabel={usingSnapshots ? 'market value' : 'at cost'}
             control={<PeriodToggle value={period} onChange={setPeriod} />}
           />
+
+          <GoalCard net={model.netWorth.net} />
 
           {rankablePositions >= 2 && (
             <section className="flex flex-col gap-3">
