@@ -419,6 +419,23 @@ export interface Database {
         };
         Relationships: [];
       };
+      allocation_targets: {
+        Row: {
+          user_id: string;
+          instrument_id: string;
+          target_weight: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          instrument_id: string;
+          target_weight: number;
+        };
+        Update: {
+          target_weight?: number;
+        };
+        Relationships: [];
+      };
       push_subscriptions: {
         Row: {
           id: string;

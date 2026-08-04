@@ -7,7 +7,7 @@ import { TransactionList } from '@/features/transactions/components/TransactionL
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useInstrumentQuote } from '@/features/search/api/useMarket';
-import { usePositions, useInstrumentPrices } from './api/usePositions';
+import { usePositions, useInstrumentPrices, useHolding } from './api/usePositions';
 import { PriceChart } from './PriceChart';
 import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
@@ -20,6 +20,13 @@ const percent = new Intl.NumberFormat('en-GB', {
 });
 
 const quantity = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 });
+
+const nativeMoney = (value: number, currency: string): string =>
+  new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  }).format(value);
 
 const Stat = ({ label, value, color }: { label: string; value: string; color?: string }) => (
   <div className="rounded-[var(--radius-field)] neu-sunken p-4">
@@ -42,6 +49,7 @@ export const InstrumentDetailPage = () => {
     instrumentId: id,
   });
   const { data: prices = [] } = useInstrumentPrices(id);
+  const { data: holding } = useHolding(id);
 
   const [range, setRange] = usePersistentState('chart-range', '1y');
   const instrument = positionsQuery.data?.instruments.get(id);
@@ -149,6 +157,38 @@ export const InstrumentDetailPage = () => {
             color={gainColor}
           />
         </div>
+      )}
+
+      {holding && holding.currency !== 'EUR' && (
+        <Card className="flex flex-wrap items-center gap-x-8 gap-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Native · {holding.currency}
+          </p>
+          <div>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              Price{' '}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              {nativeMoney(holding.currentPrice, holding.currency)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              Avg cost{' '}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              {nativeMoney(holding.averagePrice, holding.currency)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              Market value{' '}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              {nativeMoney(holding.quantity * holding.currentPrice, holding.currency)}
+            </span>
+          </div>
+        </Card>
       )}
 
       {chartPoints.length >= 2 ? (

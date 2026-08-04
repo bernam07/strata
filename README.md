@@ -160,6 +160,9 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
   memorizados, e rotas carregadas em lazy para arrancar mais depressa.
 - **Notas por posição** (migração `0016`), **alocação** da carteira nas
   posições, e **exportação do Anexo J** em CSV.
+- **Fluxo de caixa** mensal (entradas vs. saídas) nas despesas,
+  **rebalanceamento** com alvos por ativo e desvio sugerido (migração
+  `0017`), e valores em **moeda nativa** na página do ativo.
 
 - **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
   "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como

@@ -38,6 +38,34 @@ export const useInstrumentPrices = (instrumentId: string) =>
     },
   });
 
+export interface HoldingNative {
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  currency: string;
+}
+
+export const useHolding = (instrumentId: string) =>
+  useQuery<HoldingNative | null>({
+    queryKey: ['holding', instrumentId],
+    enabled: instrumentId.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('holdings')
+        .select('quantity, average_price, current_price, currency')
+        .eq('instrument_id', instrumentId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        quantity: Number(data.quantity),
+        averagePrice: Number(data.average_price),
+        currentPrice: Number(data.current_price),
+        currency: data.currency,
+      };
+    },
+  });
+
 export const useInstruments = () =>
   useQuery<Map<string, InstrumentMeta>>({
     queryKey: ['instruments'],

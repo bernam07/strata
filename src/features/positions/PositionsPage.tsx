@@ -6,6 +6,7 @@ import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { usePositions, type InstrumentMeta } from './api/usePositions';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
+import { RebalancePanel } from './RebalancePanel';
 import { StockAvatar } from './components/StockAvatar';
 import type { Position } from '@/core/positions/derivePositions';
 
@@ -191,6 +192,17 @@ export const PositionsPage = () => {
                 );
               })}
             </Card>
+          )}
+
+          {allocation.length > 1 && (
+            <RebalancePanel
+              positions={positions.map((position) => ({
+                instrumentId: position.instrumentId,
+                value: (position.marketValue ?? position.costBasis).toNumber(),
+              }))}
+              instruments={data?.instruments ?? new Map()}
+              total={totalMarketNumber}
+            />
           )}
 
           <div className="flex flex-col gap-2">

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { formatEur, money, zero, type Money } from '@/core/money/money';
+import { formatEur, isNegative, money, zero, type Money } from '@/core/money/money';
 import {
   comparePeriods,
   monthlyExpenses,
@@ -13,6 +13,7 @@ import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { Select } from '@/ui/Field';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
+import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import {
@@ -88,6 +89,10 @@ export const ExpensesPage = () => {
     [spentThisMonth],
   );
 
+  const cashflow = useMemo(
+    () => monthlyCashflow(transactions).slice(0, 6),
+    [transactions],
+  );
   const recurring = useMemo(() => detectRecurring(transactions), [transactions]);
   const recurringMonthly = useMemo(
     () =>
@@ -124,6 +129,45 @@ export const ExpensesPage = () => {
         <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
         <BudgetPanel categories={categories} spentOf={spentOf} />
       </Card>
+
+      {cashflow.length > 0 && (
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-semibold text-[var(--text-strong)]">Cash flow</h2>
+          <div className="flex flex-col gap-2">
+            {cashflow.map((row) => {
+              const negative = isNegative(row.net);
+              return (
+                <div
+                  key={row.month}
+                  className="flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
+                >
+                  <span className="text-sm font-semibold capitalize text-[var(--text-strong)]">
+                    {monthLabel(row.month)}
+                  </span>
+                  <div className="flex items-center gap-4 text-xs tabular-nums">
+                    <span className="text-[var(--positive)]">
+                      +{formatEur(row.inflow)}
+                    </span>
+                    <span className="text-[var(--negative)]">
+                      −{formatEur(row.outflow)}
+                    </span>
+                    <span
+                      className="w-20 text-right text-sm font-semibold"
+                      style={{
+                        color: negative
+                          ? 'var(--negative)'
+                          : 'var(--positive)',
+                      }}
+                    >
+                      {formatEur(row.net)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {recurring.length > 0 && (
         <Card className="flex flex-col gap-4">
