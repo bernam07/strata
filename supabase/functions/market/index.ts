@@ -251,7 +251,6 @@ const refresh = async (
     .from('instruments')
     .select('id, isin, ticker, yahoo_symbol')
     .in('id', ids);
-  const meta = new Map((instruments ?? []).map((i) => [i.id, i]));
 
   const { data: fxRows } = await db
     .from('fx_rates')
@@ -323,8 +322,7 @@ const refresh = async (
     const quoted = priceByInstrument.get(holding.instrument_id);
     const entry = byUser.get(holding.user_id);
     if (!quoted || !entry) continue;
-    const m = meta.get(holding.instrument_id);
-    entry.market += Number(holding.quantity) * quoted.price * rate(m?.currency ?? 'EUR');
+    entry.market += Number(holding.quantity) * quoted.price * rate(quoted.currency);
   }
   for (const [userId, entry] of byUser) {
     await db.rpc('set_broker_total', {
