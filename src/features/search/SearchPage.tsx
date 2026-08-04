@@ -6,6 +6,8 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { PriceChart } from '@/features/positions/PriceChart';
 import { RangeTabs } from '@/features/positions/RangeTabs';
+import { AlertForm, AlertsList } from '@/features/alerts/Alerts';
+import { usePriceAlerts } from '@/features/alerts/api/useAlerts';
 import { usePersistentState } from '@/app/usePersistentState';
 import {
   useBatchQuotes,
@@ -123,6 +125,9 @@ const QuotePanel = ({
                 <RangeTabs value={range} onChange={setRange} />
               </div>
             )}
+            <div className="border-t border-[var(--line)] pt-4">
+              <AlertForm symbol={symbol} name={name} currency={q.currency} />
+            </div>
           </>
         ) : (
           <p className="text-sm text-[var(--text-muted)]">
@@ -148,15 +153,20 @@ export const SearchPage = () => {
 
   const { data: results = [], isLoading, isError, error } = useStockSearch(query);
   const { data: watchlist = [] } = useWatchlist();
+  const { data: alerts = [] } = usePriceAlerts();
 
   const showWatchlist = useMemo(
     () => query.trim().length < 2,
     [query],
   );
 
-  const visibleSymbols = showWatchlist
+  const listSymbols = showWatchlist
     ? watchlist.map((item) => item.symbol)
     : results.map((result) => result.symbol);
+  const visibleSymbols = useMemo(
+    () => [...new Set([...listSymbols, ...alerts.map((a) => a.symbol)])],
+    [listSymbols, alerts],
+  );
   const { data: quotes = {} } = useBatchQuotes(visibleSymbols);
 
   if (selected) {
@@ -187,12 +197,14 @@ export const SearchPage = () => {
       />
 
       {showWatchlist ? (
-        watchlist.length > 0 ? (
-          <section className="flex flex-col gap-3">
-            <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Watchlist
-            </h2>
-            {watchlist.map((item) => (
+        <>
+          <AlertsList alerts={alerts} quotes={quotes} />
+          {watchlist.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Watchlist
+              </h2>
+              {watchlist.map((item) => (
               <button
                 key={item.symbol}
                 type="button"
@@ -211,13 +223,14 @@ export const SearchPage = () => {
                 <PriceTag quote={quotes[item.symbol]} />
               </button>
             ))}
-          </section>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Search for a stock to see its price and chart, or add it to your
-            watchlist.
-          </p>
-        )
+            </section>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">
+              Search for a stock to see its price and chart, or add it to your
+              watchlist.
+            </p>
+          )}
+        </>
       ) : isLoading ? (
         <SkeletonRows count={4} />
       ) : isError ? (

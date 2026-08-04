@@ -56,7 +56,10 @@ const getAuth = async (): Promise<YahooAuth> => {
   return cachedAuth;
 };
 
-const yFetch = async (url: string): Promise<Response> => {
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+const yFetch = async (url: string, attempt = 0): Promise<Response> => {
   const { cookie } = await getAuth();
   const res = await fetch(url, {
     headers: {
@@ -65,16 +68,15 @@ const yFetch = async (url: string): Promise<Response> => {
       ...(cookie ? { Cookie: cookie } : {}),
     },
   });
-  if (res.status === 401 || res.status === 403) {
+  if ((res.status === 429 || res.status === 503) && attempt < 3) {
+    await res.body?.cancel();
+    await sleep(500 * 2 ** attempt);
+    return yFetch(url, attempt + 1);
+  }
+  if ((res.status === 401 || res.status === 403) && attempt < 2) {
     await res.body?.cancel();
     cachedAuth = await buildAuth();
-    return fetch(url, {
-      headers: {
-        'User-Agent': UA,
-        Accept: 'application/json',
-        Cookie: cachedAuth.cookie,
-      },
-    });
+    return yFetch(url, attempt + 1);
   }
   return res;
 };

@@ -402,6 +402,35 @@ export interface Database {
         };
         Relationships: [];
       };
+      price_alerts: {
+        Row: {
+          id: string;
+          user_id: string;
+          symbol: string;
+          name: string;
+          direction: string;
+          target: number;
+          currency: string;
+          triggered_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          symbol: string;
+          name: string;
+          direction: string;
+          target: number;
+          currency?: string;
+          triggered_at?: string | null;
+        };
+        Update: {
+          direction?: string;
+          target?: number;
+          triggered_at?: string | null;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;

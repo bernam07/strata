@@ -16,6 +16,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { usePersistentState } from '@/app/usePersistentState';
+import { AlertBanner } from '@/features/alerts/Alerts';
 import { AccountBalanceCard } from './AccountBalanceCard';
 import { NetWorthSummary } from './NetWorthSummary';
 import { GoalCard } from './GoalCard';
@@ -205,6 +206,8 @@ export const DashboardPage = () => {
         </Card>
       ) : (
         <>
+          <AlertBanner />
+
           <NetWorthSummary
             netWorth={model.netWorth}
             series={displayedSeries}

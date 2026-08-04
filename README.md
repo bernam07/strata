@@ -159,7 +159,15 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
   posições, **preços na pesquisa/watchlist**, período e range do gráfico
   memorizados, e rotas carregadas em lazy para arrancar mais depressa.
 
-Lógica de despesas recorrentes e exportação coberta por testes em `src/core`.
+- **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
+  "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como
+  disparado e mostra um aviso no dashboard e na pesquisa. Sem push por agora —
+  avaliação in-app.
+- **Resiliência do Yahoo**: a função `market` faz backoff exponencial em
+  `429`/`503` e volta a autenticar em `401`/`403`.
+
+Lógica de despesas recorrentes, exportação e alertas coberta por testes em
+`src/core`.
 
 ## Estado — Cotações e pesquisa
 
