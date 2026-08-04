@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
-import { formatEur, isNegative } from '@/core/money/money';
-import { realizedGainsByYear } from '@/core/tax/fifo';
+import { formatEur, isNegative, zero, type Money } from '@/core/money/money';
+import { realizedDisposals, realizedGainsByYear } from '@/core/tax/fifo';
 import { disposalsToCsv } from '@/core/tax/exportCsv';
+import {
+  dividendsByCountry,
+  gainsByCountry,
+  isForeign,
+} from '@/core/tax/anexoJ';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { usePositions } from '@/features/positions/api/usePositions';
 import { Button } from '@/ui/Button';
@@ -14,6 +19,27 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
   month: 'short',
   year: 'numeric',
 });
+
+const countryName: Record<string, string> = {
+  US: 'United States',
+  IE: 'Ireland',
+  DE: 'Germany',
+  FR: 'France',
+  NL: 'Netherlands',
+  GB: 'United Kingdom',
+  LU: 'Luxembourg',
+  ES: 'Spain',
+  CH: 'Switzerland',
+  CA: 'Canada',
+  JP: 'Japan',
+  BE: 'Belgium',
+  IT: 'Italy',
+  DK: 'Denmark',
+  SE: 'Sweden',
+  FI: 'Finland',
+};
+
+const labelForCountry = (code: string): string => countryName[code] ?? code;
 
 export const TaxPage = () => {
   const { data: transactions = [], isLoading } = useTransactions();
@@ -31,6 +57,32 @@ export const TaxPage = () => {
     () => realizedGainsByYear(transactions),
     [transactions],
   );
+
+  const countryOf = useMemo(() => {
+    const instruments = positions.data?.instruments;
+    return (instrumentId: string) => {
+      const isin = instruments?.get(instrumentId)?.isin;
+      return isin && isin.length >= 2 ? isin.slice(0, 2).toUpperCase() : 'Unknown';
+    };
+  }, [positions.data]);
+
+  const foreign = useMemo(() => {
+    const merged = new Map<string, { gain: Money; dividends: Money }>();
+    for (const row of gainsByCountry(realizedDisposals(transactions), countryOf)) {
+      if (isForeign(row.country)) {
+        merged.set(row.country, { gain: row.gain, dividends: zero() });
+      }
+    }
+    for (const row of dividendsByCountry(transactions, countryOf)) {
+      if (!isForeign(row.country)) continue;
+      const entry = merged.get(row.country) ?? { gain: zero(), dividends: zero() };
+      entry.dividends = row.gross;
+      merged.set(row.country, entry);
+    }
+    return [...merged.entries()]
+      .map(([country, value]) => ({ country, ...value }))
+      .sort((a, b) => b.gain.plus(b.dividends).comparedTo(a.gain.plus(a.dividends)));
+  }, [transactions, countryOf]);
 
   const download = (year: number, csv: string) => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -51,6 +103,50 @@ export const TaxPage = () => {
         Realized capital gains by FIFO, with fees folded into the acquisition
         cost. Basis for the Portuguese Anexo G.
       </p>
+
+      {foreign.length > 0 && (
+        <Card className="flex flex-col gap-4">
+          <div>
+            <h2 className="font-semibold text-[var(--text-strong)]">
+              Anexo J · foreign income
+            </h2>
+            <p className="text-xs text-[var(--text-muted)]">
+              Realized gains and dividends by source country (from ISIN). Gains
+              settled in EUR — the currency component isn't split.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-3 px-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+              <span className="flex-1">Country</span>
+              <span className="w-24 text-right">Gains</span>
+              <span className="w-24 text-right">Dividends</span>
+            </div>
+            {foreign.map((row) => (
+              <div
+                key={row.country}
+                className="flex items-center gap-3 rounded-[var(--radius-field)] neu-flat px-3 py-2.5"
+              >
+                <span className="flex-1 text-sm font-semibold text-[var(--text-strong)]">
+                  {labelForCountry(row.country)}
+                </span>
+                <span
+                  className="w-24 text-right text-sm tabular-nums"
+                  style={{
+                    color: isNegative(row.gain)
+                      ? 'var(--negative)'
+                      : 'var(--text-strong)',
+                  }}
+                >
+                  {formatEur(row.gain)}
+                </span>
+                <span className="w-24 text-right text-sm tabular-nums text-[var(--positive)]">
+                  {formatEur(row.dividends)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {isLoading ? (
         <SkeletonRows count={3} />
