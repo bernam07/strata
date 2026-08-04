@@ -1,25 +1,54 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
-import { AccountDetailPage } from '@/features/accounts/AccountDetailPage';
-import { TransactionsPage } from '@/features/transactions/TransactionsPage';
-import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
-import { PositionsPage } from '@/features/positions/PositionsPage';
-import { InstrumentDetailPage } from '@/features/positions/InstrumentDetailPage';
-import { SearchPage } from '@/features/search/SearchPage';
-import { DividendsPage } from '@/features/dividends/DividendsPage';
-import { ExpensesPage } from '@/features/expenses/ExpensesPage';
-import { TaxPage } from '@/features/tax/TaxPage';
 import { AppShell } from './AppShell';
 import { useAppUpdate } from './useAppUpdate';
 
-const AnalyticsPage = lazy(() =>
-  import('@/features/analytics/AnalyticsPage').then((module) => ({
-    default: module.AnalyticsPage,
-  })),
+const lazyPage = (
+  loader: () => Promise<Record<string, ComponentType>>,
+  name: string,
+) => lazy(() => loader().then((module) => ({ default: module[name]! })));
+
+const AccountDetailPage = lazyPage(
+  () => import('@/features/accounts/AccountDetailPage'),
+  'AccountDetailPage',
+);
+const TransactionsPage = lazyPage(
+  () => import('@/features/transactions/TransactionsPage'),
+  'TransactionsPage',
+);
+const PositionsPage = lazyPage(
+  () => import('@/features/positions/PositionsPage'),
+  'PositionsPage',
+);
+const InstrumentDetailPage = lazyPage(
+  () => import('@/features/positions/InstrumentDetailPage'),
+  'InstrumentDetailPage',
+);
+const SearchPage = lazyPage(() => import('@/features/search/SearchPage'), 'SearchPage');
+const DividendsPage = lazyPage(
+  () => import('@/features/dividends/DividendsPage'),
+  'DividendsPage',
+);
+const ExpensesPage = lazyPage(
+  () => import('@/features/expenses/ExpensesPage'),
+  'ExpensesPage',
+);
+const TaxPage = lazyPage(() => import('@/features/tax/TaxPage'), 'TaxPage');
+const AnalyticsPage = lazyPage(
+  () => import('@/features/analytics/AnalyticsPage'),
+  'AnalyticsPage',
+);
+const IntegrationsPage = lazyPage(
+  () => import('@/features/integrations/IntegrationsPage'),
+  'IntegrationsPage',
+);
+
+const PageFallback = () => (
+  <p className="text-sm text-[var(--text-muted)]">Loading…</p>
 );
 
 export const AppRouter = () => {
@@ -39,32 +68,23 @@ export const AppRouter = () => {
   return (
     <BrowserRouter>
       <AppShell>
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/accounts/:id" element={<AccountDetailPage />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/positions" element={<PositionsPage />} />
-          <Route path="/positions/:id" element={<InstrumentDetailPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/dividends" element={<DividendsPage />} />
-          <Route path="/expenses" element={<ExpensesPage />} />
-          <Route path="/tax" element={<TaxPage />} />
-          <Route
-            path="/analytics"
-            element={
-              <Suspense
-                fallback={
-                  <p className="text-sm text-[var(--text-muted)]">Loading…</p>
-                }
-              >
-                <AnalyticsPage />
-              </Suspense>
-            }
-          />
-          <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/accounts/:id" element={<AccountDetailPage />} />
+            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/positions" element={<PositionsPage />} />
+            <Route path="/positions/:id" element={<InstrumentDetailPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/dividends" element={<DividendsPage />} />
+            <Route path="/expenses" element={<ExpensesPage />} />
+            <Route path="/tax" element={<TaxPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/integrations" element={<IntegrationsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </AppShell>
     </BrowserRouter>
   );

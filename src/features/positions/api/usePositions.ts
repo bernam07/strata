@@ -38,6 +38,34 @@ export const useInstrumentPrices = (instrumentId: string) =>
     },
   });
 
+export interface HoldingNative {
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  currency: string;
+}
+
+export const useHolding = (instrumentId: string) =>
+  useQuery<HoldingNative | null>({
+    queryKey: ['holding', instrumentId],
+    enabled: instrumentId.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('holdings')
+        .select('quantity, average_price, current_price, currency')
+        .eq('instrument_id', instrumentId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        quantity: Number(data.quantity),
+        averagePrice: Number(data.average_price),
+        currentPrice: Number(data.current_price),
+        currency: data.currency,
+      };
+    },
+  });
+
 export const useInstruments = () =>
   useQuery<Map<string, InstrumentMeta>>({
     queryKey: ['instruments'],
@@ -72,7 +100,9 @@ export const usePositions = () =>
         await Promise.all([
           supabase
             .from('holdings')
-            .select('instrument_id, quantity, average_price, current_price, currency'),
+            .select(
+              'instrument_id, quantity, average_price, current_price, previous_close, currency',
+            ),
           supabase
             .from('transactions')
             .select('*')
@@ -108,6 +138,14 @@ export const usePositions = () =>
           const costBasis = mul(quantity, averageCost);
           const marketValue = mul(quantity, currentEur);
           const unrealized = subtract(marketValue, costBasis);
+          const previous = holding.previous_close;
+          let dayChange: Position['dayChange'] = null;
+          let dayChangePct: Position['dayChangePct'] = null;
+          if (previous !== null && money(previous).greaterThan(0)) {
+            const previousEur = mul(money(previous), fx);
+            dayChange = mul(quantity, subtract(currentEur, previousEur));
+            dayChangePct = ratio(subtract(currentEur, previousEur), previousEur);
+          }
           return {
             instrumentId: holding.instrument_id,
             quantity,
@@ -116,6 +154,8 @@ export const usePositions = () =>
             marketValue,
             unrealized,
             unrealizedPct: ratio(unrealized, costBasis),
+            dayChange,
+            dayChangePct,
           };
         });
         return { positions, instruments, fromBroker: true };

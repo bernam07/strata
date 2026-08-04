@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
 import { netWorthAtCostSeries, sliceFrom } from '@/core/analytics/series';
+import { money, sum, toNumber, zero, type Money } from '@/core/money/money';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import {
   applyBrokerBalances,
@@ -14,9 +15,16 @@ import { TransactionList } from '@/features/transactions/components/TransactionL
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
+import { usePersistentState } from '@/app/usePersistentState';
+import { AlertBanner } from '@/features/alerts/Alerts';
 import { AccountBalanceCard } from './AccountBalanceCard';
 import { NetWorthSummary } from './NetWorthSummary';
+import { GoalCard } from './GoalCard';
 import { Movers } from './Movers';
+import {
+  useNetWorthHistory,
+  useRecordNetWorth,
+} from './api/useNetWorthHistory';
 
 type Period = '1M' | '6M' | '1Y' | 'All';
 
@@ -82,7 +90,9 @@ export const DashboardPage = () => {
   const brokersQuery = useBrokerAccounts();
   const { data: instruments } = useInstruments();
   const positionsQuery = usePositions();
-  const [period, setPeriod] = useState<Period>('1Y');
+  const { data: snapshots = [] } = useNetWorthHistory();
+  const recordNetWorth = useRecordNetWorth();
+  const [period, setPeriod] = usePersistentState<Period>('dashboard-period', '1Y');
 
   const model = useMemo(() => {
     const accounts = accountsQuery.data ?? [];
@@ -112,11 +122,6 @@ export const DashboardPage = () => {
     };
   }, [accountsQuery.data, transactionsQuery.data, brokersQuery.data]);
 
-  const displayedSeries = useMemo(() => {
-    const start = periodStart(period);
-    return start ? sliceFrom(model.series, start) : model.series;
-  }, [model.series, period]);
-
   const loading = accountsQuery.isLoading || transactionsQuery.isLoading;
   const accounts = accountsQuery.data ?? [];
   const empty = !loading && accounts.length === 0;
@@ -125,6 +130,45 @@ export const DashboardPage = () => {
   const rankablePositions = positions.filter(
     (position) => position.unrealizedPct !== null,
   ).length;
+
+  const investments = useMemo(() => {
+    const brokers = brokersQuery.data ?? new Map();
+    let total = zero();
+    for (const snapshot of brokers.values()) total = total.plus(money(snapshot.total));
+    return total;
+  }, [brokersQuery.data]);
+
+  const dataReady =
+    !loading &&
+    !brokersQuery.isLoading &&
+    accounts.length > 0 &&
+    !positionsQuery.isLoading;
+
+  useEffect(() => {
+    if (!dataReady) return;
+    recordNetWorth.mutate({
+      net: toNumber(model.netWorth.net),
+      assets: toNumber(model.netWorth.totalAssets),
+      liabilities: toNumber(model.netWorth.totalLiabilities),
+      investments: toNumber(investments),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataReady, model.netWorth.net.toString()]);
+
+  const baseSeries = snapshots.length >= 2 ? snapshots : model.series;
+  const usingSnapshots = snapshots.length >= 2;
+
+  const displayedSeries = useMemo(() => {
+    const start = periodStart(period);
+    return start ? sliceFrom(baseSeries, start) : baseSeries;
+  }, [baseSeries, period]);
+
+  const todayPl = useMemo<Money | null>(() => {
+    const changes = positions
+      .map((position) => position.dayChange)
+      .filter((change): change is Money => change !== null);
+    return changes.length > 0 ? sum(changes) : null;
+  }, [positions]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -162,11 +206,17 @@ export const DashboardPage = () => {
         </Card>
       ) : (
         <>
+          <AlertBanner />
+
           <NetWorthSummary
             netWorth={model.netWorth}
             series={displayedSeries}
+            today={todayPl}
+            basisLabel={usingSnapshots ? 'market value' : 'at cost'}
             control={<PeriodToggle value={period} onChange={setPeriod} />}
           />
+
+          <GoalCard net={model.netWorth.net} />
 
           {rankablePositions >= 2 && (
             <section className="flex flex-col gap-3">

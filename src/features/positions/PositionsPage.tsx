@@ -5,6 +5,8 @@ import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { usePositions, type InstrumentMeta } from './api/usePositions';
+import { useRefreshPrices } from '@/features/search/api/useMarket';
+import { RebalancePanel } from './RebalancePanel';
 import { StockAvatar } from './components/StockAvatar';
 import type { Position } from '@/core/positions/derivePositions';
 
@@ -74,6 +76,7 @@ const PositionRow = ({
 
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
+  const refresh = useRefreshPrices();
 
   const positions = data?.positions ?? [];
   const totalMarket = sum(
@@ -83,11 +86,42 @@ export const PositionsPage = () => {
   const totalGain = totalMarket.minus(totalCost);
   const gainNegative = isNegative(totalGain);
 
+  const totalMarketNumber = totalMarket.toNumber();
+  const allocation = positions
+    .map((position) => ({
+      instrumentId: position.instrumentId,
+      value: (position.marketValue ?? position.costBasis).toNumber(),
+    }))
+    .filter((entry) => entry.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+    .map((entry) => ({
+      ...entry,
+      weight: totalMarketNumber > 0 ? entry.value / totalMarketNumber : 0,
+    }));
+
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Positions
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Positions
+        </h1>
+        {positions.length > 0 && (
+          <Button
+            variant="ghost"
+            onClick={() => refresh.mutate()}
+            disabled={refresh.isPending}
+          >
+            {refresh.isPending ? 'Refreshing…' : 'Refresh prices'}
+          </Button>
+        )}
+      </div>
+
+      {refresh.isError && (
+        <p className="text-sm text-[var(--negative)]">
+          Couldn't refresh prices. Try again in a moment.
+        </p>
+      )}
 
       {isLoading ? (
         <SkeletonRows count={4} />
@@ -127,6 +161,49 @@ export const PositionsPage = () => {
               </p>
             </div>
           </Card>
+
+          {allocation.length > 1 && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Allocation
+              </h2>
+              {allocation.map((entry) => {
+                const meta = data?.instruments.get(entry.instrumentId);
+                return (
+                  <div key={entry.instrumentId} className="flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                        {meta?.name ?? meta?.ticker ?? 'Instrument'}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+                        {percent.format(entry.weight)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full neu-sunken">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${entry.weight * 100}%`,
+                          background: 'var(--accent)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+          )}
+
+          {allocation.length > 1 && (
+            <RebalancePanel
+              positions={positions.map((position) => ({
+                instrumentId: position.instrumentId,
+                value: (position.marketValue ?? position.costBasis).toNumber(),
+              }))}
+              instruments={data?.instruments ?? new Map()}
+              total={totalMarketNumber}
+            />
+          )}
 
           <div className="flex flex-col gap-2">
             {positions

@@ -340,6 +340,7 @@ export interface Database {
           quantity: string;
           average_price: string;
           current_price: string;
+          previous_close: string | null;
           currency: string;
           updated_at: string;
         };
@@ -349,12 +350,141 @@ export interface Database {
           quantity: string;
           average_price: string;
           current_price: string;
+          previous_close?: string | null;
           currency?: string;
         };
         Update: {
           quantity?: string;
           average_price?: string;
           current_price?: string;
+          previous_close?: string | null;
+        };
+        Relationships: [];
+      };
+      net_worth_snapshots: {
+        Row: {
+          user_id: string;
+          as_of: string;
+          net: number;
+          assets: number;
+          liabilities: number;
+          investments: number;
+          created_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          as_of: string;
+          net: number;
+          assets: number;
+          liabilities: number;
+          investments?: number;
+        };
+        Update: {
+          net?: number;
+          assets?: number;
+          liabilities?: number;
+          investments?: number;
+        };
+        Relationships: [];
+      };
+      user_preferences: {
+        Row: {
+          user_id: string;
+          net_worth_goal: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          net_worth_goal?: number | null;
+        };
+        Update: {
+          net_worth_goal?: number | null;
+        };
+        Relationships: [];
+      };
+      instrument_notes: {
+        Row: {
+          user_id: string;
+          instrument_id: string;
+          body: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          instrument_id: string;
+          body: string;
+        };
+        Update: {
+          body?: string;
+        };
+        Relationships: [];
+      };
+      allocation_targets: {
+        Row: {
+          user_id: string;
+          instrument_id: string;
+          target_weight: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          instrument_id: string;
+          target_weight: number;
+        };
+        Update: {
+          target_weight?: number;
+        };
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+        };
+        Update: {
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+        };
+        Relationships: [];
+      };
+      price_alerts: {
+        Row: {
+          id: string;
+          user_id: string;
+          symbol: string;
+          name: string;
+          direction: string;
+          target: number;
+          currency: string;
+          triggered_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          symbol: string;
+          name: string;
+          direction: string;
+          target: number;
+          currency?: string;
+          triggered_at?: string | null;
+        };
+        Update: {
+          direction?: string;
+          target?: number;
+          triggered_at?: string | null;
         };
         Relationships: [];
       };

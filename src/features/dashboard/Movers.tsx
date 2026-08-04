@@ -13,12 +13,15 @@ const percent = new Intl.NumberFormat('en-GB', {
 const MoverRow = ({
   position,
   meta,
+  useDay,
 }: {
   position: Position;
   meta: InstrumentMeta | undefined;
+  useDay: boolean;
 }) => {
-  const unrealized = position.unrealized ?? zero();
-  const down = isNegative(unrealized);
+  const value = (useDay ? position.dayChange : position.unrealized) ?? zero();
+  const pct = useDay ? position.dayChangePct : position.unrealizedPct;
+  const down = isNegative(value);
   const color = down ? 'var(--negative)' : 'var(--positive)';
   return (
     <Link
@@ -35,12 +38,10 @@ const MoverRow = ({
       </span>
       <div className="text-right">
         <p className="text-sm font-semibold tabular-nums" style={{ color }}>
-          {position.unrealizedPct !== null
-            ? `${down ? '' : '+'}${percent.format(position.unrealizedPct)}`
-            : '—'}
+          {pct !== null ? `${down ? '' : '+'}${percent.format(pct)}` : '—'}
         </p>
         <p className="text-[11px] tabular-nums text-[var(--text-muted)]">
-          {formatEur(unrealized)}
+          {formatEur(value)}
         </p>
       </div>
     </Link>
@@ -54,14 +55,18 @@ export const Movers = ({
   positions: Position[];
   instruments: Map<string, InstrumentMeta>;
 }) => {
+  const useDay = positions.some((position) => position.dayChangePct !== null);
+  const metric = (position: Position) =>
+    useDay ? position.dayChangePct : position.unrealizedPct;
+
   const ranked = positions
-    .filter((position) => position.unrealizedPct !== null)
-    .sort((a, b) => (b.unrealizedPct ?? 0) - (a.unrealizedPct ?? 0));
+    .filter((position) => metric(position) !== null)
+    .sort((a, b) => (metric(b) ?? 0) - (metric(a) ?? 0));
   if (ranked.length < 2) return null;
 
-  const gainers = ranked.filter((p) => (p.unrealizedPct ?? 0) > 0).slice(0, 3);
+  const gainers = ranked.filter((p) => (metric(p) ?? 0) > 0).slice(0, 3);
   const losers = ranked
-    .filter((p) => (p.unrealizedPct ?? 0) < 0)
+    .filter((p) => (metric(p) ?? 0) < 0)
     .slice(-3)
     .reverse();
 
@@ -70,7 +75,7 @@ export const Movers = ({
       {gainers.length > 0 && (
         <div className="rounded-[var(--radius-card)] neu-flat p-4">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--positive)]">
-            Leaders
+            {useDay ? 'Up today' : 'Leaders'}
           </p>
           <div className="flex flex-col gap-0.5">
             {gainers.map((position) => (
@@ -78,6 +83,7 @@ export const Movers = ({
                 key={position.instrumentId}
                 position={position}
                 meta={instruments.get(position.instrumentId)}
+                useDay={useDay}
               />
             ))}
           </div>
@@ -86,7 +92,7 @@ export const Movers = ({
       {losers.length > 0 && (
         <div className="rounded-[var(--radius-card)] neu-flat p-4">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--negative)]">
-            Laggards
+            {useDay ? 'Down today' : 'Laggards'}
           </p>
           <div className="flex flex-col gap-0.5">
             {losers.map((position) => (
@@ -94,6 +100,7 @@ export const Movers = ({
                 key={position.instrumentId}
                 position={position}
                 meta={instruments.get(position.instrumentId)}
+                useDay={useDay}
               />
             ))}
           </div>

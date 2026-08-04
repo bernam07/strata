@@ -142,6 +142,55 @@ select cron.schedule(
 
 Lógica de orçamentos e de previsão coberta por testes em `src/core`.
 
+## Estado — Evolução real, metas e utilidades
+
+- **Evolução a valor de mercado** (migração `0012`): tabela
+  `net_worth_snapshots` (RLS) com um registo por dia; o dashboard grava o
+  snapshot de hoje e passa a desenhar a série real (não o custo de aquisição)
+  assim que houver histórico.
+- **Variação do dia**: o refresh guarda o `previous_close` de cada posição, e
+  a app mostra o P/L de hoje no cartão de património, _movers_ "a subir/descer
+  hoje" e a variação diária na página do ativo.
+- **Meta de património** (migração `0013`, tabela `user_preferences`): define
+  um alvo e vê a barra de progresso no dashboard.
+- **Despesas recorrentes**: deteção de subscrições (mesma nota, cadência
+  regular) com custo mensal estimado.
+- **Exportar transações em CSV**, **atualizar preços manualmente** nas
+  posições, **preços na pesquisa/watchlist**, período e range do gráfico
+  memorizados, e rotas carregadas em lazy para arrancar mais depressa.
+- **Notas por posição** (migração `0016`), **alocação** da carteira nas
+  posições, e **exportação do Anexo J** em CSV.
+- **Fluxo de caixa** mensal (entradas vs. saídas) nas despesas,
+  **rebalanceamento** com alvos por ativo e desvio sugerido (migração
+  `0017`), e valores em **moeda nativa** na página do ativo.
+
+- **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
+  "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como
+  disparado e mostra um aviso no dashboard e na pesquisa. Sem push por agora —
+  avaliação in-app.
+- **Resiliência do Yahoo**: a função `market` faz backoff exponencial em
+  `429`/`503` e volta a autenticar em `401`/`403`.
+
+### Notificações push (opcional)
+
+Os alertas também podem chegar como notificação push (Web Push), mesmo com a
+app fechada — avaliados no cron pela função `market`.
+
+1. Gerar as chaves VAPID: `deno run scripts/generate-vapid.ts`.
+2. No projeto Supabase, definir os _secrets_ da função `market`: `VAPID_KEYS`
+   (o JSON impresso) e `VAPID_SUBJECT` (um `mailto:`).
+3. No frontend (Vercel), definir `VITE_VAPID_PUBLIC_KEY` com a chave pública.
+4. Na app, **Integrations → Price alert notifications → Enable** (é preciso a
+   PWA no ecrã inicial no iOS).
+
+Sem estas chaves, o envio de push fica desativado sem afetar o resto — a
+avaliação in-app dos alertas continua a funcionar. O `service worker`
+(`public/sw.js`) só trata de push, não faz cache, por isso não interfere com a
+atualização da PWA.
+
+Lógica de despesas recorrentes, exportação e alertas coberta por testes em
+`src/core`.
+
 ## Estado — Cotações e pesquisa
 
 Preços de mercado independentes da sincronização de trades:

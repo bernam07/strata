@@ -5,12 +5,45 @@ import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { PriceChart } from '@/features/positions/PriceChart';
+import { RangeTabs } from '@/features/positions/RangeTabs';
+import { AlertForm, AlertsList } from '@/features/alerts/Alerts';
+import { usePriceAlerts } from '@/features/alerts/api/useAlerts';
+import { usePersistentState } from '@/app/usePersistentState';
 import {
+  useBatchQuotes,
   useQuote,
   useStockSearch,
   useToggleWatch,
   useWatchlist,
+  type MiniQuote,
 } from './api/useMarket';
+
+const PriceTag = ({ quote }: { quote: MiniQuote | undefined }) => {
+  if (!quote) return <span className="text-[var(--text-muted)]">›</span>;
+  const pct =
+    quote.previousClose > 0
+      ? (quote.price - quote.previousClose) / quote.previousClose
+      : 0;
+  const money = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: quote.currency,
+    maximumFractionDigits: 2,
+  }).format(quote.price);
+  return (
+    <div className="text-right">
+      <p className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+        {money}
+      </p>
+      <p
+        className="text-xs font-semibold tabular-nums"
+        style={{ color: pct >= 0 ? 'var(--positive)' : 'var(--negative)' }}
+      >
+        {pct >= 0 ? '+' : ''}
+        {(pct * 100).toFixed(2)}%
+      </p>
+    </div>
+  );
+};
 
 const QuotePanel = ({
   symbol,
@@ -21,7 +54,8 @@ const QuotePanel = ({
   name: string;
   onBack: () => void;
 }) => {
-  const { data, isLoading } = useQuote(symbol);
+  const [range, setRange] = usePersistentState('chart-range', '1y');
+  const { data, isLoading } = useQuote(symbol, range);
   const { data: watchlist = [] } = useWatchlist();
   const toggle = useToggleWatch();
 
@@ -86,8 +120,14 @@ const QuotePanel = ({
               </span>
             </div>
             {data?.history && data.history.length >= 2 && (
-              <PriceChart points={data.history} currency={q.currency} />
+              <div className="flex flex-col gap-3">
+                <PriceChart points={data.history} currency={q.currency} />
+                <RangeTabs value={range} onChange={setRange} />
+              </div>
             )}
+            <div className="border-t border-[var(--line)] pt-4">
+              <AlertForm symbol={symbol} name={name} currency={q.currency} />
+            </div>
           </>
         ) : (
           <p className="text-sm text-[var(--text-muted)]">
@@ -113,11 +153,21 @@ export const SearchPage = () => {
 
   const { data: results = [], isLoading, isError, error } = useStockSearch(query);
   const { data: watchlist = [] } = useWatchlist();
+  const { data: alerts = [] } = usePriceAlerts();
 
   const showWatchlist = useMemo(
     () => query.trim().length < 2,
     [query],
   );
+
+  const listSymbols = showWatchlist
+    ? watchlist.map((item) => item.symbol)
+    : results.map((result) => result.symbol);
+  const visibleSymbols = useMemo(
+    () => [...new Set([...listSymbols, ...alerts.map((a) => a.symbol)])],
+    [listSymbols, alerts],
+  );
+  const { data: quotes = {} } = useBatchQuotes(visibleSymbols);
 
   if (selected) {
     return (
@@ -147,12 +197,14 @@ export const SearchPage = () => {
       />
 
       {showWatchlist ? (
-        watchlist.length > 0 ? (
-          <section className="flex flex-col gap-3">
-            <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Watchlist
-            </h2>
-            {watchlist.map((item) => (
+        <>
+          <AlertsList alerts={alerts} quotes={quotes} />
+          {watchlist.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Watchlist
+              </h2>
+              {watchlist.map((item) => (
               <button
                 key={item.symbol}
                 type="button"
@@ -168,16 +220,17 @@ export const SearchPage = () => {
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">{item.symbol}</p>
                 </div>
-                <span className="text-[var(--text-muted)]">›</span>
+                <PriceTag quote={quotes[item.symbol]} />
               </button>
             ))}
-          </section>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Search for a stock to see its price and chart, or add it to your
-            watchlist.
-          </p>
-        )
+            </section>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">
+              Search for a stock to see its price and chart, or add it to your
+              watchlist.
+            </p>
+          )}
+        </>
       ) : isLoading ? (
         <SkeletonRows count={4} />
       ) : isError ? (
@@ -206,7 +259,7 @@ export const SearchPage = () => {
                   {result.symbol} · {result.exchange}
                 </p>
               </div>
-              <span className="text-[var(--text-muted)]">›</span>
+              <PriceTag quote={quotes[result.symbol]} />
             </button>
           ))}
         </ul>

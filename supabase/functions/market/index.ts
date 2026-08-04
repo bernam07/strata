@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendPush } from '../_shared/push.ts';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -24,6 +25,27 @@ const admin = (): SupabaseClient =>
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     { auth: { persistSession: false } },
   );
+
+const bearer = (req: Request): string =>
+  (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+
+// Cron passes the service-role key → refresh everyone. A user's JWT → scope to
+// that user, so a client can never trigger a global refresh or fan-out.
+const callerScope = async (
+  req: Request,
+): Promise<{ all: boolean; userId?: string }> => {
+  const token = bearer(req);
+  if (token && token === (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')) {
+    return { all: true };
+  }
+  const scoped = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } },
+  );
+  const { data } = await scoped.auth.getUser();
+  return { all: false, userId: data.user?.id };
+};
 
 interface YahooAuth {
   cookie: string;
@@ -56,7 +78,10 @@ const getAuth = async (): Promise<YahooAuth> => {
   return cachedAuth;
 };
 
-const yFetch = async (url: string): Promise<Response> => {
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+const yFetch = async (url: string, attempt = 0): Promise<Response> => {
   const { cookie } = await getAuth();
   const res = await fetch(url, {
     headers: {
@@ -65,16 +90,15 @@ const yFetch = async (url: string): Promise<Response> => {
       ...(cookie ? { Cookie: cookie } : {}),
     },
   });
-  if (res.status === 401 || res.status === 403) {
+  if ((res.status === 429 || res.status === 503) && attempt < 3) {
+    await res.body?.cancel();
+    await sleep(500 * 2 ** attempt);
+    return yFetch(url, attempt + 1);
+  }
+  if ((res.status === 401 || res.status === 403) && attempt < 2) {
     await res.body?.cancel();
     cachedAuth = await buildAuth();
-    return fetch(url, {
-      headers: {
-        'User-Agent': UA,
-        Accept: 'application/json',
-        Cookie: cachedAuth.cookie,
-      },
-    });
+    return yFetch(url, attempt + 1);
   }
   return res;
 };
@@ -212,11 +236,14 @@ const quoteForInstrument = async (
 
 const refresh = async (
   db: SupabaseClient,
+  userId?: string,
 ): Promise<{ updated: number; errors: string[] }> => {
   const errors: string[] = [];
-  const { data: holdings } = await db
+  let holdingsQuery = db
     .from('holdings')
     .select('user_id, instrument_id, quantity, average_price, currency');
+  if (userId) holdingsQuery = holdingsQuery.eq('user_id', userId);
+  const { data: holdings } = await holdingsQuery;
   if (!holdings || holdings.length === 0) return { updated: 0, errors };
 
   const ids = [...new Set(holdings.map((h) => h.instrument_id))];
@@ -224,7 +251,6 @@ const refresh = async (
     .from('instruments')
     .select('id, isin, ticker, yahoo_symbol')
     .in('id', ids);
-  const meta = new Map((instruments ?? []).map((i) => [i.id, i]));
 
   const { data: fxRows } = await db
     .from('fx_rates')
@@ -236,7 +262,10 @@ const refresh = async (
   const rate = (c: string) => (c === 'EUR' ? 1 : (fx.get(c) ?? 1));
 
   const asOf = new Date().toISOString().slice(0, 10);
-  const priceByInstrument = new Map<string, { price: number; currency: string }>();
+  const priceByInstrument = new Map<
+    string,
+    { price: number; previousClose: number; currency: string }
+  >();
   let updated = 0;
 
   for (const instrument of instruments ?? []) {
@@ -253,6 +282,7 @@ const refresh = async (
       }
       priceByInstrument.set(instrument.id, {
         price: quoted.quote.price,
+        previousClose: quoted.quote.previousClose,
         currency: quoted.quote.currency,
       });
       updated += 1;
@@ -267,7 +297,7 @@ const refresh = async (
     if (!quoted) continue;
     await db
       .from('holdings')
-      .update({ current_price: quoted.price })
+      .update({ current_price: quoted.price, previous_close: quoted.previousClose })
       .eq('user_id', holding.user_id)
       .eq('instrument_id', holding.instrument_id);
     priceRows.push({
@@ -281,17 +311,18 @@ const refresh = async (
   if (priceRows.length > 0) await db.rpc('upsert_prices', { p_rows: priceRows });
 
   const byUser = new Map<string, { free: number; market: number }>();
-  const { data: brokers } = await db
+  let brokersQuery = db
     .from('broker_accounts')
     .select('user_id, free')
     .eq('provider', 't212');
+  if (userId) brokersQuery = brokersQuery.eq('user_id', userId);
+  const { data: brokers } = await brokersQuery;
   for (const b of brokers ?? []) byUser.set(b.user_id, { free: Number(b.free), market: 0 });
   for (const holding of holdings) {
     const quoted = priceByInstrument.get(holding.instrument_id);
     const entry = byUser.get(holding.user_id);
     if (!quoted || !entry) continue;
-    const m = meta.get(holding.instrument_id);
-    entry.market += Number(holding.quantity) * quoted.price * rate(m?.currency ?? 'EUR');
+    entry.market += Number(holding.quantity) * quoted.price * rate(quoted.currency);
   }
   for (const [userId, entry] of byUser) {
     await db.rpc('set_broker_total', {
@@ -301,6 +332,66 @@ const refresh = async (
   }
 
   return { updated, errors };
+};
+
+const evaluateAlerts = async (
+  db: SupabaseClient,
+  userId?: string,
+): Promise<void> => {
+  let alertsQuery = db
+    .from('price_alerts')
+    .select('id, user_id, symbol, name, direction, target, currency, triggered_at');
+  if (userId) alertsQuery = alertsQuery.eq('user_id', userId);
+  const { data: alerts } = await alertsQuery;
+  if (!alerts || alerts.length === 0) return;
+
+  const symbols = [...new Set(alerts.map((a) => a.symbol))];
+  const priceBySymbol = new Map<string, number>();
+  for (const symbol of symbols) {
+    try {
+      const data = await fetchQuote(symbol, '5d');
+      priceBySymbol.set(symbol, data.quote.price);
+    } catch {
+      // skip unresolved symbols
+    }
+  }
+
+  for (const alert of alerts) {
+    const price = priceBySymbol.get(alert.symbol);
+    if (price === undefined) continue;
+    const met =
+      alert.direction === 'above'
+        ? price >= Number(alert.target)
+        : price <= Number(alert.target);
+    const already = alert.triggered_at !== null;
+
+    if (met && !already) {
+      await db
+        .from('price_alerts')
+        .update({ triggered_at: new Date().toISOString() })
+        .eq('id', alert.id);
+      const { data: subs } = await db
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth')
+        .eq('user_id', alert.user_id);
+      if (subs && subs.length > 0) {
+        await sendPush(
+          subs,
+          {
+            title: 'Price alert',
+            body: `${alert.name} is ${alert.direction} ${alert.target} ${alert.currency}`,
+            url: '/search',
+            tag: alert.id,
+          },
+          async (id) => {
+            await db.from('push_subscriptions').delete().eq('id', id);
+          },
+        );
+      }
+    } else if (!met && already) {
+      await db.from('price_alerts').update({ triggered_at: null }).eq('id', alert.id);
+    }
+  }
 };
 
 Deno.serve(async (req) => {
@@ -326,6 +417,26 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (action === 'quotes') {
+    const symbols = (params.symbols ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 25);
+    const quotes: Record<string, { price: number; previousClose: number; currency: string }> = {};
+    await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          const data = await fetchQuote(symbol, '5d');
+          quotes[symbol] = data.quote;
+        } catch {
+          // skip symbols that fail
+        }
+      }),
+    );
+    return json({ quotes });
+  }
+
   if (action === 'quote') {
     const range = params.range ?? '1y';
     try {
@@ -349,7 +460,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const result = await refresh(admin());
+    const scope = await callerScope(req);
+    if (!scope.all && !scope.userId) {
+      return json({ ok: false, error: 'unauthorized' }, 401);
+    }
+    const db = admin();
+    const result = await refresh(db, scope.userId);
+    await evaluateAlerts(db, scope.userId).catch(() => undefined);
     return json({ ok: true, ...result });
   } catch (error) {
     return json({ ok: false, error: msg(error) }, 500);

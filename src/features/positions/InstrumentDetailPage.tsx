@@ -1,14 +1,17 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { usePersistentState } from '@/app/usePersistentState';
 import { formatEur, isNegative, money } from '@/core/money/money';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useInstrumentQuote } from '@/features/search/api/useMarket';
-import { usePositions, useInstrumentPrices } from './api/usePositions';
+import { usePositions, useInstrumentPrices, useHolding } from './api/usePositions';
 import { PriceChart } from './PriceChart';
+import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
+import { InstrumentNote } from './components/InstrumentNote';
 
 const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
@@ -17,6 +20,13 @@ const percent = new Intl.NumberFormat('en-GB', {
 });
 
 const quantity = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 });
+
+const nativeMoney = (value: number, currency: string): string =>
+  new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  }).format(value);
 
 const Stat = ({ label, value, color }: { label: string; value: string; color?: string }) => (
   <div className="rounded-[var(--radius-field)] neu-sunken p-4">
@@ -39,7 +49,9 @@ export const InstrumentDetailPage = () => {
     instrumentId: id,
   });
   const { data: prices = [] } = useInstrumentPrices(id);
+  const { data: holding } = useHolding(id);
 
+  const [range, setRange] = usePersistentState('chart-range', '1y');
   const instrument = positionsQuery.data?.instruments.get(id);
   const liveQuote = useInstrumentQuote(
     instrument
@@ -49,6 +61,7 @@ export const InstrumentDetailPage = () => {
           yahoo: instrument.yahoo_symbol,
         }
       : null,
+    range,
   );
   const position = useMemo(
     () => positionsQuery.data?.positions.find((entry) => entry.instrumentId === id),
@@ -107,6 +120,23 @@ export const InstrumentDetailPage = () => {
             {instrument?.isin ? ` · ${instrument.isin}` : ''}
           </p>
         </div>
+        {position?.dayChange && position.dayChangePct !== null && (
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+              Today
+            </p>
+            <p
+              className="text-sm font-bold tabular-nums"
+              style={{
+                color: isNegative(position.dayChange)
+                  ? 'var(--negative)'
+                  : 'var(--positive)',
+              }}
+            >
+              {percent.format(position.dayChangePct)}
+            </p>
+          </div>
+        )}
       </Card>
 
       {position && (
@@ -129,17 +159,50 @@ export const InstrumentDetailPage = () => {
         </div>
       )}
 
+      {holding && holding.currency !== 'EUR' && (
+        <Card className="flex flex-wrap items-center gap-x-8 gap-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Native · {holding.currency}
+          </p>
+          <div>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              Price{' '}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              {nativeMoney(holding.currentPrice, holding.currency)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              Avg cost{' '}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              {nativeMoney(holding.averagePrice, holding.currency)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              Market value{' '}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              {nativeMoney(holding.quantity * holding.currentPrice, holding.currency)}
+            </span>
+          </div>
+        </Card>
+      )}
+
       {chartPoints.length >= 2 ? (
-        <Card className="flex flex-col gap-2">
+        <Card className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
               Price
             </p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-              {usingLive ? '1Y · live' : 'stored'}
+              {usingLive ? 'live' : 'stored'}
             </p>
           </div>
           <PriceChart points={chartPoints} currency={chartCurrency} />
+          {usingLive && <RangeTabs value={range} onChange={setRange} />}
           {liveError && (
             <p className="text-[11px] text-[var(--text-muted)]">
               Live chart unavailable · {liveError}
@@ -156,6 +219,8 @@ export const InstrumentDetailPage = () => {
           </p>
         </Card>
       ) : null}
+
+      {instrument && <InstrumentNote instrumentId={id} />}
 
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">

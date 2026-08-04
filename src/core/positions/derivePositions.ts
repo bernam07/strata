@@ -18,6 +18,8 @@ export interface Position {
   marketValue: Money | null;
   unrealized: Money | null;
   unrealizedPct: number | null;
+  dayChange: Money | null;
+  dayChangePct: number | null;
 }
 
 interface Running {
@@ -95,6 +97,8 @@ export const derivePositions = (
       marketValue,
       unrealized,
       unrealizedPct,
+      dayChange: null,
+      dayChangePct: null,
     });
   }
 

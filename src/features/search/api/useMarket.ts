@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
 
 export interface SearchResult {
@@ -40,18 +45,20 @@ export const useStockSearch = (query: string) =>
     },
   });
 
-export const useQuote = (symbol: string | null) =>
+export const useQuote = (symbol: string | null, range = '1y') =>
   useQuery<QuoteData>({
-    queryKey: ['market-quote', symbol],
+    queryKey: ['market-quote', symbol, range],
     enabled: symbol !== null,
+    placeholderData: keepPreviousData,
     queryFn: () =>
-      invokeMarket<QuoteData>({ action: 'quote', symbol: symbol ?? '', range: '1y' }),
+      invokeMarket<QuoteData>({ action: 'quote', symbol: symbol ?? '', range }),
   });
 
 export const useInstrumentQuote = (
   instrument:
     | { isin: string | null; ticker: string; yahoo?: string | null }
     | null,
+  range = '1y',
 ) =>
   useQuery<QuoteData>({
     queryKey: [
@@ -59,19 +66,43 @@ export const useInstrumentQuote = (
       instrument?.yahoo,
       instrument?.isin,
       instrument?.ticker,
+      range,
     ],
     enabled: instrument !== null,
     staleTime: 5 * 60 * 1000,
     retry: false,
+    placeholderData: keepPreviousData,
     queryFn: () =>
       invokeMarket<QuoteData>({
         action: 'quote',
         yahoo: instrument?.yahoo ?? '',
         isin: instrument?.isin ?? '',
         ticker: instrument?.ticker ?? '',
-        range: '1y',
+        range,
       }),
   });
+
+export interface MiniQuote {
+  price: number;
+  previousClose: number;
+  currency: string;
+}
+
+export const useBatchQuotes = (symbols: string[]) => {
+  const key = [...symbols].sort();
+  return useQuery<Record<string, MiniQuote>>({
+    queryKey: ['market-quotes', key],
+    enabled: symbols.length > 0,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const data = await invokeMarket<{ quotes: Record<string, MiniQuote> }>({
+        action: 'quotes',
+        symbols: key.join(','),
+      });
+      return data.quotes ?? {};
+    },
+  });
+};
 
 export interface WatchItem {
   symbol: string;
@@ -93,6 +124,25 @@ export const useWatchlist = () =>
       return data ?? [];
     },
   });
+
+export const useRefreshPrices = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('market', {
+        body: { action: 'refresh' },
+      });
+      if (error) throw error;
+      return data as { updated?: number; errors?: string[] };
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['positions'] });
+      client.invalidateQueries({ queryKey: ['broker-accounts'] });
+      client.invalidateQueries({ queryKey: ['instrument-prices'] });
+      client.invalidateQueries({ queryKey: ['net-worth-history'] });
+    },
+  });
+};
 
 export const useToggleWatch = () => {
   const client = useQueryClient();
