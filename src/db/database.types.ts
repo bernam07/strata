@@ -142,6 +142,7 @@ export interface Database {
           name: string;
           currency: string;
           yahoo_symbol: string | null;
+          sector: string | null;
           created_at: string;
         };
         Insert: {
@@ -156,6 +157,7 @@ export interface Database {
         Update: {
           isin?: string | null;
           name?: string;
+          sector?: string | null;
         };
         Relationships: [];
       };

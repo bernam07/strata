@@ -1,7 +1,7 @@
 # Strata
 
 Gestão de património pessoal, camada a camada. Junta investimentos e despesas
-no mesmo conceito de património líquido, com contexto fiscal português.
+no mesmo conceito de património líquido.
 
 Single-user na prática, multi-user na arquitetura (RLS desde a primeira
 migração).
@@ -92,18 +92,13 @@ carregado em lazy num chunk próprio.
 
 ## Estado — Fase 5
 
-Despesas e fiscalidade:
+Despesas:
 
 - Categorias hierárquicas (raiz e subcategoria), categorização de transações
   numa tabela lateral que preserva o append-only das transações
 - Resumo mensal de despesas por categoria e comparação mês vs. mês anterior
-- Mais-valias realizadas por FIFO, com comissões incorporadas no custo de
-  aquisição, agregadas por ano civil e exportáveis em CSV (base para o Anexo G)
 
-FIFO, resumo de despesas e geração de CSV cobertos por testes em `src/core`.
-
-> Nota: a decomposição Anexo J (resultado do ativo vs. cambial) exige capturar
-> os montantes em moeda nativa na sincronização; o FIFO atual liquida em EUR.
+Resumo de despesas coberto por testes em `src/core`.
 
 ### Agendamento
 
@@ -158,11 +153,13 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
 - **Exportar transações em CSV**, **atualizar preços manualmente** nas
   posições, **preços na pesquisa/watchlist**, período e range do gráfico
   memorizados, e rotas carregadas em lazy para arrancar mais depressa.
-- **Notas por posição** (migração `0016`), **alocação** da carteira nas
-  posições, e **exportação do Anexo J** em CSV.
+- **Notas por posição** (migração `0016`) e **alocação** da carteira nas
+  posições.
 - **Fluxo de caixa** mensal (entradas vs. saídas) nas despesas,
   **rebalanceamento** com alvos por ativo e desvio sugerido (migração
   `0017`), e valores em **moeda nativa** na página do ativo.
+- **Alocação por setor** (migração `0018`): o refresh guarda o setor de cada
+  ação (Yahoo `assetProfile`) e as posições mostram a repartição por setor.
 
 - **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
   "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como
