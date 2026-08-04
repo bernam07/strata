@@ -15,5 +15,8 @@ create policy push_subscriptions_select on push_subscriptions for select to auth
   using ((select auth.uid()) = user_id);
 create policy push_subscriptions_insert on push_subscriptions for insert to authenticated
   with check ((select auth.uid()) = user_id);
+create policy push_subscriptions_update on push_subscriptions for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy push_subscriptions_delete on push_subscriptions for delete to authenticated
   using ((select auth.uid()) = user_id);

@@ -56,4 +56,16 @@ describe('transactionsToCsv', () => {
     );
     expect(csv).toContain('-100.00,Revolut,Apple,3');
   });
+
+  it('neutralizes formula-injection notes without mangling negative amounts', () => {
+    const csv = transactionsToCsv(
+      [{ ...base, amount: '-9.99', note: '=SUM(A1:A9)' }],
+      accountName,
+      instrumentName,
+    );
+    const row = csv.split('\n')[1]!;
+    expect(row).toContain("'=SUM(A1:A9)");
+    expect(row).toContain('-9.99');
+    expect(row).not.toContain("'-9.99");
+  });
 });

@@ -38,6 +38,24 @@ const getAppServer = (): Promise<any | null> => {
   return appServer;
 };
 
+const isPrivateHost = (host: string): boolean =>
+  host === 'localhost' ||
+  host.endsWith('.local') ||
+  /^127\./.test(host) ||
+  /^10\./.test(host) ||
+  /^192\.168\./.test(host) ||
+  /^169\.254\./.test(host) ||
+  /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+
+const safeEndpoint = (endpoint: string): boolean => {
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === 'https:' && !isPrivateHost(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
 export const sendPush = async (
   subscriptions: readonly PushSubscriptionRow[],
   payload: PushPayload,
@@ -47,6 +65,7 @@ export const sendPush = async (
   if (!server) return;
   await Promise.all(
     subscriptions.map(async (row) => {
+      if (!safeEndpoint(row.endpoint)) return;
       try {
         const subscriber = server.subscribe({
           endpoint: row.endpoint,

@@ -26,6 +26,27 @@ const admin = (): SupabaseClient =>
     { auth: { persistSession: false } },
   );
 
+const bearer = (req: Request): string =>
+  (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+
+// Cron passes the service-role key → refresh everyone. A user's JWT → scope to
+// that user, so a client can never trigger a global refresh or fan-out.
+const callerScope = async (
+  req: Request,
+): Promise<{ all: boolean; userId?: string }> => {
+  const token = bearer(req);
+  if (token && token === (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')) {
+    return { all: true };
+  }
+  const scoped = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } },
+  );
+  const { data } = await scoped.auth.getUser();
+  return { all: false, userId: data.user?.id };
+};
+
 interface YahooAuth {
   cookie: string;
   crumb: string;
@@ -215,11 +236,14 @@ const quoteForInstrument = async (
 
 const refresh = async (
   db: SupabaseClient,
+  userId?: string,
 ): Promise<{ updated: number; errors: string[] }> => {
   const errors: string[] = [];
-  const { data: holdings } = await db
+  let holdingsQuery = db
     .from('holdings')
     .select('user_id, instrument_id, quantity, average_price, currency');
+  if (userId) holdingsQuery = holdingsQuery.eq('user_id', userId);
+  const { data: holdings } = await holdingsQuery;
   if (!holdings || holdings.length === 0) return { updated: 0, errors };
 
   const ids = [...new Set(holdings.map((h) => h.instrument_id))];
@@ -288,10 +312,12 @@ const refresh = async (
   if (priceRows.length > 0) await db.rpc('upsert_prices', { p_rows: priceRows });
 
   const byUser = new Map<string, { free: number; market: number }>();
-  const { data: brokers } = await db
+  let brokersQuery = db
     .from('broker_accounts')
     .select('user_id, free')
     .eq('provider', 't212');
+  if (userId) brokersQuery = brokersQuery.eq('user_id', userId);
+  const { data: brokers } = await brokersQuery;
   for (const b of brokers ?? []) byUser.set(b.user_id, { free: Number(b.free), market: 0 });
   for (const holding of holdings) {
     const quoted = priceByInstrument.get(holding.instrument_id);
@@ -310,10 +336,15 @@ const refresh = async (
   return { updated, errors };
 };
 
-const evaluateAlerts = async (db: SupabaseClient): Promise<void> => {
-  const { data: alerts } = await db
+const evaluateAlerts = async (
+  db: SupabaseClient,
+  userId?: string,
+): Promise<void> => {
+  let alertsQuery = db
     .from('price_alerts')
     .select('id, user_id, symbol, name, direction, target, currency, triggered_at');
+  if (userId) alertsQuery = alertsQuery.eq('user_id', userId);
+  const { data: alerts } = await alertsQuery;
   if (!alerts || alerts.length === 0) return;
 
   const symbols = [...new Set(alerts.map((a) => a.symbol))];
@@ -431,9 +462,13 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const scope = await callerScope(req);
+    if (!scope.all && !scope.userId) {
+      return json({ ok: false, error: 'unauthorized' }, 401);
+    }
     const db = admin();
-    const result = await refresh(db);
-    await evaluateAlerts(db).catch(() => undefined);
+    const result = await refresh(db, scope.userId);
+    await evaluateAlerts(db, scope.userId).catch(() => undefined);
     return json({ ok: true, ...result });
   } catch (error) {
     return json({ ok: false, error: msg(error) }, 500);

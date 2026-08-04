@@ -15,8 +15,15 @@ const header = [
 
 const isoDate = (iso: string): string => iso.slice(0, 10);
 
-const escape = (value: string): string =>
-  /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+const risky = (value: string): boolean =>
+  /^[=@\t\r]/.test(value) || (/^[+-]/.test(value) && !/^[+-][\d.]/.test(value));
+
+const escape = (value: string): string => {
+  const guarded = risky(value) ? `'${value}` : value;
+  return /[",\n]/.test(guarded)
+    ? `"${guarded.replace(/"/g, '""')}"`
+    : guarded;
+};
 
 export const disposalsToCsv = (
   disposals: readonly Disposal[],
