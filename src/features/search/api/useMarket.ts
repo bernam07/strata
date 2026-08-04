@@ -82,6 +82,28 @@ export const useInstrumentQuote = (
       }),
   });
 
+export interface MiniQuote {
+  price: number;
+  previousClose: number;
+  currency: string;
+}
+
+export const useBatchQuotes = (symbols: string[]) => {
+  const key = [...symbols].sort();
+  return useQuery<Record<string, MiniQuote>>({
+    queryKey: ['market-quotes', key],
+    enabled: symbols.length > 0,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const data = await invokeMarket<{ quotes: Record<string, MiniQuote> }>({
+        action: 'quotes',
+        symbols: key.join(','),
+      });
+      return data.quotes ?? {};
+    },
+  });
+};
+
 export interface WatchItem {
   symbol: string;
   name: string;

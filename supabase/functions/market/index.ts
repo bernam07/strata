@@ -330,6 +330,26 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (action === 'quotes') {
+    const symbols = (params.symbols ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 25);
+    const quotes: Record<string, { price: number; previousClose: number; currency: string }> = {};
+    await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          const data = await fetchQuote(symbol, '5d');
+          quotes[symbol] = data.quote;
+        } catch {
+          // skip symbols that fail
+        }
+      }),
+    );
+    return json({ quotes });
+  }
+
   if (action === 'quote') {
     const range = params.range ?? '1y';
     try {

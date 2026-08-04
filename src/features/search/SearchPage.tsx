@@ -8,11 +8,40 @@ import { PriceChart } from '@/features/positions/PriceChart';
 import { RangeTabs } from '@/features/positions/RangeTabs';
 import { usePersistentState } from '@/app/usePersistentState';
 import {
+  useBatchQuotes,
   useQuote,
   useStockSearch,
   useToggleWatch,
   useWatchlist,
+  type MiniQuote,
 } from './api/useMarket';
+
+const PriceTag = ({ quote }: { quote: MiniQuote | undefined }) => {
+  if (!quote) return <span className="text-[var(--text-muted)]">›</span>;
+  const pct =
+    quote.previousClose > 0
+      ? (quote.price - quote.previousClose) / quote.previousClose
+      : 0;
+  const money = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: quote.currency,
+    maximumFractionDigits: 2,
+  }).format(quote.price);
+  return (
+    <div className="text-right">
+      <p className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+        {money}
+      </p>
+      <p
+        className="text-xs font-semibold tabular-nums"
+        style={{ color: pct >= 0 ? 'var(--positive)' : 'var(--negative)' }}
+      >
+        {pct >= 0 ? '+' : ''}
+        {(pct * 100).toFixed(2)}%
+      </p>
+    </div>
+  );
+};
 
 const QuotePanel = ({
   symbol,
@@ -125,6 +154,11 @@ export const SearchPage = () => {
     [query],
   );
 
+  const visibleSymbols = showWatchlist
+    ? watchlist.map((item) => item.symbol)
+    : results.map((result) => result.symbol);
+  const { data: quotes = {} } = useBatchQuotes(visibleSymbols);
+
   if (selected) {
     return (
       <QuotePanel
@@ -174,7 +208,7 @@ export const SearchPage = () => {
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">{item.symbol}</p>
                 </div>
-                <span className="text-[var(--text-muted)]">›</span>
+                <PriceTag quote={quotes[item.symbol]} />
               </button>
             ))}
           </section>
@@ -212,7 +246,7 @@ export const SearchPage = () => {
                   {result.symbol} · {result.exchange}
                 </p>
               </div>
-              <span className="text-[var(--text-muted)]">›</span>
+              <PriceTag quote={quotes[result.symbol]} />
             </button>
           ))}
         </ul>
