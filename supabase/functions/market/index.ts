@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendPush } from '../_shared/push.ts';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -309,6 +310,61 @@ const refresh = async (
   return { updated, errors };
 };
 
+const evaluateAlerts = async (db: SupabaseClient): Promise<void> => {
+  const { data: alerts } = await db
+    .from('price_alerts')
+    .select('id, user_id, symbol, name, direction, target, currency, triggered_at');
+  if (!alerts || alerts.length === 0) return;
+
+  const symbols = [...new Set(alerts.map((a) => a.symbol))];
+  const priceBySymbol = new Map<string, number>();
+  for (const symbol of symbols) {
+    try {
+      const data = await fetchQuote(symbol, '5d');
+      priceBySymbol.set(symbol, data.quote.price);
+    } catch {
+      // skip unresolved symbols
+    }
+  }
+
+  for (const alert of alerts) {
+    const price = priceBySymbol.get(alert.symbol);
+    if (price === undefined) continue;
+    const met =
+      alert.direction === 'above'
+        ? price >= Number(alert.target)
+        : price <= Number(alert.target);
+    const already = alert.triggered_at !== null;
+
+    if (met && !already) {
+      await db
+        .from('price_alerts')
+        .update({ triggered_at: new Date().toISOString() })
+        .eq('id', alert.id);
+      const { data: subs } = await db
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth')
+        .eq('user_id', alert.user_id);
+      if (subs && subs.length > 0) {
+        await sendPush(
+          subs,
+          {
+            title: 'Price alert',
+            body: `${alert.name} is ${alert.direction} ${alert.target} ${alert.currency}`,
+            url: '/search',
+            tag: alert.id,
+          },
+          async (id) => {
+            await db.from('push_subscriptions').delete().eq('id', id);
+          },
+        );
+      }
+    } else if (!met && already) {
+      await db.from('price_alerts').update({ triggered_at: null }).eq('id', alert.id);
+    }
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
@@ -375,7 +431,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const result = await refresh(admin());
+    const db = admin();
+    const result = await refresh(db);
+    await evaluateAlerts(db).catch(() => undefined);
     return json({ ok: true, ...result });
   } catch (error) {
     return json({ ok: false, error: msg(error) }, 500);

@@ -4,6 +4,7 @@ import { Card } from '@/ui/Card';
 import { Labelled, TextInput } from '@/ui/Field';
 import { Surface } from '@/ui/Surface';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
+import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import {
   useClearSyncHistory,
   useRemoveT212Key,
@@ -50,6 +51,8 @@ export const IntegrationsPage = () => {
       <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
         Integrations
       </h1>
+
+      <NotificationsCard />
 
       <Card className="flex flex-col gap-6">
         <div className="flex items-center gap-4">

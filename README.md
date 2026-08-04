@@ -166,6 +166,23 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
 - **Resiliência do Yahoo**: a função `market` faz backoff exponencial em
   `429`/`503` e volta a autenticar em `401`/`403`.
 
+### Notificações push (opcional)
+
+Os alertas também podem chegar como notificação push (Web Push), mesmo com a
+app fechada — avaliados no cron pela função `market`.
+
+1. Gerar as chaves VAPID: `deno run scripts/generate-vapid.ts`.
+2. No projeto Supabase, definir os _secrets_ da função `market`: `VAPID_KEYS`
+   (o JSON impresso) e `VAPID_SUBJECT` (um `mailto:`).
+3. No frontend (Vercel), definir `VITE_VAPID_PUBLIC_KEY` com a chave pública.
+4. Na app, **Integrations → Price alert notifications → Enable** (é preciso a
+   PWA no ecrã inicial no iOS).
+
+Sem estas chaves, o envio de push fica desativado sem afetar o resto — a
+avaliação in-app dos alertas continua a funcionar. O `service worker`
+(`public/sw.js`) só trata de push, não faz cache, por isso não interfere com a
+atualização da PWA.
+
 Lógica de despesas recorrentes, exportação e alertas coberta por testes em
 `src/core`.
 
