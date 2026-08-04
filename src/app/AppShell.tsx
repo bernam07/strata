@@ -35,10 +35,9 @@ const sections: NavSection[] = [
     ],
   },
   {
-    group: 'Spend & tax',
+    group: 'Spend',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-      { to: '/tax', label: 'Tax', icon: 'tax' },
       { to: '/integrations', label: 'Integrations', icon: 'integrations' },
     ],
   },
@@ -56,7 +55,6 @@ const secondaryLinks: NavEntry[] = [
   { to: '/dividends', label: 'Dividends', icon: 'dividends' },
   { to: '/analytics', label: 'Analytics', icon: 'analytics' },
   { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-  { to: '/tax', label: 'Tax', icon: 'tax' },
   { to: '/integrations', label: 'Integrations', icon: 'integrations' },
 ];
 
