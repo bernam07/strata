@@ -402,6 +402,23 @@ export interface Database {
         };
         Relationships: [];
       };
+      instrument_notes: {
+        Row: {
+          user_id: string;
+          instrument_id: string;
+          body: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          instrument_id: string;
+          body: string;
+        };
+        Update: {
+          body?: string;
+        };
+        Relationships: [];
+      };
       push_subscriptions: {
         Row: {
           id: string;

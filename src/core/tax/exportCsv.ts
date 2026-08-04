@@ -1,3 +1,4 @@
+import type { Money } from '../money/money';
 import type { Disposal } from './fifo';
 
 export type InstrumentName = (instrumentId: string) => string;
@@ -35,4 +36,23 @@ export const disposalsToCsv = (
       .join(','),
   );
   return [header.join(','), ...rows].join('\n');
+};
+
+export interface ForeignIncomeRow {
+  country: string;
+  gain: Money;
+  dividends: Money;
+}
+
+const foreignHeader = ['Country', 'Realized gain EUR', 'Dividends EUR'];
+
+export const foreignIncomeToCsv = (
+  rows: readonly ForeignIncomeRow[],
+): string => {
+  const lines = rows.map((row) =>
+    [row.country, row.gain.toFixed(2), row.dividends.toFixed(2)]
+      .map((cell) => escape(cell))
+      .join(','),
+  );
+  return [foreignHeader.join(','), ...lines].join('\n');
 };

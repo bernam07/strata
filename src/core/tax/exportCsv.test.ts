@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { money } from '../money/money';
 import { realizedDisposals } from './fifo';
-import { disposalsToCsv } from './exportCsv';
+import { disposalsToCsv, foreignIncomeToCsv } from './exportCsv';
 import type { Transaction } from '../types';
 
 const trade = (
@@ -45,5 +46,18 @@ describe('disposalsToCsv', () => {
     ]);
     const csv = disposalsToCsv(disposals, () => 'Vanguard, S&P 500');
     expect(csv.split('\n')[1]).toContain('"Vanguard, S&P 500"');
+  });
+});
+
+describe('foreignIncomeToCsv', () => {
+  it('writes a header and one row per country with two-decimal values', () => {
+    const csv = foreignIncomeToCsv([
+      { country: 'US', gain: money('80'), dividends: money('12.5') },
+      { country: 'IE', gain: money('-3'), dividends: money('0') },
+    ]);
+    const lines = csv.split('\n');
+    expect(lines[0]).toBe('Country,Realized gain EUR,Dividends EUR');
+    expect(lines[1]).toBe('US,80.00,12.50');
+    expect(lines[2]).toBe('IE,-3.00,0.00');
   });
 });

@@ -158,6 +158,8 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
 - **Exportar transações em CSV**, **atualizar preços manualmente** nas
   posições, **preços na pesquisa/watchlist**, período e range do gráfico
   memorizados, e rotas carregadas em lazy para arrancar mais depressa.
+- **Notas por posição** (migração `0016`), **alocação** da carteira nas
+  posições, e **exportação do Anexo J** em CSV.
 
 - **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
   "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como

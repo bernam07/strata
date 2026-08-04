@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { formatEur, isNegative, zero, type Money } from '@/core/money/money';
 import { realizedDisposals, realizedGainsByYear } from '@/core/tax/fifo';
-import { disposalsToCsv } from '@/core/tax/exportCsv';
+import { disposalsToCsv, foreignIncomeToCsv } from '@/core/tax/exportCsv';
 import {
   dividendsByCountry,
   gainsByCountry,
@@ -84,12 +84,12 @@ export const TaxPage = () => {
       .sort((a, b) => b.gain.plus(b.dividends).comparedTo(a.gain.plus(a.dividends)));
   }, [transactions, countryOf]);
 
-  const download = (year: number, csv: string) => {
+  const download = (name: string, csv: string) => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `strata-mais-valias-${year}.csv`;
+    link.download = `strata-${name}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -106,14 +106,22 @@ export const TaxPage = () => {
 
       {foreign.length > 0 && (
         <Card className="flex flex-col gap-4">
-          <div>
-            <h2 className="font-semibold text-[var(--text-strong)]">
-              Anexo J · foreign income
-            </h2>
-            <p className="text-xs text-[var(--text-muted)]">
-              Realized gains and dividends by source country (from ISIN). Gains
-              settled in EUR — the currency component isn't split.
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-[var(--text-strong)]">
+                Anexo J · foreign income
+              </h2>
+              <p className="text-xs text-[var(--text-muted)]">
+                Realized gains and dividends by source country (from ISIN). Gains
+                settled in EUR — the currency component isn't split.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => download('anexo-j', foreignIncomeToCsv(foreign))}
+            >
+              Export CSV
+            </Button>
           </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-3 px-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
@@ -187,7 +195,7 @@ export const TaxPage = () => {
                       variant="ghost"
                       onClick={() =>
                         download(
-                          year.year,
+                          `mais-valias-${year.year}`,
                           disposalsToCsv(year.disposals, nameOf),
                         )
                       }

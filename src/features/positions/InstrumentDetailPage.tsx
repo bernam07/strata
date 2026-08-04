@@ -11,6 +11,7 @@ import { usePositions, useInstrumentPrices } from './api/usePositions';
 import { PriceChart } from './PriceChart';
 import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
+import { InstrumentNote } from './components/InstrumentNote';
 
 const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
@@ -178,6 +179,8 @@ export const InstrumentDetailPage = () => {
           </p>
         </Card>
       ) : null}
+
+      {instrument && <InstrumentNote instrumentId={id} />}
 
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">
