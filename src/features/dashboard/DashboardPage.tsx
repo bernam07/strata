@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
@@ -15,6 +15,7 @@ import { TransactionList } from '@/features/transactions/components/TransactionL
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
+import { usePersistentState } from '@/app/usePersistentState';
 import { AccountBalanceCard } from './AccountBalanceCard';
 import { NetWorthSummary } from './NetWorthSummary';
 import { Movers } from './Movers';
@@ -89,7 +90,7 @@ export const DashboardPage = () => {
   const positionsQuery = usePositions();
   const { data: snapshots = [] } = useNetWorthHistory();
   const recordNetWorth = useRecordNetWorth();
-  const [period, setPeriod] = useState<Period>('1Y');
+  const [period, setPeriod] = usePersistentState<Period>('dashboard-period', '1Y');
 
   const model = useMemo(() => {
     const accounts = accountsQuery.data ?? [];

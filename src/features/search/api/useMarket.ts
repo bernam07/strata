@@ -103,6 +103,25 @@ export const useWatchlist = () =>
     },
   });
 
+export const useRefreshPrices = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('market', {
+        body: { action: 'refresh' },
+      });
+      if (error) throw error;
+      return data as { updated?: number; errors?: string[] };
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['positions'] });
+      client.invalidateQueries({ queryKey: ['broker-accounts'] });
+      client.invalidateQueries({ queryKey: ['instrument-prices'] });
+      client.invalidateQueries({ queryKey: ['net-worth-history'] });
+    },
+  });
+};
+
 export const useToggleWatch = () => {
   const client = useQueryClient();
   return useMutation({

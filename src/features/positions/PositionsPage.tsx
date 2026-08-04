@@ -5,6 +5,7 @@ import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { usePositions, type InstrumentMeta } from './api/usePositions';
+import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { StockAvatar } from './components/StockAvatar';
 import type { Position } from '@/core/positions/derivePositions';
 
@@ -74,6 +75,7 @@ const PositionRow = ({
 
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
+  const refresh = useRefreshPrices();
 
   const positions = data?.positions ?? [];
   const totalMarket = sum(
@@ -85,9 +87,26 @@ export const PositionsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Positions
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+          Positions
+        </h1>
+        {positions.length > 0 && (
+          <Button
+            variant="ghost"
+            onClick={() => refresh.mutate()}
+            disabled={refresh.isPending}
+          >
+            {refresh.isPending ? 'Refreshing…' : 'Refresh prices'}
+          </Button>
+        )}
+      </div>
+
+      {refresh.isError && (
+        <p className="text-sm text-[var(--negative)]">
+          Couldn't refresh prices. Try again in a moment.
+        </p>
+      )}
 
       {isLoading ? (
         <SkeletonRows count={4} />

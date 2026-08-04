@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { usePersistentState } from '@/app/usePersistentState';
 import { formatEur, isNegative, money } from '@/core/money/money';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
@@ -41,7 +42,7 @@ export const InstrumentDetailPage = () => {
   });
   const { data: prices = [] } = useInstrumentPrices(id);
 
-  const [range, setRange] = useState('1y');
+  const [range, setRange] = usePersistentState('chart-range', '1y');
   const instrument = positionsQuery.data?.instruments.get(id);
   const liveQuote = useInstrumentQuote(
     instrument

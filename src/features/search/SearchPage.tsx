@@ -6,6 +6,7 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { PriceChart } from '@/features/positions/PriceChart';
 import { RangeTabs } from '@/features/positions/RangeTabs';
+import { usePersistentState } from '@/app/usePersistentState';
 import {
   useQuote,
   useStockSearch,
@@ -22,7 +23,7 @@ const QuotePanel = ({
   name: string;
   onBack: () => void;
 }) => {
-  const [range, setRange] = useState('1y');
+  const [range, setRange] = usePersistentState('chart-range', '1y');
   const { data, isLoading } = useQuote(symbol, range);
   const { data: watchlist = [] } = useWatchlist();
   const toggle = useToggleWatch();
