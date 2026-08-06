@@ -100,48 +100,66 @@ export const RebalancePanel = ({
   const { data: targets = new Map<string, number>() } = useAllocationTargets();
   const setTarget = useSetTarget();
 
+  const [open, setOpen] = useState(false);
   const rows = rebalanceRows(positions, (id) => targets.get(id), total);
   const targetSum = [...targets.values()].reduce((sum, weight) => sum + weight, 0);
   const sorted = [...positions].sort((a, b) => b.value - a.value);
 
   return (
     <Card className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Rebalance
-        </h2>
-        {rows.length > 0 && (
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="tap flex items-center justify-between gap-3"
+      >
+        <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          Rebalancing Calculator
+        </span>
+        <span className="flex items-center gap-2">
+          {rows.length > 0 && (
+            <span
+              className="text-xs font-semibold tabular-nums"
+              style={{
+                color:
+                  Math.abs(targetSum - 1) < 0.005
+                    ? 'var(--text-muted)'
+                    : 'var(--negative)',
+              }}
+            >
+              targets {percent.format(targetSum)}
+            </span>
+          )}
           <span
-            className="text-xs font-semibold tabular-nums"
-            style={{
-              color:
-                Math.abs(targetSum - 1) < 0.005
-                  ? 'var(--text-muted)'
-                  : 'var(--negative)',
-            }}
+            className="text-[var(--text-muted)] transition-transform"
+            style={{ transform: open ? 'rotate(90deg)' : 'none' }}
           >
-            targets {percent.format(targetSum)}
+            ›
           </span>
-        )}
-      </div>
-      <div className="flex items-center gap-3 px-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-        <span className="flex-1">Holding</span>
-        <span className="w-12 text-right">Now</span>
-        <span className="w-14 text-right">Target</span>
-        <span className="w-24 text-right">Action</span>
-      </div>
-      {sorted.map((entry) => (
-        <Row
-          key={entry.instrumentId}
-          entry={entry}
-          meta={instruments.get(entry.instrumentId)}
-          total={total}
-          target={targets.get(entry.instrumentId)}
-          onSave={(weight) =>
-            setTarget.mutate({ instrumentId: entry.instrumentId, weight })
-          }
-        />
-      ))}
+        </span>
+      </button>
+
+      {open && (
+        <>
+          <div className="flex items-center gap-3 px-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="flex-1">Holding</span>
+            <span className="w-12 text-right">Now</span>
+            <span className="w-14 text-right">Target</span>
+            <span className="w-24 text-right">Action</span>
+          </div>
+          {sorted.map((entry) => (
+            <Row
+              key={entry.instrumentId}
+              entry={entry}
+              meta={instruments.get(entry.instrumentId)}
+              total={total}
+              target={targets.get(entry.instrumentId)}
+              onSave={(weight) =>
+                setTarget.mutate({ instrumentId: entry.instrumentId, weight })
+              }
+            />
+          ))}
+        </>
+      )}
     </Card>
   );
 };
