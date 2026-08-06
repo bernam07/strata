@@ -218,6 +218,7 @@ export const AccountDetailPage = () => {
             <button
               type="button"
               onClick={() => setHistoryOpen((open) => !open)}
+              aria-expanded={historyOpen}
               className="tap flex items-center gap-2"
             >
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">

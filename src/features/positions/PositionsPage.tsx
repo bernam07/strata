@@ -211,6 +211,7 @@ export const PositionsPage = () => {
             <button
               type="button"
               onClick={() => setShowPerformance((open) => !open)}
+              aria-expanded={showPerformance}
               className="tap flex items-center justify-between gap-3"
             >
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
