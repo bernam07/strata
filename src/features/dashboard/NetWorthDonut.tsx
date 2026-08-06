@@ -73,9 +73,11 @@ export const NetWorthDonut = ({
   }, [netWorth]);
 
   const size = 220;
-  const stroke = 24;
-  const radius = (size - stroke) / 2;
+  const stroke = 22;
   const center = size / 2;
+  // Inset so the ring — even the thicker active segment — never touches the
+  // viewBox edge and gets clipped.
+  const radius = center - stroke / 2 - 10;
 
   const pointAt = (theta: number): [number, number] => [
     center + radius * Math.sin(theta),
@@ -114,7 +116,7 @@ export const NetWorthDonut = ({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-        <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <div className="relative mx-auto aspect-square w-full max-w-[220px] shrink-0 sm:mx-0 sm:w-[200px]">
           <svg
             ref={ref}
             viewBox={`0 0 ${size} ${size}`}
