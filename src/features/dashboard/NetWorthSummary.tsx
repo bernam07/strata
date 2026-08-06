@@ -10,7 +10,13 @@ const percent = new Intl.NumberFormat('en-GB', {
 });
 
 const Sparkline = ({ series }: { series: SeriesPoint[] }) => {
-  if (series.length < 2) return null;
+  if (series.length < 2) {
+    return (
+      <p className="py-3 text-xs text-[var(--text-muted)]">
+        Net worth history builds up as you record activity.
+      </p>
+    );
+  }
   const values = series.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
