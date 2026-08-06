@@ -17,8 +17,8 @@ import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { usePersistentState } from '@/app/usePersistentState';
 import { AlertBanner } from '@/features/alerts/Alerts';
-import { AccountBalanceCard } from './AccountBalanceCard';
-import { NetWorthSummary } from './NetWorthSummary';
+import { NetWorthDonut } from './NetWorthDonut';
+import { NetWorthTrend } from './NetWorthTrend';
 import { GoalCard } from './GoalCard';
 import { Movers } from './Movers';
 import {
@@ -211,38 +211,50 @@ export const DashboardPage = () => {
         <>
           <AlertBanner />
 
-          <NetWorthSummary
-            netWorth={model.netWorth}
+          <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6">
+            <div
+              className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
+              style={{
+                background:
+                  'radial-gradient(circle, var(--accent-soft), transparent 70%)',
+              }}
+            />
+            <div className="relative">
+              <NetWorthDonut netWorth={model.netWorth} today={todayPl} />
+            </div>
+          </section>
+
+          <NetWorthTrend
             series={displayedSeries}
-            today={todayPl}
             basisLabel={usingSnapshots ? 'market value' : 'at cost'}
             control={<PeriodToggle value={period} onChange={setPeriod} />}
+            footer={
+              positions.length > 0 && snapshots.length < 60 ? (
+                <div className="flex items-center justify-end gap-3 border-t border-[var(--line)] pt-3">
+                  {backfill.isError && (
+                    <span className="text-xs text-[var(--negative)]">
+                      Couldn't reconstruct.
+                    </span>
+                  )}
+                  {backfill.data?.inserted !== undefined && !backfill.isError && (
+                    <span className="text-xs text-[var(--text-muted)]">
+                      Added {backfill.data.inserted} days.
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => backfill.mutate()}
+                    disabled={backfill.isPending}
+                    className="tap text-xs font-semibold text-[var(--accent)] disabled:opacity-60"
+                  >
+                    {backfill.isPending
+                      ? 'Reconstructing…'
+                      : 'Reconstruct earlier history'}
+                  </button>
+                </div>
+              ) : null
+            }
           />
-
-          {positions.length > 0 && snapshots.length < 60 && (
-            <div className="-mt-4 flex items-center justify-end gap-3">
-              {backfill.isError && (
-                <span className="text-xs text-[var(--negative)]">
-                  Couldn't reconstruct.
-                </span>
-              )}
-              {backfill.data?.inserted !== undefined && !backfill.isError && (
-                <span className="text-xs text-[var(--text-muted)]">
-                  Added {backfill.data.inserted} days.
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => backfill.mutate()}
-                disabled={backfill.isPending}
-                className="tap text-xs font-semibold text-[var(--accent)] disabled:opacity-60"
-              >
-                {backfill.isPending
-                  ? 'Reconstructing…'
-                  : 'Reconstruct earlier history'}
-              </button>
-            </div>
-          )}
 
           <GoalCard net={model.netWorth.net} />
 
@@ -252,28 +264,6 @@ export const DashboardPage = () => {
                 Movers
               </SectionTitle>
               <Movers positions={positions} instruments={positionInstruments} />
-            </section>
-          )}
-
-          {model.assets.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <SectionTitle>Assets</SectionTitle>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {model.assets.map((entry) => (
-                  <AccountBalanceCard key={entry.account.id} entry={entry} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {model.liabilities.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <SectionTitle>Liabilities</SectionTitle>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {model.liabilities.map((entry) => (
-                  <AccountBalanceCard key={entry.account.id} entry={entry} />
-                ))}
-              </div>
             </section>
           )}
 
