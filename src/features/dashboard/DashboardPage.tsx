@@ -22,6 +22,7 @@ import { NetWorthSummary } from './NetWorthSummary';
 import { GoalCard } from './GoalCard';
 import { Movers } from './Movers';
 import {
+  useBackfillHistory,
   useNetWorthHistory,
   useRecordNetWorth,
 } from './api/useNetWorthHistory';
@@ -92,6 +93,7 @@ export const DashboardPage = () => {
   const positionsQuery = usePositions();
   const { data: snapshots = [] } = useNetWorthHistory();
   const recordNetWorth = useRecordNetWorth();
+  const backfill = useBackfillHistory();
   const [period, setPeriod] = usePersistentState<Period>('dashboard-period', '1Y');
 
   const model = useMemo(() => {
@@ -216,6 +218,31 @@ export const DashboardPage = () => {
             basisLabel={usingSnapshots ? 'market value' : 'at cost'}
             control={<PeriodToggle value={period} onChange={setPeriod} />}
           />
+
+          {positions.length > 0 && snapshots.length < 60 && (
+            <div className="-mt-4 flex items-center justify-end gap-3">
+              {backfill.isError && (
+                <span className="text-xs text-[var(--negative)]">
+                  Couldn't reconstruct.
+                </span>
+              )}
+              {backfill.data?.inserted !== undefined && !backfill.isError && (
+                <span className="text-xs text-[var(--text-muted)]">
+                  Added {backfill.data.inserted} days.
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => backfill.mutate()}
+                disabled={backfill.isPending}
+                className="tap text-xs font-semibold text-[var(--accent)] disabled:opacity-60"
+              >
+                {backfill.isPending
+                  ? 'Reconstructing…'
+                  : 'Reconstruct earlier history'}
+              </button>
+            </div>
+          )}
 
           <GoalCard net={model.netWorth.net} />
 

@@ -24,6 +24,20 @@ export interface NetWorthSnapshotInput {
   investments: number;
 }
 
+export const useBackfillHistory = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('market', {
+        body: { action: 'backfill', range: '5y' },
+      });
+      if (error) throw error;
+      return data as { inserted?: number };
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: netWorthHistoryKey }),
+  });
+};
+
 export const useRecordNetWorth = () => {
   const client = useQueryClient();
   return useMutation({
