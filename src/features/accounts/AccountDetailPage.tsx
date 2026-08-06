@@ -3,7 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { formatEur, isNegative } from '@/core/money/money';
-import { useAccounts, useDeleteAccount } from './api/useAccounts';
+import {
+  useAccounts,
+  useDeleteAccount,
+  useRenameAccount,
+} from './api/useAccounts';
 import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { getInstitution } from './institutions';
 import { InstitutionLogo } from './components/InstitutionLogo';
@@ -16,6 +20,7 @@ import { useInstruments } from '@/features/positions/api/usePositions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 
 const typeLabel: Record<string, string> = {
@@ -33,11 +38,28 @@ export const AccountDetailPage = () => {
   });
   const reverse = useReverseTransaction();
   const remove = useDeleteAccount();
+  const rename = useRenameAccount();
   const [adding, setAdding] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
 
   const { data: brokers } = useBrokerAccounts();
   const { data: instruments } = useInstruments();
   const account = accounts.find((entry) => entry.id === id);
+
+  const startRename = () => {
+    if (!account) return;
+    setNameDraft(account.name);
+    setEditingName(true);
+  };
+  const saveName = () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === account?.name) {
+      setEditingName(false);
+      return;
+    }
+    rename.mutate({ id, name: trimmed }, { onSuccess: () => setEditingName(false) });
+  };
 
   const onDelete = () => {
     if (!account) return;
@@ -95,9 +117,34 @@ export const AccountDetailPage = () => {
           <InstitutionLogo institutionId={account.institutionId} size={52} />
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-bold text-[var(--text-strong)]">
-            {account?.name ?? '…'}
-          </h1>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <TextInput
+                value={nameDraft}
+                autoFocus
+                onChange={(event) => setNameDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') saveName();
+                  if (event.key === 'Escape') setEditingName(false);
+                }}
+              />
+              <Button onClick={saveName} disabled={rename.isPending}>
+                Save
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={startRename}
+              disabled={!account}
+              className="tap flex items-center gap-2 text-left"
+            >
+              <h1 className="truncate text-xl font-bold text-[var(--text-strong)]">
+                {account?.name ?? '…'}
+              </h1>
+              <span className="text-xs text-[var(--text-muted)]">✎</span>
+            </button>
+          )}
           <p className="text-xs text-[var(--text-muted)]">
             {account
               ? `${getInstitution(account.institutionId).displayName} · ${typeLabel[account.type]}`

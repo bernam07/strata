@@ -45,6 +45,20 @@ export const useCreateAccount = () => {
   });
 };
 
+export const useRenameAccount = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from('accounts')
+        .update({ name: input.name })
+        .eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: accountsKey }),
+  });
+};
+
 export const useDeleteAccount = () => {
   const client = useQueryClient();
   return useMutation({

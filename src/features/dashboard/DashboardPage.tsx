@@ -160,7 +160,8 @@ export const DashboardPage = () => {
 
   const displayedSeries = useMemo(() => {
     const start = periodStart(period);
-    return start ? sliceFrom(baseSeries, start) : baseSeries;
+    const sliced = start ? sliceFrom(baseSeries, start) : baseSeries;
+    return sliced.length >= 2 ? sliced : baseSeries;
   }, [baseSeries, period]);
 
   const todayPl = useMemo<Money | null>(() => {
