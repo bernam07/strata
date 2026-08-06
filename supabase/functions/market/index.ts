@@ -420,6 +420,102 @@ const evaluateAlerts = async (
   }
 };
 
+const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+const backfill = async (
+  db: SupabaseClient,
+  userId: string,
+  range: string,
+): Promise<{ inserted: number }> => {
+  const { data: holdings } = await db
+    .from('holdings')
+    .select('instrument_id, quantity, current_price, currency')
+    .eq('user_id', userId);
+  if (!holdings || holdings.length === 0) return { inserted: 0 };
+
+  const ids = [...new Set(holdings.map((h) => h.instrument_id))];
+  const { data: instruments } = await db
+    .from('instruments')
+    .select('id, isin, ticker, yahoo_symbol')
+    .in('id', ids);
+  const metaById = new Map((instruments ?? []).map((i) => [i.id, i]));
+
+  const { data: fxRows } = await db
+    .from('fx_rates')
+    .select('base, rate, as_of')
+    .eq('quote', 'EUR')
+    .order('as_of', { ascending: false });
+  const fx = new Map<string, number>();
+  for (const row of fxRows ?? []) if (!fx.has(row.base)) fx.set(row.base, Number(row.rate));
+  const rate = (c: string) => (c === 'EUR' ? 1 : (fx.get(c) ?? 1));
+
+  const history = new Map<string, Map<string, number>>();
+  for (const holding of holdings) {
+    const meta = metaById.get(holding.instrument_id);
+    if (!meta) continue;
+    try {
+      const symbol = await resolveSymbol(meta.isin, meta.ticker, meta.yahoo_symbol);
+      if (!symbol) continue;
+      const quoted = await fetchQuote(symbol, range);
+      const byDate = new Map<string, number>();
+      for (const point of quoted.history) byDate.set(point.date, point.value);
+      history.set(holding.instrument_id, byDate);
+    } catch {
+      // instrument without resolvable history is skipped
+    }
+  }
+
+  let currentMarket = 0;
+  for (const holding of holdings) {
+    currentMarket +=
+      Number(holding.quantity) * Number(holding.current_price) * rate(holding.currency);
+  }
+
+  const { data: snaps } = await db
+    .from('net_worth_snapshots')
+    .select('as_of, net')
+    .eq('user_id', userId)
+    .order('as_of', { ascending: true });
+  const existing = new Set((snaps ?? []).map((s) => s.as_of));
+  const earliest = snaps && snaps.length > 0 ? snaps[0].as_of : null;
+  const anchorNet =
+    snaps && snaps.length > 0 ? Number(snaps[snaps.length - 1].net) : currentMarket;
+  const nonInvestment = anchorNet - currentMarket;
+
+  const dates = new Set<string>();
+  for (const byDate of history.values()) for (const date of byDate.keys()) dates.add(date);
+
+  const rows: Record<string, unknown>[] = [];
+  for (const date of [...dates].sort()) {
+    if (earliest && date >= earliest) continue;
+    if (existing.has(date)) continue;
+    let market = 0;
+    let complete = true;
+    for (const holding of holdings) {
+      const price = history.get(holding.instrument_id)?.get(date);
+      if (price === undefined) {
+        complete = false;
+        break;
+      }
+      market += Number(holding.quantity) * price * rate(holding.currency);
+    }
+    if (!complete || market <= 0) continue;
+    const net = market + nonInvestment;
+    rows.push({
+      user_id: userId,
+      as_of: date,
+      net: round2(net),
+      assets: round2(Math.max(net, 0)),
+      liabilities: 0,
+      investments: round2(market),
+    });
+  }
+
+  if (rows.length === 0) return { inserted: 0 };
+  await db.from('net_worth_snapshots').upsert(rows, { onConflict: 'user_id,as_of' });
+  return { inserted: rows.length };
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
@@ -482,6 +578,17 @@ Deno.serve(async (req) => {
       return json({ error: 'no symbol' });
     } catch (error) {
       return json({ error: msg(error) });
+    }
+  }
+
+  if (action === 'backfill') {
+    try {
+      const scope = await callerScope(req);
+      if (!scope.userId) return json({ ok: false, error: 'unauthorized' }, 401);
+      const result = await backfill(admin(), scope.userId, params.range ?? '2y');
+      return json({ ok: true, ...result });
+    } catch (error) {
+      return json({ ok: false, error: msg(error) }, 500);
     }
   }
 
