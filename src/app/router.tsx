@@ -37,10 +37,6 @@ const ExpensesPage = lazyPage(
   () => import('@/features/expenses/ExpensesPage'),
   'ExpensesPage',
 );
-const AnalyticsPage = lazyPage(
-  () => import('@/features/analytics/AnalyticsPage'),
-  'AnalyticsPage',
-);
 const IntegrationsPage = lazyPage(
   () => import('@/features/integrations/IntegrationsPage'),
   'IntegrationsPage',
@@ -78,7 +74,6 @@ export const AppRouter = () => {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/dividends" element={<DividendsPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

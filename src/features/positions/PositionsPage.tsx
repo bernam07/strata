@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
@@ -9,6 +10,12 @@ import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
 import { PositionRow } from './components/PositionRow';
 
+const AnalyticsView = lazy(() =>
+  import('@/features/analytics/AnalyticsView').then((module) => ({
+    default: module.AnalyticsView,
+  })),
+);
+
 const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
   minimumFractionDigits: 1,
@@ -18,6 +25,7 @@ const percent = new Intl.NumberFormat('en-GB', {
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
   const refresh = useRefreshPrices();
+  const [showPerformance, setShowPerformance] = useState(false);
 
   const positions = data?.positions ?? [];
   const totalMarket = sum(
@@ -52,7 +60,7 @@ export const PositionsPage = () => {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Positions
+          Portfolio
         </h1>
         {positions.length > 0 && (
           <Button
@@ -198,6 +206,33 @@ export const PositionsPage = () => {
                 />
               ))}
           </div>
+
+          <Card className="flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={() => setShowPerformance((open) => !open)}
+              className="tap flex items-center justify-between gap-3"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Performance & analytics
+              </span>
+              <span
+                className="text-[var(--text-muted)] transition-transform"
+                style={{ transform: showPerformance ? 'rotate(90deg)' : 'none' }}
+              >
+                ›
+              </span>
+            </button>
+            {showPerformance && (
+              <Suspense
+                fallback={
+                  <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+                }
+              >
+                <AnalyticsView />
+              </Suspense>
+            )}
+          </Card>
         </>
       )}
     </div>

@@ -28,10 +28,9 @@ const sections: NavSection[] = [
   {
     group: 'Invest',
     items: [
-      { to: '/positions', label: 'Positions', icon: 'positions' },
+      { to: '/positions', label: 'Portfolio', icon: 'positions' },
       { to: '/search', label: 'Search', icon: 'search' },
       { to: '/dividends', label: 'Dividends', icon: 'dividends' },
-      { to: '/analytics', label: 'Analytics', icon: 'analytics' },
     ],
   },
   {
@@ -47,13 +46,12 @@ const primaryTabs: NavEntry[] = [
   { to: '/', label: 'Overview', icon: 'overview', end: true },
   { to: '/accounts', label: 'Accounts', icon: 'accounts' },
   { to: '/transactions', label: 'Activity', icon: 'transactions' },
-  { to: '/positions', label: 'Positions', icon: 'positions' },
+  { to: '/positions', label: 'Portfolio', icon: 'positions' },
 ];
 
 const secondaryLinks: NavEntry[] = [
   { to: '/search', label: 'Search', icon: 'search' },
   { to: '/dividends', label: 'Dividends', icon: 'dividends' },
-  { to: '/analytics', label: 'Analytics', icon: 'analytics' },
   { to: '/expenses', label: 'Expenses', icon: 'expenses' },
   { to: '/integrations', label: 'Integrations', icon: 'integrations' },
 ];
