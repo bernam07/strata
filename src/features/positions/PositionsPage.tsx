@@ -1,15 +1,20 @@
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
-import { usePositions, type InstrumentMeta } from './api/usePositions';
+import { usePositions } from './api/usePositions';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
-import { StockAvatar } from './components/StockAvatar';
-import type { Position } from '@/core/positions/derivePositions';
+import { PositionRow } from './components/PositionRow';
+
+const AnalyticsView = lazy(() =>
+  import('@/features/analytics/AnalyticsView').then((module) => ({
+    default: module.AnalyticsView,
+  })),
+);
 
 const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
@@ -17,67 +22,10 @@ const percent = new Intl.NumberFormat('en-GB', {
   maximumFractionDigits: 1,
 });
 
-const quantityFormat = new Intl.NumberFormat('en-GB', {
-  maximumFractionDigits: 4,
-});
-
-const PositionRow = ({
-  position,
-  instrument,
-}: {
-  position: Position;
-  instrument: InstrumentMeta | undefined;
-}) => {
-  const gain = position.unrealized;
-  const negative = gain ? isNegative(gain) : false;
-  const color = gain
-    ? negative
-      ? 'var(--negative)'
-      : 'var(--positive)'
-    : 'var(--text-muted)';
-
-  return (
-    <Link to={`/positions/${position.instrumentId}`}>
-      <Surface
-        elevation="flat"
-        className="tap flex items-center gap-4 p-4 hover:border-[var(--accent)]"
-      >
-        <StockAvatar
-          ticker={instrument?.ticker ?? position.instrumentId}
-          isin={instrument?.isin}
-          size={38}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-[var(--text-strong)]">
-            {instrument?.name ?? instrument?.ticker ?? 'Instrument'}
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">
-            {quantityFormat.format(position.quantity.toNumber())} sh ·{' '}
-            {formatEur(position.averageCost)} avg
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
-            {position.marketValue
-              ? formatEur(position.marketValue)
-              : formatEur(position.costBasis)}
-          </p>
-          {gain && (
-            <p className="text-xs font-semibold tabular-nums" style={{ color }}>
-              {formatEur(gain)}
-              {position.unrealizedPct !== null &&
-                ` · ${percent.format(position.unrealizedPct)}`}
-            </p>
-          )}
-        </div>
-      </Surface>
-    </Link>
-  );
-};
-
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
   const refresh = useRefreshPrices();
+  const [showPerformance, setShowPerformance] = useState(false);
 
   const positions = data?.positions ?? [];
   const totalMarket = sum(
@@ -112,7 +60,7 @@ export const PositionsPage = () => {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Positions
+          Portfolio
         </h1>
         {positions.length > 0 && (
           <Button
@@ -258,6 +206,34 @@ export const PositionsPage = () => {
                 />
               ))}
           </div>
+
+          <Card className="flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={() => setShowPerformance((open) => !open)}
+              aria-expanded={showPerformance}
+              className="tap flex items-center justify-between gap-3"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Performance & analytics
+              </span>
+              <span
+                className="text-[var(--text-muted)] transition-transform"
+                style={{ transform: showPerformance ? 'rotate(90deg)' : 'none' }}
+              >
+                ›
+              </span>
+            </button>
+            {showPerformance && (
+              <Suspense
+                fallback={
+                  <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+                }
+              >
+                <AnalyticsView />
+              </Suspense>
+            )}
+          </Card>
         </>
       )}
     </div>

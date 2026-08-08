@@ -16,7 +16,8 @@ import {
   useTransactions,
 } from '@/features/transactions/api/useTransactions';
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
-import { useInstruments } from '@/features/positions/api/usePositions';
+import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
+import { PositionRow } from '@/features/positions/components/PositionRow';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -45,7 +46,11 @@ export const AccountDetailPage = () => {
 
   const { data: brokers } = useBrokerAccounts();
   const { data: instruments } = useInstruments();
+  const positionsQuery = usePositions();
   const account = accounts.find((entry) => entry.id === id);
+  const isInvestment = account?.type === 'investment';
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const positions = isInvestment ? positionsQuery.data?.positions ?? [] : [];
 
   const startRename = () => {
     if (!account) return;
@@ -173,28 +178,82 @@ export const AccountDetailPage = () => {
         </Card>
       )}
 
+      {isInvestment && positions.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between px-0.5">
+            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Holdings
+            </h2>
+            <Link
+              to="/positions"
+              className="tap text-xs font-semibold text-[var(--accent)]"
+            >
+              Analytics →
+            </Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {positions
+              .slice()
+              .sort((a, b) =>
+                (b.marketValue ?? b.costBasis).comparedTo(
+                  a.marketValue ?? a.costBasis,
+                ),
+              )
+              .map((position) => (
+                <PositionRow
+                  key={position.instrumentId}
+                  position={position}
+                  instrument={positionsQuery.data?.instruments.get(
+                    position.instrumentId,
+                  )}
+                />
+              ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            History
-          </h2>
+          {isInvestment ? (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((open) => !open)}
+              aria-expanded={historyOpen}
+              className="tap flex items-center gap-2"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Transaction history
+              </span>
+              <span
+                className="text-[var(--text-muted)] transition-transform"
+                style={{ transform: historyOpen ? 'rotate(90deg)' : 'none' }}
+              >
+                ›
+              </span>
+            </button>
+          ) : (
+            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              History
+            </h2>
+          )}
           {!adding && account && (
             <Button variant="ghost" onClick={() => setAdding(true)}>
               Add movement
             </Button>
           )}
         </div>
-        {isLoading ? (
-          <SkeletonRows count={4} />
-        ) : (
-          <TransactionList
-            transactions={transactions}
-            accounts={account ? [account] : []}
-            instruments={instruments}
-            showAccount={false}
-            onReverse={onReverse}
-          />
-        )}
+        {(!isInvestment || historyOpen) &&
+          (isLoading ? (
+            <SkeletonRows count={4} />
+          ) : (
+            <TransactionList
+              transactions={transactions}
+              accounts={account ? [account] : []}
+              instruments={instruments}
+              showAccount={false}
+              onReverse={onReverse}
+            />
+          ))}
       </div>
 
       {account && (

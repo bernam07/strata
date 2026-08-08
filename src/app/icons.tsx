@@ -19,7 +19,6 @@ export type IconName =
   | 'transactions'
   | 'positions'
   | 'dividends'
-  | 'analytics'
   | 'expenses'
   | 'integrations'
   | 'search'
@@ -48,7 +47,6 @@ export const icons: Record<IconName, ReactNode> = {
       <path d="M12 8v8M9 11h6" />
     </>,
   ),
-  analytics: wrap(<path d="M4 20V4M4 20h16M8 16l3-5 3 2 4-7" />),
   expenses: wrap(
     <>
       <circle cx="12" cy="12" r="8" />

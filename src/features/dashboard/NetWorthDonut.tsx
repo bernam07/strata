@@ -3,6 +3,16 @@ import { Link } from 'react-router-dom';
 import { formatEur, isNegative, type Money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
+import { getInstitution } from '@/features/accounts/institutions';
+
+const luminance = (hex: string): number => {
+  const value = hex.replace('#', '');
+  if (value.length < 6) return 1;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+};
 
 const percent = new Intl.NumberFormat('en-GB', {
   style: 'percent',
@@ -58,24 +68,33 @@ export const NetWorthDonut = ({
 
     const total = raw.reduce((sum, item) => sum + item.magnitude, 0) || 1;
     let assetIndex = 0;
-    return raw.map((item) => ({
-      id: item.entry.account.id,
-      name: item.entry.account.name,
-      institutionId: item.entry.account.institutionId,
-      balance: item.entry.balance,
-      magnitude: item.magnitude,
-      liability: item.liability,
-      color: item.liability
+    return raw.map((item) => {
+      const brand = getInstitution(item.entry.account.institutionId).brandColor;
+      const color = item.liability
         ? 'var(--negative)'
-        : assetPalette[assetIndex++ % assetPalette.length]!,
-      weight: item.magnitude / total,
-    }));
+        : luminance(brand) > 0.16
+          ? brand
+          : assetPalette[assetIndex % assetPalette.length]!;
+      if (!item.liability) assetIndex += 1;
+      return {
+        id: item.entry.account.id,
+        name: item.entry.account.name,
+        institutionId: item.entry.account.institutionId,
+        balance: item.entry.balance,
+        magnitude: item.magnitude,
+        liability: item.liability,
+        color,
+        weight: item.magnitude / total,
+      };
+    });
   }, [netWorth]);
 
   const size = 220;
-  const stroke = 24;
-  const radius = (size - stroke) / 2;
+  const stroke = 22;
   const center = size / 2;
+  // Inset so the ring — even the thicker active segment — never touches the
+  // viewBox edge and gets clipped.
+  const radius = center - stroke / 2 - 10;
 
   const pointAt = (theta: number): [number, number] => [
     center + radius * Math.sin(theta),
@@ -114,10 +133,12 @@ export const NetWorthDonut = ({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-        <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <div className="relative mx-auto aspect-square w-full max-w-[220px] shrink-0 sm:mx-0 sm:w-[200px]">
           <svg
             ref={ref}
             viewBox={`0 0 ${size} ${size}`}
+            role="img"
+            aria-label={`Net worth ${formatEur(netWorth.net)}, by account`}
             className="h-full w-full touch-none select-none"
             onPointerDown={locate}
             onPointerMove={locate}

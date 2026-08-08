@@ -110,6 +110,7 @@ export const RebalancePanel = ({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
         className="tap flex items-center justify-between gap-3"
       >
         <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">

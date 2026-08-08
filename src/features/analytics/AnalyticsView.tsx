@@ -98,7 +98,7 @@ const sanePercent = (
 ): string =>
   value === null || value < -0.95 || value > 5 ? '—' : formatter.format(value);
 
-export const AnalyticsPage = () => {
+export const AnalyticsView = () => {
   const transactionsQuery = useTransactions();
   const positionsQuery = usePositions();
   const accountsQuery = useAccounts();
@@ -186,10 +186,6 @@ export const AnalyticsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Analytics
-      </h1>
-
       {loading ? (
         <div className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-3">
