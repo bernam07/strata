@@ -2,6 +2,7 @@ import { lazy, Suspense, type ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { LoginPage } from '@/features/auth/LoginPage';
+import { UpdatePasswordPage } from '@/features/auth/UpdatePasswordPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
 import { AppShell } from './AppShell';
@@ -47,7 +48,7 @@ const PageFallback = () => (
 );
 
 export const AppRouter = () => {
-  const { session, loading } = useAuth();
+  const { session, loading, recovery } = useAuth();
   useAppUpdate();
 
   if (loading) {
@@ -58,6 +59,7 @@ export const AppRouter = () => {
     );
   }
 
+  if (recovery) return <UpdatePasswordPage />;
   if (!session) return <LoginPage />;
 
   return (
