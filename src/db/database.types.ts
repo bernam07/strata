@@ -421,6 +421,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      recurring_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          account_id: string;
+          kind: string;
+          amount: number;
+          note: string | null;
+          category_id: string | null;
+          cadence: string;
+          next_run: string;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          account_id: string;
+          kind: string;
+          amount: number;
+          note?: string | null;
+          category_id?: string | null;
+          cadence: string;
+          next_run: string;
+          active?: boolean;
+        };
+        Update: {
+          amount?: number;
+          note?: string | null;
+          category_id?: string | null;
+          cadence?: string;
+          next_run?: string;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
       allocation_targets: {
         Row: {
           user_id: string;

@@ -15,6 +15,7 @@ import {
 import { TransactionForm } from './components/TransactionForm';
 import { TransferForm } from './components/TransferForm';
 import { TransactionList } from './components/TransactionList';
+import { RecurringManager } from './components/RecurringManager';
 
 type AddMode = 'none' | 'transaction' | 'transfer';
 
@@ -22,6 +23,7 @@ export const TransactionsPage = () => {
   const { data: accounts = [] } = useAccounts();
   const [filter, setFilter] = useState<TransactionFilter>({});
   const [mode, setMode] = useState<AddMode>('none');
+  const [scheduledOpen, setScheduledOpen] = useState(false);
   const { data: transactions = [], isLoading } = useTransactions(filter);
   const { data: instruments } = useInstruments();
   const reverse = useReverseTransaction();
@@ -108,6 +110,28 @@ export const TransactionsPage = () => {
       {mode === 'transfer' && !editing && (
         <Card>
           <TransferForm accounts={accounts} onDone={() => setMode('none')} />
+        </Card>
+      )}
+
+      {accounts.length > 0 && (
+        <Card className="flex flex-col gap-4">
+          <button
+            type="button"
+            onClick={() => setScheduledOpen((open) => !open)}
+            aria-expanded={scheduledOpen}
+            className="tap flex items-center justify-between gap-3"
+          >
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Scheduled · recurring
+            </span>
+            <span
+              className="text-[var(--text-muted)] transition-transform"
+              style={{ transform: scheduledOpen ? 'rotate(90deg)' : 'none' }}
+            >
+              ›
+            </span>
+          </button>
+          {scheduledOpen && <RecurringManager accounts={accounts} />}
         </Card>
       )}
 
