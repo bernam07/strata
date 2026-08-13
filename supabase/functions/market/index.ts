@@ -19,6 +19,26 @@ const json = (body: unknown, status = 200): Response =>
 const msg = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
+// Run `fn` over items with bounded concurrency — fast without hammering Yahoo
+// into rate limits.
+const mapLimit = async <T>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> => {
+  const queue = [...items];
+  const worker = async () => {
+    for (;;) {
+      const item = queue.shift();
+      if (item === undefined) return;
+      await fn(item);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, queue.length) }, worker),
+  );
+};
+
 const admin = (): SupabaseClient =>
   createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -52,7 +72,7 @@ interface YahooAuth {
   crumb: string;
 }
 
-let cachedAuth: YahooAuth | null = null;
+let authPromise: Promise<YahooAuth> | null = null;
 
 const buildAuth = async (): Promise<YahooAuth> => {
   const seed = await fetch('https://fc.yahoo.com/', {
@@ -72,10 +92,9 @@ const buildAuth = async (): Promise<YahooAuth> => {
   return { cookie, crumb };
 };
 
-const getAuth = async (): Promise<YahooAuth> => {
-  if (cachedAuth) return cachedAuth;
-  cachedAuth = await buildAuth();
-  return cachedAuth;
+const getAuth = (force = false): Promise<YahooAuth> => {
+  if (force || !authPromise) authPromise = buildAuth();
+  return authPromise;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -97,7 +116,7 @@ const yFetch = async (url: string, attempt = 0): Promise<Response> => {
   }
   if ((res.status === 401 || res.status === 403) && attempt < 2) {
     await res.body?.cancel();
-    cachedAuth = await buildAuth();
+    await getAuth(true);
     return yFetch(url, attempt + 1);
   }
   return res;
@@ -284,14 +303,14 @@ const refresh = async (
   >();
   let updated = 0;
 
-  for (const instrument of instruments ?? []) {
+  await mapLimit(instruments ?? [], 6, async (instrument) => {
     try {
       const symbol = await resolveSymbol(
         instrument.isin,
         instrument.ticker,
         instrument.yahoo_symbol,
       );
-      if (!symbol) continue;
+      if (!symbol) return;
       const quoted = await fetchQuote(symbol);
       if (!instrument.yahoo_symbol) {
         await db.rpc('set_instrument_yahoo', { p_id: instrument.id, p_symbol: symbol });
@@ -315,12 +334,12 @@ const refresh = async (
     } catch (error) {
       errors.push(`${instrument.ticker}: ${msg(error)}`);
     }
-  }
+  });
 
   const priceRows: Record<string, unknown>[] = [];
-  for (const holding of holdings) {
+  await mapLimit(holdings, 8, async (holding) => {
     const quoted = priceByInstrument.get(holding.instrument_id);
-    if (!quoted) continue;
+    if (!quoted) return;
     await db
       .from('holdings')
       .update({ current_price: quoted.price, previous_close: quoted.previousClose })
@@ -333,7 +352,7 @@ const refresh = async (
       close: quoted.price,
       currency: quoted.currency,
     });
-  }
+  });
   if (priceRows.length > 0) await db.rpc('upsert_prices', { p_rows: priceRows });
 
   const byUser = new Map<string, { free: number; market: number }>();
@@ -370,7 +389,7 @@ const refreshCrypto = async (
   if (!rows || rows.length === 0) return;
 
   const symbols = [...new Set(rows.map((r) => r.symbol))];
-  for (const symbol of symbols) {
+  await mapLimit(symbols, 6, async (symbol) => {
     try {
       const quoted = await fetchQuote(symbol, '5d');
       let update = db
@@ -386,7 +405,7 @@ const refreshCrypto = async (
     } catch {
       // skip symbols that fail to quote
     }
-  }
+  });
 };
 
 const evaluateAlerts = async (
@@ -402,14 +421,14 @@ const evaluateAlerts = async (
 
   const symbols = [...new Set(alerts.map((a) => a.symbol))];
   const priceBySymbol = new Map<string, number>();
-  for (const symbol of symbols) {
+  await mapLimit(symbols, 6, async (symbol) => {
     try {
       const data = await fetchQuote(symbol, '5d');
       priceBySymbol.set(symbol, data.quote.price);
     } catch {
       // skip unresolved symbols
     }
-  }
+  });
 
   for (const alert of alerts) {
     const price = priceBySymbol.get(alert.symbol);
@@ -479,12 +498,12 @@ const backfill = async (
   const rate = (c: string) => (c === 'EUR' ? 1 : (fx.get(c) ?? 1));
 
   const history = new Map<string, Map<string, number>>();
-  for (const holding of holdings) {
+  await mapLimit(holdings, 5, async (holding) => {
     const meta = metaById.get(holding.instrument_id);
-    if (!meta) continue;
+    if (!meta) return;
     try {
       const symbol = await resolveSymbol(meta.isin, meta.ticker, meta.yahoo_symbol);
-      if (!symbol) continue;
+      if (!symbol) return;
       const quoted = await fetchQuote(symbol, range);
       const byDate = new Map<string, number>();
       for (const point of quoted.history) byDate.set(point.date, point.value);
@@ -492,7 +511,7 @@ const backfill = async (
     } catch {
       // instrument without resolvable history is skipped
     }
-  }
+  });
 
   let currentMarket = 0;
   for (const holding of holdings) {
@@ -575,16 +594,14 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .slice(0, 25);
     const quotes: Record<string, { price: number; previousClose: number; currency: string }> = {};
-    await Promise.all(
-      symbols.map(async (symbol) => {
-        try {
-          const data = await fetchQuote(symbol, '5d');
-          quotes[symbol] = data.quote;
-        } catch {
-          // skip symbols that fail
-        }
-      }),
-    );
+    await mapLimit(symbols, 8, async (symbol) => {
+      try {
+        const data = await fetchQuote(symbol, '5d');
+        quotes[symbol] = data.quote;
+      } catch {
+        // skip symbols that fail
+      }
+    });
     return json({ quotes });
   }
 
