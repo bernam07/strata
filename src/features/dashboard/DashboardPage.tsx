@@ -128,7 +128,7 @@ export const DashboardPage = () => {
 
   const loading = accountsQuery.isLoading || transactionsQuery.isLoading;
   const accounts = accountsQuery.data ?? [];
-  const empty = !loading && accounts.length === 0;
+  const empty = !loading && accounts.length === 0 && crypto.length === 0;
   const positions = positionsQuery.data?.positions ?? [];
   const positionInstruments = positionsQuery.data?.instruments ?? new Map();
   const rankablePositions = positions.filter(
