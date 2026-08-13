@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
+import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { icons, StrataMark, type IconName } from './icons';
 
 interface NavEntry {
@@ -38,6 +39,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
       { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+      { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
 ];
@@ -54,6 +56,7 @@ const secondaryLinks: NavEntry[] = [
   { to: '/dividends', label: 'Dividends', icon: 'dividends' },
   { to: '/expenses', label: 'Expenses', icon: 'expenses' },
   { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+  { to: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 const navItemClass = (isActive: boolean): string =>
@@ -212,6 +215,15 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
+  const recurring = useProcessRecurring();
+  const ranRecurring = useRef(false);
+
+  useEffect(() => {
+    if (ranRecurring.current) return;
+    ranRecurring.current = true;
+    recurring.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-screen">

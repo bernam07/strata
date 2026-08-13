@@ -42,6 +42,10 @@ const IntegrationsPage = lazyPage(
   () => import('@/features/integrations/IntegrationsPage'),
   'IntegrationsPage',
 );
+const SettingsPage = lazyPage(
+  () => import('@/features/settings/SettingsPage'),
+  'SettingsPage',
+);
 
 const PageFallback = () => (
   <p className="text-sm text-[var(--text-muted)]">Loading…</p>
@@ -77,6 +81,7 @@ export const AppRouter = () => {
             <Route path="/dividends" element={<DividendsPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

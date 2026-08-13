@@ -168,7 +168,7 @@ const search = async (q: string): Promise<SearchHit[]> => {
   const body = await res.json();
   return (body?.quotes ?? [])
     .filter((x: Record<string, unknown>) =>
-      ['EQUITY', 'ETF'].includes(String(x.quoteType)),
+      ['EQUITY', 'ETF', 'CRYPTOCURRENCY'].includes(String(x.quoteType)),
     )
     .map((x: Record<string, unknown>) => ({
       symbol: String(x.symbol),
@@ -358,6 +358,35 @@ const refresh = async (
   }
 
   return { updated, errors };
+};
+
+const refreshCrypto = async (
+  db: SupabaseClient,
+  userId?: string,
+): Promise<void> => {
+  let query = db.from('crypto_holdings').select('symbol');
+  if (userId) query = query.eq('user_id', userId);
+  const { data: rows } = await query;
+  if (!rows || rows.length === 0) return;
+
+  const symbols = [...new Set(rows.map((r) => r.symbol))];
+  for (const symbol of symbols) {
+    try {
+      const quoted = await fetchQuote(symbol, '5d');
+      let update = db
+        .from('crypto_holdings')
+        .update({
+          current_price: quoted.quote.price,
+          previous_close: quoted.quote.previousClose,
+          currency: quoted.quote.currency,
+        })
+        .eq('symbol', symbol);
+      if (userId) update = update.eq('user_id', userId);
+      await update;
+    } catch {
+      // skip symbols that fail to quote
+    }
+  }
 };
 
 const evaluateAlerts = async (
@@ -599,6 +628,7 @@ Deno.serve(async (req) => {
     }
     const db = admin();
     const result = await refresh(db, scope.userId);
+    await refreshCrypto(db, scope.userId).catch(() => undefined);
     await evaluateAlerts(db, scope.userId).catch(() => undefined);
     return json({ ok: true, ...result });
   } catch (error) {

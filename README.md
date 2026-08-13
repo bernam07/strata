@@ -160,6 +160,13 @@ Lógica de orçamentos e de previsão coberta por testes em `src/core`.
   `0017`), e valores em **moeda nativa** na página do ativo.
 - **Alocação por setor** (migração `0018`): o refresh guarda o setor de cada
   ação (Yahoo `assetProfile`) e as posições mostram a repartição por setor.
+- **Definições + backup**: página de settings (tema, notificações, sair) e
+  exportação de todos os dados em JSON.
+- **Transações recorrentes** (migração `0019`): regras (salário, renda,
+  subscrições) lançadas automaticamente no arranque da app, com _catch-up_ dos
+  períodos em atraso. Lógica de datas pura e testada.
+- **Crypto** (migração `0020`): holdings de crypto cotadas via Yahoo
+  (BTC-EUR, ETH-EUR…), a entrar no net worth, no donut e no P/L do dia.
 
 - **Alertas de preço** (migração `0014`, tabela `price_alerts`): define alvos
   "acima/abaixo" num ativo; a app avalia contra a cotação atual, marca como
