@@ -13,11 +13,10 @@ import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
 import { useCrypto } from '@/features/crypto/api/useCrypto';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
-import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { usePersistentState } from '@/app/usePersistentState';
 import { AlertBanner } from '@/features/alerts/Alerts';
+import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
 import { NetWorthTrend } from './NetWorthTrend';
 import { GoalCard } from './GoalCard';
@@ -207,22 +206,10 @@ export const DashboardPage = () => {
           </div>
         </div>
       ) : empty ? (
-        <Card className="flex flex-col items-start gap-4">
-          <div>
-            <p className="font-semibold text-[var(--text-strong)]">
-              Start your first layer
-            </p>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Add an account, then record a transaction to see your net worth
-              build up.
-            </p>
-          </div>
-          <Link to="/accounts">
-            <Button>Add an account</Button>
-          </Link>
-        </Card>
+        <Onboarding />
       ) : (
         <>
+          <Onboarding />
           <AlertBanner />
 
           <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6">
