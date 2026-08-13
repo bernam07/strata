@@ -4,17 +4,42 @@ import { supabase } from '@/db/supabase';
 
 export const netWorthHistoryKey = ['net-worth-history'] as const;
 
+interface SnapshotRow {
+  as_of: string;
+  net: number;
+  investments: number;
+}
+
+const fetchSnapshots = async (): Promise<SnapshotRow[]> => {
+  const { data, error } = await supabase
+    .from('net_worth_snapshots')
+    .select('as_of, net, investments')
+    .order('as_of', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    as_of: row.as_of,
+    net: Number(row.net),
+    investments: Number(row.investments ?? 0),
+  }));
+};
+
 export const useNetWorthHistory = () =>
-  useQuery<SeriesPoint[]>({
+  useQuery({
     queryKey: netWorthHistoryKey,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('net_worth_snapshots')
-        .select('as_of, net')
-        .order('as_of', { ascending: true });
-      if (error) throw error;
-      return (data ?? []).map((row) => ({ date: row.as_of, value: Number(row.net) }));
-    },
+    queryFn: fetchSnapshots,
+    select: (rows): SeriesPoint[] =>
+      rows.map((row) => ({ date: row.as_of, value: row.net })),
+  });
+
+// Investment-only history from the same snapshots (market value of holdings).
+export const useInvestmentsHistory = () =>
+  useQuery({
+    queryKey: netWorthHistoryKey,
+    queryFn: fetchSnapshots,
+    select: (rows): SeriesPoint[] =>
+      rows
+        .filter((row) => row.investments > 0)
+        .map((row) => ({ date: row.as_of, value: row.investments })),
   });
 
 export interface NetWorthSnapshotInput {

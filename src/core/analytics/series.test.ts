@@ -3,6 +3,7 @@ import type { Transaction } from '../types';
 import {
   externalCashFlows,
   geographyFromIsin,
+  investedAtCostSeries,
   netWorthAtCostSeries,
   valuationPoints,
   weightBy,
@@ -80,6 +81,48 @@ describe('netWorthAtCostSeries', () => {
       tx('50', '2026-01-01T18:00:00Z', { kind: 'income' }),
     ]);
     expect(series).toEqual([{ date: '2026-01-01', value: 150 }]);
+  });
+});
+
+describe('investedAtCostSeries', () => {
+  it('tracks only the cost basis of holdings, ignoring cash', () => {
+    const series = investedAtCostSeries([
+      tx('1000', '2026-01-01T10:00:00Z'),
+      tx('-500', '2026-01-05T10:00:00Z', {
+        kind: 'buy',
+        quantity: '5',
+        instrumentId: 'i1',
+      }),
+      tx('-200', '2026-01-06T10:00:00Z', {
+        kind: 'buy',
+        quantity: '2',
+        instrumentId: 'i2',
+      }),
+    ]);
+    // Pure cash deposit adds no investment point; buys build up cost basis.
+    expect(series).toEqual([
+      { date: '2026-01-05', value: 500 },
+      { date: '2026-01-06', value: 700 },
+    ]);
+  });
+
+  it('drops back down when a holding is sold off', () => {
+    const series = investedAtCostSeries([
+      tx('-500', '2026-01-05T10:00:00Z', {
+        kind: 'buy',
+        quantity: '5',
+        instrumentId: 'i1',
+      }),
+      tx('650', '2026-02-01T10:00:00Z', {
+        kind: 'sell',
+        quantity: '-5',
+        instrumentId: 'i1',
+      }),
+    ]);
+    expect(series).toEqual([
+      { date: '2026-01-05', value: 500 },
+      { date: '2026-02-01', value: 0 },
+    ]);
   });
 });
 

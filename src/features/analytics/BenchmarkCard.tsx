@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNetWorthHistory } from '@/features/dashboard/api/useNetWorthHistory';
+import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHistory';
 import { useQuote } from '@/features/search/api/useMarket';
 import { Card } from '@/ui/Card';
 
@@ -90,7 +90,7 @@ export const BenchmarkCard = () => {
     benchmarks[0],
   );
   const [range, setRange] = useState<(typeof ranges)[number]>(ranges[2]);
-  const { data: snapshots = [] } = useNetWorthHistory();
+  const { data: snapshots = [] } = useInvestmentsHistory();
   const { data: quote } = useQuote(benchmark.symbol, range.value);
 
   const model = useMemo(() => {
@@ -114,7 +114,7 @@ export const BenchmarkCard = () => {
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-[var(--text-strong)]">
-          You vs the market
+          Your portfolio vs the market
         </h2>
         <div className="flex gap-2">
           <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
@@ -154,7 +154,7 @@ export const BenchmarkCard = () => {
 
       {model.mine.length < 2 ? (
         <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-          Not enough net-worth history yet. Reconstruct it on the dashboard, or
+          Not enough investment history yet. Reconstruct it on the dashboard, or
           it fills in daily.
         </p>
       ) : (
@@ -179,8 +179,8 @@ export const BenchmarkCard = () => {
           </div>
           <DualLine mine={model.mine} index={model.index} />
           <p className="text-[11px] text-[var(--text-muted)]">
-            Indexed to the start of the period. Deposits and withdrawals move
-            your line, so this is a rough comparison, not pure performance.
+            Indexed to the start of the period. Buys and sells move your line,
+            so this is a rough comparison, not pure performance.
           </p>
         </>
       )}
