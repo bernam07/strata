@@ -22,6 +22,7 @@ export type IconName =
   | 'expenses'
   | 'integrations'
   | 'search'
+  | 'settings'
   | 'more';
 
 export const icons: Record<IconName, ReactNode> = {
@@ -58,6 +59,12 @@ export const icons: Record<IconName, ReactNode> = {
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.3-4.3" />
+    </>,
+  ),
+  settings: wrap(
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6 6l1.5 1.5M18 18l-1.5-1.5M6 18l1.5-1.5M18 6l-1.5 1.5" />
     </>,
   ),
   more: wrap(

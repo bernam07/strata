@@ -38,6 +38,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
       { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+      { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
 ];
@@ -54,6 +55,7 @@ const secondaryLinks: NavEntry[] = [
   { to: '/dividends', label: 'Dividends', icon: 'dividends' },
   { to: '/expenses', label: 'Expenses', icon: 'expenses' },
   { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+  { to: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 const navItemClass = (isActive: boolean): string =>
