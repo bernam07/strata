@@ -11,6 +11,7 @@ import {
 } from '@/features/accounts/api/useBrokerAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
+import { useCrypto } from '@/features/crypto/api/useCrypto';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -91,6 +92,7 @@ export const DashboardPage = () => {
   const brokersQuery = useBrokerAccounts();
   const { data: instruments } = useInstruments();
   const positionsQuery = usePositions();
+  const { data: crypto = [] } = useCrypto();
   const { data: snapshots = [] } = useNetWorthHistory();
   const recordNetWorth = useRecordNetWorth();
   const backfill = useBackfillHistory();
@@ -133,6 +135,17 @@ export const DashboardPage = () => {
     (position) => position.unrealizedPct !== null,
   ).length;
 
+  const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
+  const cryptoDay = crypto.reduce((total, item) => total + item.dayChangeEur, 0);
+  const netWithCrypto = model.netWorth.net.plus(money(cryptoTotal));
+  const cryptoExtra = useMemo(
+    () =>
+      cryptoTotal > 0
+        ? [{ id: 'crypto', name: 'Crypto', value: cryptoTotal, to: '/positions' }]
+        : [],
+    [cryptoTotal],
+  );
+
   const investments = useMemo(() => {
     const brokers = brokersQuery.data ?? new Map();
     let total = zero();
@@ -149,13 +162,13 @@ export const DashboardPage = () => {
   useEffect(() => {
     if (!dataReady) return;
     recordNetWorth.mutate({
-      net: toNumber(model.netWorth.net),
-      assets: toNumber(model.netWorth.totalAssets),
+      net: toNumber(netWithCrypto),
+      assets: toNumber(model.netWorth.totalAssets) + cryptoTotal,
       liabilities: toNumber(model.netWorth.totalLiabilities),
-      investments: toNumber(investments),
+      investments: toNumber(investments) + cryptoTotal,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady, model.netWorth.net.toString()]);
+  }, [dataReady, netWithCrypto.toString()]);
 
   const baseSeries = snapshots.length >= 2 ? snapshots : model.series;
   const usingSnapshots = snapshots.length >= 2;
@@ -170,8 +183,9 @@ export const DashboardPage = () => {
     const changes = positions
       .map((position) => position.dayChange)
       .filter((change): change is Money => change !== null);
-    return changes.length > 0 ? sum(changes) : null;
-  }, [positions]);
+    if (changes.length === 0 && cryptoDay === 0) return null;
+    return sum(changes).plus(money(cryptoDay));
+  }, [positions, cryptoDay]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -220,7 +234,12 @@ export const DashboardPage = () => {
               }}
             />
             <div className="relative">
-              <NetWorthDonut netWorth={model.netWorth} today={todayPl} />
+              <NetWorthDonut
+                netWorth={model.netWorth}
+                today={todayPl}
+                extra={cryptoExtra}
+                net={netWithCrypto}
+              />
             </div>
           </section>
 
@@ -256,7 +275,7 @@ export const DashboardPage = () => {
             }
           />
 
-          <GoalCard net={model.netWorth.net} />
+          <GoalCard net={netWithCrypto} />
 
           {rankablePositions >= 2 && (
             <section className="flex flex-col gap-3">

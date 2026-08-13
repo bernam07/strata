@@ -9,6 +9,8 @@ import { usePositions } from './api/usePositions';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
 import { PositionRow } from './components/PositionRow';
+import { CryptoManager } from '@/features/crypto/CryptoManager';
+import { useCrypto } from '@/features/crypto/api/useCrypto';
 
 const AnalyticsView = lazy(() =>
   import('@/features/analytics/AnalyticsView').then((module) => ({
@@ -24,8 +26,10 @@ const percent = new Intl.NumberFormat('en-GB', {
 
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
+  const { data: crypto = [] } = useCrypto();
   const refresh = useRefreshPrices();
   const [showPerformance, setShowPerformance] = useState(false);
+  const [showCrypto, setShowCrypto] = useState(false);
 
   const positions = data?.positions ?? [];
   const totalMarket = sum(
@@ -78,6 +82,31 @@ export const PositionsPage = () => {
           Couldn't refresh prices. Try again in a moment.
         </p>
       )}
+
+      <Card className="flex flex-col gap-4">
+        <button
+          type="button"
+          onClick={() => setShowCrypto((open) => !open)}
+          aria-expanded={showCrypto}
+          className="tap flex items-center justify-between gap-3"
+        >
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            Crypto
+            {crypto.length > 0 && (
+              <span className="ml-2 font-semibold text-[var(--text-2)]">
+                {formatEur(money(crypto.reduce((s, c) => s + c.valueEur, 0)))}
+              </span>
+            )}
+          </span>
+          <span
+            className="text-[var(--text-muted)] transition-transform"
+            style={{ transform: showCrypto ? 'rotate(90deg)' : 'none' }}
+          >
+            ›
+          </span>
+        </button>
+        {showCrypto && <CryptoManager />}
+      </Card>
 
       {isLoading ? (
         <SkeletonRows count={4} />

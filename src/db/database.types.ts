@@ -421,6 +421,38 @@ export interface Database {
         };
         Relationships: [];
       };
+      crypto_holdings: {
+        Row: {
+          user_id: string;
+          symbol: string;
+          name: string;
+          quantity: number;
+          average_price: number;
+          current_price: number;
+          previous_close: number | null;
+          currency: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          symbol: string;
+          name: string;
+          quantity: number;
+          average_price?: number;
+          current_price?: number;
+          previous_close?: number | null;
+          currency?: string;
+        };
+        Update: {
+          name?: string;
+          quantity?: number;
+          average_price?: number;
+          current_price?: number;
+          previous_close?: number | null;
+          currency?: string;
+        };
+        Relationships: [];
+      };
       recurring_transactions: {
         Row: {
           id: string;

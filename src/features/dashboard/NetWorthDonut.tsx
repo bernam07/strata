@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { formatEur, isNegative, type Money } from '@/core/money/money';
+import { formatEur, isNegative, money, type Money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import { getInstitution } from '@/features/accounts/institutions';
@@ -34,6 +34,7 @@ interface Segment {
   id: string;
   name: string;
   institutionId: string;
+  to?: string;
   balance: Money;
   magnitude: number;
   liability: boolean;
@@ -43,51 +44,85 @@ interface Segment {
 
 const TWO_PI = Math.PI * 2;
 
+export interface ExtraSegment {
+  id: string;
+  name: string;
+  value: number;
+  to?: string;
+}
+
 export const NetWorthDonut = ({
   netWorth,
   today = null,
+  extra = [],
+  net,
 }: {
   netWorth: NetWorth;
   today?: Money | null;
+  extra?: ExtraSegment[];
+  net?: Money;
 }) => {
   const ref = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState<number | null>(null);
 
   const segments = useMemo<Segment[]>(() => {
     const raw = [
-      ...netWorth.assets.map((entry) => ({ entry, liability: false })),
-      ...netWorth.liabilities.map((entry) => ({ entry, liability: true })),
+      ...netWorth.assets.map((entry) => ({
+        id: entry.account.id,
+        name: entry.account.name,
+        institutionId: entry.account.institutionId,
+        balance: entry.balance,
+        to: `/accounts/${entry.account.id}`,
+        liability: false,
+      })),
+      ...netWorth.liabilities.map((entry) => ({
+        id: entry.account.id,
+        name: entry.account.name,
+        institutionId: entry.account.institutionId,
+        balance: entry.balance,
+        to: `/accounts/${entry.account.id}`,
+        liability: true,
+      })),
+      ...extra.map((item) => ({
+        id: item.id,
+        name: item.name,
+        institutionId: '',
+        balance: money(item.value),
+        to: item.to,
+        liability: false,
+      })),
     ]
-      .map(({ entry, liability }) => ({
-        entry,
-        liability,
-        magnitude: entry.balance.abs().toNumber(),
-      }))
+      .map((item) => ({ ...item, magnitude: item.balance.abs().toNumber() }))
       .filter((item) => item.magnitude > 0)
       .sort((a, b) => b.magnitude - a.magnitude);
 
     const total = raw.reduce((sum, item) => sum + item.magnitude, 0) || 1;
     let assetIndex = 0;
     return raw.map((item) => {
-      const brand = getInstitution(item.entry.account.institutionId).brandColor;
+      const brand = item.institutionId
+        ? getInstitution(item.institutionId).brandColor
+        : '';
       const color = item.liability
         ? 'var(--negative)'
-        : luminance(brand) > 0.16
+        : brand && luminance(brand) > 0.16
           ? brand
           : assetPalette[assetIndex % assetPalette.length]!;
       if (!item.liability) assetIndex += 1;
       return {
-        id: item.entry.account.id,
-        name: item.entry.account.name,
-        institutionId: item.entry.account.institutionId,
-        balance: item.entry.balance,
+        id: item.id,
+        name: item.name,
+        institutionId: item.institutionId,
+        to: item.to,
+        balance: item.balance,
         magnitude: item.magnitude,
         liability: item.liability,
         color,
         weight: item.magnitude / total,
       };
     });
-  }, [netWorth]);
+  }, [netWorth, extra]);
+
+  const centerNet = net ?? netWorth.net;
 
   const size = 220;
   const stroke = 22;
@@ -138,7 +173,7 @@ export const NetWorthDonut = ({
             ref={ref}
             viewBox={`0 0 ${size} ${size}`}
             role="img"
-            aria-label={`Net worth ${formatEur(netWorth.net)}, by account`}
+            aria-label={`Net worth ${formatEur(centerNet)}, by account`}
             className="h-full w-full touch-none select-none"
             onPointerDown={locate}
             onPointerMove={locate}
@@ -200,7 +235,7 @@ export const NetWorthDonut = ({
                   Net worth
                 </p>
                 <p className="text-[26px] font-extrabold leading-tight tabular-nums text-[var(--text-strong)]">
-                  {formatEur(netWorth.net)}
+                  {formatEur(centerNet)}
                 </p>
                 {today !== null && (
                   <p
@@ -223,7 +258,7 @@ export const NetWorthDonut = ({
           {segments.map((segment, index) => (
             <Link
               key={segment.id}
-              to={`/accounts/${segment.id}`}
+              to={segment.to ?? '/positions'}
               onPointerEnter={() => setActive(index)}
               onPointerLeave={() => setActive(null)}
               className="tap flex items-center gap-3 rounded-[var(--radius-field)] px-2 py-1.5 hover:bg-[var(--surface-flat)]"
@@ -232,7 +267,9 @@ export const NetWorthDonut = ({
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ background: segment.color }}
               />
-              <InstitutionLogo institutionId={segment.institutionId} size={22} />
+              {segment.institutionId && (
+                <InstitutionLogo institutionId={segment.institutionId} size={22} />
+              )}
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-strong)]">
                 {segment.name}
               </span>
