@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   externalCashFlows,
   geographyFromIsin,
-  netWorthAtCostSeries,
+  investedAtCostSeries,
   sliceFrom,
   valuationPoints,
   weightBy,
@@ -18,7 +18,7 @@ import {
   applyBrokerBalances,
   useBrokerAccounts,
 } from '@/features/accounts/api/useBrokerAccounts';
-import { useNetWorthHistory } from '@/features/dashboard/api/useNetWorthHistory';
+import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHistory';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
@@ -105,7 +105,7 @@ export const AnalyticsView = () => {
   const positionsQuery = usePositions();
   const accountsQuery = useAccounts();
   const brokersQuery = useBrokerAccounts();
-  const { data: snapshots = [] } = useNetWorthHistory();
+  const { data: investmentsHistory = [] } = useInvestmentsHistory();
   const [period, setPeriod] = useState<(typeof periods)[number]['key']>('All');
 
   const model = useMemo(() => {
@@ -125,12 +125,17 @@ export const AnalyticsView = () => {
       netWorthMarket += balance.toNumber();
     }
 
+    let investedMarket = 0;
+    for (const position of positions) {
+      investedMarket += (position.marketValue ?? position.costBasis).toNumber();
+    }
+
     const twr = timeWeightedReturn(valuationPoints(transactions));
     const irr = xirr(
       externalCashFlows(transactions, netWorthMarket, new Date()),
     );
 
-    const series = netWorthAtCostSeries(transactions);
+    const series = investedAtCostSeries(transactions);
     const years = yearlyBreakdown(transactions);
 
     const geography = weightBy(
@@ -166,6 +171,7 @@ export const AnalyticsView = () => {
 
     return {
       netWorthMarket,
+      investedMarket,
       twr,
       irr,
       series,
@@ -177,8 +183,8 @@ export const AnalyticsView = () => {
     };
   }, [transactionsQuery.data, positionsQuery.data, accountsQuery.data, brokersQuery.data]);
 
-  const usingSnapshots = snapshots.length >= 2;
-  const baseSeries = usingSnapshots ? snapshots : model.series;
+  const usingSnapshots = investmentsHistory.length >= 2;
+  const baseSeries = usingSnapshots ? investmentsHistory : model.series;
   const activePeriod = periods.find((entry) => entry.key === period)!;
   const shownSeries = activePeriod.days
     ? sliceFrom(
@@ -204,8 +210,9 @@ export const AnalyticsView = () => {
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <StatTile
-              label="Net worth"
-              value={eur.format(model.netWorthMarket)}
+              label="Invested value"
+              value={eur.format(model.investedMarket)}
+              hint="Market value of holdings"
             />
             <StatTile
               label="TWR"
@@ -222,7 +229,7 @@ export const AnalyticsView = () => {
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-[var(--text-strong)]">
-                Net worth over time
+                Investments over time
               </h2>
               <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
                 {periods.map((entry) => (
@@ -244,8 +251,8 @@ export const AnalyticsView = () => {
             <NetWorthChart series={shownSeries} />
             <p className="text-xs text-[var(--text-muted)]">
               {usingSnapshots
-                ? 'Market value from your daily net-worth snapshots.'
-                : 'Series at acquisition cost. Historical market value fills in as daily snapshots accumulate.'}
+                ? 'Market value of your holdings, from your daily snapshots.'
+                : 'Reconstructed at acquisition cost from your ledger. Market value fills in as daily snapshots accumulate — reconstruct earlier history from the dashboard.'}
             </p>
           </Card>
 

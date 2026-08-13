@@ -31,6 +31,7 @@ export interface Step {
   transaction: Transaction;
   valueBefore: number;
   valueAfter: number;
+  costAfter: number;
 }
 
 const walk = (transactions: readonly Transaction[]): Step[] => {
@@ -76,7 +77,12 @@ const walk = (transactions: readonly Transaction[]): Step[] => {
       costAfter += holding.quantity * holding.averageCost;
     }
 
-    steps.push({ transaction, valueBefore, valueAfter: cash + costAfter });
+    steps.push({
+      transaction,
+      valueBefore,
+      valueAfter: cash + costAfter,
+      costAfter: round2(costAfter),
+    });
   }
 
   return steps;
@@ -93,6 +99,26 @@ export const netWorthAtCostSeries = (
       last.value = round2(step.valueAfter);
     } else {
       points.push({ date, value: round2(step.valueAfter) });
+    }
+  }
+  return points;
+};
+
+// Cost basis of held instruments over time (cash excluded). Reconstructs the
+// investment curve from the ledger alone, so it reaches back to the very first
+// buy even before any daily snapshot existed.
+export const investedAtCostSeries = (
+  transactions: readonly Transaction[],
+): SeriesPoint[] => {
+  const points: SeriesPoint[] = [];
+  for (const step of walk(transactions)) {
+    if (step.transaction.instrumentId === null) continue;
+    const date = dayOf(step.transaction.occurredAt);
+    const last = points[points.length - 1];
+    if (last && last.date === date) {
+      last.value = step.costAfter;
+    } else {
+      points.push({ date, value: step.costAfter });
     }
   }
   return points;
