@@ -18,12 +18,14 @@ import {
   applyBrokerBalances,
   useBrokerAccounts,
 } from '@/features/accounts/api/useBrokerAccounts';
+import { useNetWorthHistory } from '@/features/dashboard/api/useNetWorthHistory';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { Link } from 'react-router-dom';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { NetWorthChart } from './NetWorthChart';
+import { BenchmarkCard } from './BenchmarkCard';
 import { DiversificationBars } from './DiversificationBars';
 
 interface Mover {
@@ -103,6 +105,7 @@ export const AnalyticsView = () => {
   const positionsQuery = usePositions();
   const accountsQuery = useAccounts();
   const brokersQuery = useBrokerAccounts();
+  const { data: snapshots = [] } = useNetWorthHistory();
   const [period, setPeriod] = useState<(typeof periods)[number]['key']>('All');
 
   const model = useMemo(() => {
@@ -174,13 +177,15 @@ export const AnalyticsView = () => {
     };
   }, [transactionsQuery.data, positionsQuery.data, accountsQuery.data, brokersQuery.data]);
 
+  const usingSnapshots = snapshots.length >= 2;
+  const baseSeries = usingSnapshots ? snapshots : model.series;
   const activePeriod = periods.find((entry) => entry.key === period)!;
   const shownSeries = activePeriod.days
     ? sliceFrom(
-        model.series,
+        baseSeries,
         new Date(Date.now() - activePeriod.days * 86_400_000),
       )
-    : model.series;
+    : baseSeries;
 
   const loading = transactionsQuery.isLoading || positionsQuery.isLoading;
 
@@ -238,10 +243,13 @@ export const AnalyticsView = () => {
             </div>
             <NetWorthChart series={shownSeries} />
             <p className="text-xs text-[var(--text-muted)]">
-              Series at acquisition cost. Historical market value fills in as
-              daily snapshots accumulate.
+              {usingSnapshots
+                ? 'Market value from your daily net-worth snapshots.'
+                : 'Series at acquisition cost. Historical market value fills in as daily snapshots accumulate.'}
             </p>
           </Card>
+
+          <BenchmarkCard />
 
           {(model.gainers.length > 0 || model.losers.length > 0) && (
             <Card className="grid gap-8 sm:grid-cols-2">
