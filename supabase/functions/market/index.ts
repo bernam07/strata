@@ -519,6 +519,39 @@ const backfill = async (
       Number(holding.quantity) * Number(holding.current_price) * rate(holding.currency);
   }
 
+  // Only holdings we could resolve a price history for can be reconstructed.
+  // Each gets its own sorted price track that we forward-fill, so a holding
+  // missing a price on some date (holidays, differing trading calendars, a
+  // later listing date) no longer discards that whole date for everyone.
+  interface Track {
+    holding: (typeof holdings)[number];
+    entries: [string, number][];
+    ptr: number;
+    last: number;
+  }
+  const tracks: Track[] = [];
+  for (const holding of holdings) {
+    const byDate = history.get(holding.instrument_id);
+    if (!byDate || byDate.size === 0) continue;
+    const entries = [...byDate.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+    tracks.push({ holding, entries, ptr: 0, last: 0 });
+  }
+  if (tracks.length === 0) return { inserted: 0 };
+
+  // Start where every tracked holding already has at least one price, so the
+  // forward-fill is always defined and the reconstructed total is coherent.
+  const commonStart = tracks
+    .map((track) => track.entries[0][0])
+    .reduce((a, b) => (a > b ? a : b));
+
+  let trackedCurrentMarket = 0;
+  for (const track of tracks) {
+    trackedCurrentMarket +=
+      Number(track.holding.quantity) *
+      Number(track.holding.current_price) *
+      rate(track.holding.currency);
+  }
+
   const { data: snaps } = await db
     .from('net_worth_snapshots')
     .select('as_of, net')
@@ -528,26 +561,28 @@ const backfill = async (
   const earliest = snaps && snaps.length > 0 ? snaps[0].as_of : null;
   const anchorNet =
     snaps && snaps.length > 0 ? Number(snaps[snaps.length - 1].net) : currentMarket;
-  const nonInvestment = anchorNet - currentMarket;
+  // Everything that isn't tracked investments — cash, liabilities, and any
+  // holding we couldn't price historically — is carried flat from today.
+  const nonInvestment = anchorNet - trackedCurrentMarket;
 
   const dates = new Set<string>();
-  for (const byDate of history.values()) for (const date of byDate.keys()) dates.add(date);
+  for (const track of tracks) {
+    for (const [date] of track.entries) if (date >= commonStart) dates.add(date);
+  }
 
   const rows: Record<string, unknown>[] = [];
   for (const date of [...dates].sort()) {
     if (earliest && date >= earliest) continue;
     if (existing.has(date)) continue;
     let market = 0;
-    let complete = true;
-    for (const holding of holdings) {
-      const price = history.get(holding.instrument_id)?.get(date);
-      if (price === undefined) {
-        complete = false;
-        break;
+    for (const track of tracks) {
+      while (track.ptr < track.entries.length && track.entries[track.ptr][0] <= date) {
+        track.last = track.entries[track.ptr][1];
+        track.ptr++;
       }
-      market += Number(holding.quantity) * price * rate(holding.currency);
+      market += Number(track.holding.quantity) * track.last * rate(track.holding.currency);
     }
-    if (!complete || market <= 0) continue;
+    if (market <= 0) continue;
     const net = market + nonInvestment;
     rows.push({
       user_id: userId,
