@@ -1,5 +1,10 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendPush } from '../_shared/push.ts';
+import {
+  reconstructInvestments,
+  type LedgerEntry,
+  type PricePoint,
+} from '../_shared/history/reconstruct.ts';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -269,6 +274,57 @@ const quoteForInstrument = async (
   throw new Error(lastError);
 };
 
+const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+// Persist a daily investment snapshot so the net-worth history fills in even
+// on days the app is never opened. Only the investment value is authoritative
+// here; cash and liabilities are carried from the user's most recent snapshot.
+// ignoreDuplicates means a precise value the client already wrote for today is
+// never clobbered by this approximation.
+const recordSnapshots = async (
+  db: SupabaseClient,
+  investmentByUser: Map<string, { free: number; market: number }>,
+): Promise<void> => {
+  const userIds = [...investmentByUser.keys()];
+  if (userIds.length === 0) return;
+  const asOf = new Date().toISOString().slice(0, 10);
+
+  const { data: prev } = await db
+    .from('net_worth_snapshots')
+    .select('user_id, as_of, net, investments')
+    .in('user_id', userIds)
+    .order('as_of', { ascending: false });
+  const lastByUser = new Map<string, { net: number; investments: number }>();
+  for (const row of prev ?? []) {
+    if (!lastByUser.has(row.user_id)) {
+      lastByUser.set(row.user_id, {
+        net: Number(row.net),
+        investments: Number(row.investments ?? 0),
+      });
+    }
+  }
+
+  const rows = userIds.map((uid) => {
+    const entry = investmentByUser.get(uid)!;
+    const investments = round2(entry.market);
+    const last = lastByUser.get(uid);
+    const nonInvestment = last ? last.net - last.investments : entry.free;
+    const net = round2(investments + nonInvestment);
+    return {
+      user_id: uid,
+      as_of: asOf,
+      net,
+      assets: round2(Math.max(net, 0)),
+      liabilities: 0,
+      investments,
+    };
+  });
+
+  await db
+    .from('net_worth_snapshots')
+    .upsert(rows, { onConflict: 'user_id,as_of', ignoreDuplicates: true });
+};
+
 const refresh = async (
   db: SupabaseClient,
   userId?: string,
@@ -376,6 +432,8 @@ const refresh = async (
     });
   }
 
+  await recordSnapshots(db, byUser).catch(() => undefined);
+
   return { updated, errors };
 };
 
@@ -468,23 +526,39 @@ const evaluateAlerts = async (
   }
 };
 
-const round2 = (value: number): number => Math.round(value * 100) / 100;
-
 const backfill = async (
   db: SupabaseClient,
   userId: string,
   range: string,
 ): Promise<{ inserted: number }> => {
+  // Current holdings anchor the recent end and give today's investment value.
   const { data: holdings } = await db
     .from('holdings')
     .select('instrument_id, quantity, current_price, currency')
     .eq('user_id', userId);
-  if (!holdings || holdings.length === 0) return { inserted: 0 };
 
-  const ids = [...new Set(holdings.map((h) => h.instrument_id))];
+  // The ledger drives the quantity actually held on each historical date, so
+  // the reconstruction reflects when you bought and sold — not today's shape.
+  const { data: txRows } = await db
+    .from('transactions')
+    .select('instrument_id, quantity, occurred_at')
+    .eq('user_id', userId)
+    .not('instrument_id', 'is', null)
+    .not('quantity', 'is', null)
+    .order('occurred_at', { ascending: true });
+  const ledger: LedgerEntry[] = (txRows ?? [])
+    .filter((row) => row.instrument_id && row.quantity !== null)
+    .map((row) => ({
+      instrumentId: row.instrument_id as string,
+      quantity: Number(row.quantity),
+      date: String(row.occurred_at).slice(0, 10),
+    }));
+  if (ledger.length === 0) return { inserted: 0 };
+
+  const ids = [...new Set(ledger.map((entry) => entry.instrumentId))];
   const { data: instruments } = await db
     .from('instruments')
-    .select('id, isin, ticker, yahoo_symbol')
+    .select('id, isin, ticker, yahoo_symbol, currency')
     .in('id', ids);
   const metaById = new Map((instruments ?? []).map((i) => [i.id, i]));
 
@@ -497,59 +571,33 @@ const backfill = async (
   for (const row of fxRows ?? []) if (!fx.has(row.base)) fx.set(row.base, Number(row.rate));
   const rate = (c: string) => (c === 'EUR' ? 1 : (fx.get(c) ?? 1));
 
-  const history = new Map<string, Map<string, number>>();
-  await mapLimit(holdings, 5, async (holding) => {
-    const meta = metaById.get(holding.instrument_id);
+  // Historical closes per instrument, converted to EUR at the latest FX rate
+  // (historical FX isn't stored — a small, acknowledged approximation).
+  const pricesByInstrument = new Map<string, PricePoint[]>();
+  await mapLimit(ids, 5, async (id) => {
+    const meta = metaById.get(id);
     if (!meta) return;
     try {
       const symbol = await resolveSymbol(meta.isin, meta.ticker, meta.yahoo_symbol);
       if (!symbol) return;
       const quoted = await fetchQuote(symbol, range);
-      const byDate = new Map<string, number>();
-      for (const point of quoted.history) byDate.set(point.date, point.value);
-      history.set(holding.instrument_id, byDate);
+      const r = rate(meta.currency ?? 'EUR');
+      pricesByInstrument.set(
+        id,
+        quoted.history.map((point) => ({ date: point.date, price: point.value * r })),
+      );
     } catch {
       // instrument without resolvable history is skipped
     }
   });
 
-  let currentMarket = 0;
-  for (const holding of holdings) {
-    currentMarket +=
+  const daily = reconstructInvestments(ledger, pricesByInstrument);
+  if (daily.length === 0) return { inserted: 0 };
+
+  let currentInvestments = 0;
+  for (const holding of holdings ?? []) {
+    currentInvestments +=
       Number(holding.quantity) * Number(holding.current_price) * rate(holding.currency);
-  }
-
-  // Only holdings we could resolve a price history for can be reconstructed.
-  // Each gets its own sorted price track that we forward-fill, so a holding
-  // missing a price on some date (holidays, differing trading calendars, a
-  // later listing date) no longer discards that whole date for everyone.
-  interface Track {
-    holding: (typeof holdings)[number];
-    entries: [string, number][];
-    ptr: number;
-    last: number;
-  }
-  const tracks: Track[] = [];
-  for (const holding of holdings) {
-    const byDate = history.get(holding.instrument_id);
-    if (!byDate || byDate.size === 0) continue;
-    const entries = [...byDate.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
-    tracks.push({ holding, entries, ptr: 0, last: 0 });
-  }
-  if (tracks.length === 0) return { inserted: 0 };
-
-  // Start where every tracked holding already has at least one price, so the
-  // forward-fill is always defined and the reconstructed total is coherent.
-  const commonStart = tracks
-    .map((track) => track.entries[0][0])
-    .reduce((a, b) => (a > b ? a : b));
-
-  let trackedCurrentMarket = 0;
-  for (const track of tracks) {
-    trackedCurrentMarket +=
-      Number(track.holding.quantity) *
-      Number(track.holding.current_price) *
-      rate(track.holding.currency);
   }
 
   const { data: snaps } = await db
@@ -560,37 +608,23 @@ const backfill = async (
   const existing = new Set((snaps ?? []).map((s) => s.as_of));
   const earliest = snaps && snaps.length > 0 ? snaps[0].as_of : null;
   const anchorNet =
-    snaps && snaps.length > 0 ? Number(snaps[snaps.length - 1].net) : currentMarket;
+    snaps && snaps.length > 0 ? Number(snaps[snaps.length - 1].net) : currentInvestments;
   // Everything that isn't tracked investments — cash, liabilities, and any
   // holding we couldn't price historically — is carried flat from today.
-  const nonInvestment = anchorNet - trackedCurrentMarket;
-
-  const dates = new Set<string>();
-  for (const track of tracks) {
-    for (const [date] of track.entries) if (date >= commonStart) dates.add(date);
-  }
+  const nonInvestment = anchorNet - currentInvestments;
 
   const rows: Record<string, unknown>[] = [];
-  for (const date of [...dates].sort()) {
+  for (const { date, investments } of daily) {
     if (earliest && date >= earliest) continue;
     if (existing.has(date)) continue;
-    let market = 0;
-    for (const track of tracks) {
-      while (track.ptr < track.entries.length && track.entries[track.ptr][0] <= date) {
-        track.last = track.entries[track.ptr][1];
-        track.ptr++;
-      }
-      market += Number(track.holding.quantity) * track.last * rate(track.holding.currency);
-    }
-    if (market <= 0) continue;
-    const net = market + nonInvestment;
+    const net = investments + nonInvestment;
     rows.push({
       user_id: userId,
       as_of: date,
       net: round2(net),
       assets: round2(Math.max(net, 0)),
       liabilities: 0,
-      investments: round2(market),
+      investments: round2(investments),
     });
   }
 
