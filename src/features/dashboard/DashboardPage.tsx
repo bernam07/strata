@@ -20,6 +20,7 @@ import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
 import { NetWorthTrend } from './NetWorthTrend';
 import { GoalCard } from './GoalCard';
+import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
 import {
   useBackfillHistory,
@@ -263,6 +264,8 @@ export const DashboardPage = () => {
           />
 
           <GoalCard net={netWithCrypto} />
+
+          <MonthlySummary snapshots={snapshots} />
 
           {rankablePositions >= 2 && (
             <section className="flex flex-col gap-3">

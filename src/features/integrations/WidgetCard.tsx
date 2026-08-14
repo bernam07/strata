@@ -9,93 +9,286 @@ import {
 } from './api/useWidget';
 
 const scriptableSource = (endpoint: string): string => `// Strata — iPhone widget
-// Scriptable: create a new script, paste this, add a Scriptable widget to your
-// home screen (any size) and pick this script.
+// Scriptable: New script → paste this → name it Strata → add a Scriptable
+// widget to your home screen OR lock screen and pick this script. Every size
+// is supported, including the three lock-screen slots.
 const ENDPOINT = "${endpoint}";
 
+const BG_TOP = new Color("#17181b");
+const BG_BOT = new Color("#0a0a0b");
 const INK = new Color("#f3f0ea");
-const MUTED = new Color("#79776f");
-const UP = new Color("#52c48c");
+const SUBTLE = new Color("#8a8880");
+const FAINT = new Color("#b4b2ac");
+const UP = new Color("#4ec48a");
 const DOWN = new Color("#ef6b78");
 
-const data = await new Request(ENDPOINT).loadJSON();
+let data = null;
+try {
+  const req = new Request(ENDPOINT);
+  req.timeoutInterval = 12;
+  data = await req.loadJSON();
+} catch (e) {
+  data = null;
+}
+
 const family = config.widgetFamily || "medium";
-
-const eur = (n) =>
-  "€" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
-const pct = (n) => (n >= 0 ? "+" : "") + n + "%";
-const arrow = (n) => (n >= 0 ? "▲ " : "▼ ");
-const changeColor = (n) => (n >= 0 ? UP : DOWN);
-const top = data.positions[0];
-
 const w = new ListWidget();
+w.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
 
-const addTotal = (big) => {
-  const t = w.addText("STRATA");
-  t.font = Font.mediumSystemFont(9);
-  t.textColor = MUTED;
-  const v = w.addText(eur(data.total));
-  v.font = Font.boldSystemFont(big ? 28 : 22);
+const eur0 = (n) => "€" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+const pct1 = (n) => (n >= 0 ? "+" : "") + Number(n).toFixed(1) + "%";
+const arrow = (n) => (n >= 0 ? "▲" : "▼");
+const tone = (n) => (n >= 0 ? UP : DOWN);
+const lock =
+  family === "accessoryInline" ||
+  family === "accessoryCircular" ||
+  family === "accessoryRectangular";
+
+function sparkImage(values, width, height) {
+  const ctx = new DrawContext();
+  ctx.size = new Size(width, height);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+  if (!values || values.length < 2) return ctx.getImage();
+  const min = Math.min.apply(null, values);
+  const max = Math.max.apply(null, values);
+  const span = max - min || 1;
+  const n = values.length;
+  const dx = width / (n - 1);
+  const yOf = (v) => height - 2 - ((v - min) / span) * (height - 4);
+  const pts = values.map((v, i) => new Point(i * dx, yOf(v)));
+  const rising = values[n - 1] >= values[0];
+  const stroke = lock ? new Color("#ffffff") : rising ? UP : DOWN;
+
+  const area = new Path();
+  area.move(new Point(0, height));
+  area.addLine(new Point(0, pts[0].y));
+  for (let i = 1; i < n; i++) area.addLine(pts[i]);
+  area.addLine(new Point(width, height));
+  area.closeSubpath();
+  ctx.setFillColor(new Color(lock ? "#ffffff" : rising ? "#4ec48a" : "#ef6b78", lock ? 0.18 : 0.13));
+  ctx.addPath(area);
+  ctx.fillPath();
+
+  const line = new Path();
+  line.move(pts[0]);
+  for (let i = 1; i < n; i++) line.addLine(pts[i]);
+  ctx.setStrokeColor(stroke);
+  ctx.setLineWidth(2);
+  ctx.addPath(line);
+  ctx.strokePath();
+  return ctx.getImage();
+}
+
+function symbol(stack, name, size, color) {
+  const sym = SFSymbol.named(name);
+  sym.applyFont(Font.boldSystemFont(size));
+  const img = stack.addImage(sym.image);
+  img.imageSize = new Size(size, size);
+  img.tintColor = color;
+  return img;
+}
+
+function renderUnavailable() {
+  if (!lock) {
+    const g = new LinearGradient();
+    g.colors = [BG_TOP, BG_BOT];
+    g.locations = [0, 1];
+    w.backgroundGradient = g;
+    w.setPadding(16, 16, 16, 16);
+  } else {
+    w.addAccessoryWidgetBackground = true;
+  }
+  const t = w.addText("Strata unavailable");
+  t.font = Font.mediumSystemFont(lock ? 12 : 13);
+  t.textColor = lock ? Color.white() : SUBTLE;
+}
+
+function header() {
+  const row = w.addStack();
+  row.centerAlignContent();
+  const label = row.addText("STRATA");
+  label.font = Font.semiboldSystemFont(9);
+  label.textColor = SUBTLE;
+  row.addSpacer();
+  const dot = row.addText("• live");
+  dot.font = Font.systemFont(9);
+  dot.textColor = SUBTLE;
+}
+
+function totalBlock(bigFont) {
+  const v = w.addText(eur0(data.total));
+  v.font = Font.boldSystemFont(bigFont);
   v.textColor = INK;
-  const c = w.addText(arrow(data.totalChangePct) + pct(data.totalChangePct));
-  c.font = Font.semiboldSystemFont(13);
-  c.textColor = changeColor(data.totalChangePct);
-};
+  v.minimumScaleFactor = 0.7;
+  w.addSpacer(2);
+  const chip = w.addStack();
+  chip.centerAlignContent();
+  const day = chip.addText(arrow(data.dayChangePct) + " " + pct1(data.dayChangePct));
+  day.font = Font.semiboldSystemFont(13);
+  day.textColor = tone(data.dayChangePct);
+  const sep = chip.addText("  today");
+  sep.font = Font.systemFont(11);
+  sep.textColor = SUBTLE;
+}
 
-const addRows = (count) => {
+function positionRows(count) {
   for (const p of data.positions.slice(0, count)) {
     const row = w.addStack();
     row.centerAlignContent();
     const name = row.addText(p.ticker || p.name);
     name.font = Font.mediumSystemFont(12);
-    name.textColor = new Color("#b4b2ac");
+    name.textColor = FAINT;
     name.lineLimit = 1;
     row.addSpacer();
-    const c = row.addText(pct(p.changePct));
+    const c = row.addText(pct1(p.dayPct));
     c.font = Font.semiboldSystemFont(12);
-    c.textColor = changeColor(p.changePct);
-    w.addSpacer(4);
+    c.textColor = tone(p.dayPct);
+    w.addSpacer(5);
   }
-};
+}
 
-if (family === "accessoryInline") {
-  w.addText("Strata " + arrow(data.totalChangePct) + pct(data.totalChangePct));
-} else if (family === "accessoryCircular") {
-  w.addSpacer();
-  const s = w.addStack();
-  s.addSpacer();
-  const t = s.addText(pct(Math.round(data.totalChangePct)));
-  t.font = Font.boldSystemFont(15);
-  s.addSpacer();
-  w.addSpacer();
-} else if (family === "accessoryRectangular") {
-  const l1 = w.addText("STRATA  " + eur(data.total));
-  l1.font = Font.semiboldSystemFont(13);
-  const l2 = w.addText(arrow(data.totalChangePct) + pct(data.totalChangePct));
-  l2.font = Font.mediumSystemFont(12);
-  if (top) {
-    const l3 = w.addText(top.ticker + "  " + pct(top.changePct));
+function homeBackground(pad) {
+  const g = new LinearGradient();
+  g.colors = [BG_TOP, BG_BOT];
+  g.locations = [0, 1];
+  w.backgroundGradient = g;
+  w.setPadding(pad, pad, pad, pad);
+}
+
+function renderSmall() {
+  homeBackground(14);
+  header();
+  w.addSpacer(6);
+  totalBlock(26);
+  w.addSpacer(8);
+  w.addImage(sparkImage(data.history, 130, 34)).imageSize = new Size(130, 34);
+}
+
+function renderMedium() {
+  homeBackground(16);
+  header();
+  w.addSpacer(8);
+  const body = w.addStack();
+  body.spacing = 14;
+
+  const left = body.addStack();
+  left.layoutVertically();
+  left.size = new Size(140, 0);
+  const v = left.addText(eur0(data.total));
+  v.font = Font.boldSystemFont(28);
+  v.textColor = INK;
+  v.minimumScaleFactor = 0.7;
+  left.addSpacer(2);
+  const day = left.addText(arrow(data.dayChangePct) + " " + pct1(data.dayChangePct) + " today");
+  day.font = Font.semiboldSystemFont(12);
+  day.textColor = tone(data.dayChangePct);
+  left.addSpacer(6);
+  left.addImage(sparkImage(data.history, 150, 44)).imageSize = new Size(150, 44);
+
+  const right = body.addStack();
+  right.layoutVertically();
+  right.addSpacer(2);
+  for (const p of data.positions.slice(0, 4)) {
+    const row = right.addStack();
+    row.centerAlignContent();
+    const name = row.addText(p.ticker || p.name);
+    name.font = Font.mediumSystemFont(12);
+    name.textColor = FAINT;
+    name.lineLimit = 1;
+    row.addSpacer();
+    const c = row.addText(pct1(p.dayPct));
+    c.font = Font.semiboldSystemFont(12);
+    c.textColor = tone(p.dayPct);
+    right.addSpacer(5);
+  }
+}
+
+function renderLarge() {
+  homeBackground(18);
+  header();
+  w.addSpacer(8);
+  totalBlock(34);
+  w.addSpacer(12);
+  w.addImage(sparkImage(data.history, 300, 70)).imageSize = new Size(300, 70);
+  w.addSpacer(12);
+  const since = w.addText("Since cost  " + pct1(data.totalChangePct));
+  since.font = Font.systemFont(11);
+  since.textColor = SUBTLE;
+  w.addSpacer(6);
+  positionRows(8);
+}
+
+function renderInline() {
+  // Inline sits beside the clock; single line, system-tinted.
+  w.addText(eur0(data.total) + "  " + arrow(data.dayChangePct) + " " + pct1(data.dayChangePct));
+}
+
+function renderCircular() {
+  w.addAccessoryWidgetBackground = true;
+  w.setPadding(2, 2, 2, 2);
+  const col = w.addStack();
+  col.layoutVertically();
+  col.centerAlignContent();
+  const top = col.addStack();
+  top.addSpacer();
+  symbol(top, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 11, Color.white());
+  top.addSpacer();
+  const mid = col.addStack();
+  mid.addSpacer();
+  const p = mid.addText(pct1(data.dayChangePct));
+  p.font = Font.boldSystemFont(14);
+  p.minimumScaleFactor = 0.6;
+  mid.addSpacer();
+  const lab = col.addStack();
+  lab.addSpacer();
+  const l = lab.addText("today");
+  l.font = Font.systemFont(8);
+  l.textColor = Color.gray();
+  lab.addSpacer();
+}
+
+function renderRectangular() {
+  w.addAccessoryWidgetBackground = true;
+  w.setPadding(4, 6, 4, 6);
+  const top = w.addStack();
+  top.centerAlignContent();
+  const label = top.addText("STRATA");
+  label.font = Font.semiboldSystemFont(10);
+  label.textColor = Color.gray();
+  top.addSpacer();
+  const total = top.addText(eur0(data.total));
+  total.font = Font.boldSystemFont(15);
+  w.addSpacer(1);
+  const mid = w.addStack();
+  mid.centerAlignContent();
+  symbol(mid, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 11, Color.white());
+  mid.addSpacer(3);
+  const day = mid.addText(pct1(data.dayChangePct) + " today");
+  day.font = Font.semiboldSystemFont(12);
+  const topPos = data.positions[0];
+  if (topPos) {
+    w.addSpacer(1);
+    const l3 = w.addText(topPos.ticker + "  " + pct1(topPos.dayPct));
     l3.font = Font.systemFont(11);
     l3.textColor = Color.gray();
   }
+}
+
+if (!data) {
+  renderUnavailable();
+} else if (family === "accessoryInline") {
+  renderInline();
+} else if (family === "accessoryCircular") {
+  renderCircular();
+} else if (family === "accessoryRectangular") {
+  renderRectangular();
 } else if (family === "small") {
-  w.backgroundColor = new Color("#0a0a0b");
-  w.setPadding(14, 14, 14, 14);
-  addTotal(true);
-  w.addSpacer(6);
-  addRows(2);
+  renderSmall();
 } else if (family === "large") {
-  w.backgroundColor = new Color("#0a0a0b");
-  w.setPadding(18, 18, 18, 18);
-  addTotal(true);
-  w.addSpacer(10);
-  addRows(8);
+  renderLarge();
 } else {
-  w.backgroundColor = new Color("#0a0a0b");
-  w.setPadding(16, 16, 16, 16);
-  addTotal(false);
-  w.addSpacer(8);
-  addRows(4);
+  renderMedium();
 }
 
 Script.setWidget(w);

@@ -17,8 +17,7 @@
     "decimal.js": "^10.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^6.26.2",
-    "recharts": "^2.12.7"
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

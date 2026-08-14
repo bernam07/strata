@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Transaction, TransactionKind } from '@/core/types';
 import { supabase } from '@/db/supabase';
-import { toTransaction } from '@/db/mappers';
+import { toTransaction, type TransactionRow } from '@/db/mappers';
 
 export interface TransactionFilter {
   accountId?: string;
@@ -13,24 +13,36 @@ export interface TransactionFilter {
 export const transactionsKey = (filter: TransactionFilter) =>
   ['transactions', filter] as const;
 
+const PAGE = 1000;
+
 export const useTransactions = (filter: TransactionFilter = {}) =>
   useQuery<Transaction[]>({
     queryKey: transactionsKey(filter),
     queryFn: async () => {
-      let query = supabase
-        .from('transactions')
-        .select('*')
-        .order('occurred_at', { ascending: false });
+      // Supabase caps a single select at 1000 rows. An active account can
+      // have far more trades than that, and the newest 1000 could all fall in
+      // the current year — so page through everything, or years of history
+      // silently vanish from the ledger-derived views.
+      const rows: TransactionRow[] = [];
+      for (let offset = 0; ; offset += PAGE) {
+        let query = supabase
+          .from('transactions')
+          .select('*')
+          .order('occurred_at', { ascending: false })
+          .range(offset, offset + PAGE - 1);
 
-      if (filter.accountId) query = query.eq('account_id', filter.accountId);
-      if (filter.instrumentId)
-        query = query.eq('instrument_id', filter.instrumentId);
-      if (filter.from) query = query.gte('occurred_at', filter.from);
-      if (filter.to) query = query.lte('occurred_at', filter.to);
+        if (filter.accountId) query = query.eq('account_id', filter.accountId);
+        if (filter.instrumentId)
+          query = query.eq('instrument_id', filter.instrumentId);
+        if (filter.from) query = query.gte('occurred_at', filter.from);
+        if (filter.to) query = query.lte('occurred_at', filter.to);
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data.map(toTransaction);
+        const { data, error } = await query;
+        if (error) throw error;
+        rows.push(...data);
+        if (data.length < PAGE) break;
+      }
+      return rows.map(toTransaction);
     },
   });
 

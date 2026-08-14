@@ -2,7 +2,7 @@ import type { Account, Transaction } from '@/core/types';
 import type { Database } from './database.types';
 
 type AccountRow = Database['public']['Tables']['accounts']['Row'];
-type TransactionRow = Database['public']['Tables']['transactions']['Row'];
+export type TransactionRow = Database['public']['Tables']['transactions']['Row'];
 
 export const toAccount = (row: AccountRow): Account => ({
   id: row.id,
