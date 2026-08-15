@@ -200,61 +200,55 @@ export const PositionsPage = () => {
         </>
       ) : (
         <>
-          <Section
-            title="Market value"
-            badge={formatEur(totalMarket)}
-            open={!!open.market}
-            onToggle={() => toggle('market')}
-          >
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                  Market value
-                </p>
-                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                  {formatEur(totalMarket)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-[var(--text-muted)]">Cost basis</p>
-                <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--text-2)]">
-                  {formatEur(totalCost)}
-                </p>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  Unrealized gain
-                </p>
-                <p
-                  className="text-lg font-semibold tabular-nums"
-                  style={{
-                    color: totalGain.equals(zero())
-                      ? 'var(--text-muted)'
-                      : gainNegative
-                        ? 'var(--negative)'
-                        : 'var(--positive)',
-                  }}
-                >
-                  {formatEur(totalGain)}
-                </p>
-              </div>
+          <Card className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                Market value
+              </p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
+                {formatEur(totalMarket)}
+              </p>
             </div>
-          </Section>
+            <div className="text-right">
+              <p className="text-xs text-[var(--text-muted)]">Cost basis</p>
+              <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--text-2)]">
+                {formatEur(totalCost)}
+              </p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                Unrealized gain
+              </p>
+              <p
+                className="text-lg font-semibold tabular-nums"
+                style={{
+                  color: totalGain.equals(zero())
+                    ? 'var(--text-muted)'
+                    : gainNegative
+                      ? 'var(--negative)'
+                      : 'var(--positive)',
+                }}
+              >
+                {formatEur(totalGain)}
+              </p>
+            </div>
+          </Card>
 
-          <Section
-            title="Stocks"
-            badge={String(positions.length)}
-            open={!!open.stocks}
-            onToggle={() => toggle('stocks')}
-          >
-            <div className="flex flex-col gap-2">
-              {sortedPositions.map((position) => (
-                <PositionRow
-                  key={position.instrumentId}
-                  position={position}
-                  instrument={data?.instruments.get(position.instrumentId)}
-                />
-              ))}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline gap-2 px-0.5">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Stocks
+              </span>
+              <span className="text-sm font-semibold tabular-nums text-[var(--text-2)]">
+                {positions.length}
+              </span>
             </div>
-          </Section>
+            {sortedPositions.map((position) => (
+              <PositionRow
+                key={position.instrumentId}
+                position={position}
+                instrument={data?.instruments.get(position.instrumentId)}
+              />
+            ))}
+          </div>
 
           {allocation.length > 1 && (
             <Section
