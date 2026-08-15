@@ -7,6 +7,7 @@ import { setPrivacy, usePrivacy } from '@/ui/privacy';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { PageHeader } from '@/ui/PageHeader';
 
 interface RestoreTable {
   table: string;
@@ -130,9 +131,7 @@ export const SettingsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Settings
-      </h1>
+      <PageHeader title="Settings" subtitle="Preferences, privacy and backups." />
 
       <Card className="flex items-center justify-between gap-3">
         <div className="min-w-0">

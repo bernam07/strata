@@ -14,6 +14,7 @@ import { useInstruments, usePositions } from '@/features/positions/api/usePositi
 import { useCrypto } from '@/features/crypto/api/useCrypto';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Skeleton } from '@/ui/Skeleton';
+import { PageHeader } from '@/ui/PageHeader';
 import { usePersistentState } from '@/app/usePersistentState';
 import { AlertBanner } from '@/features/alerts/Alerts';
 import { Onboarding } from '@/features/onboarding/Onboarding';
@@ -189,14 +190,10 @@ export const DashboardPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Overview
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-          Everything you own and owe, in one cross-section.
-        </p>
-      </div>
+      <PageHeader
+        title="Overview"
+        subtitle="Everything you own and owe, in one cross-section."
+      />
 
       {loading ? (
         <div className="flex flex-col gap-8">

@@ -4,6 +4,7 @@ import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { formatEur, isNegative, type Money, sum } from '@/core/money/money';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
@@ -72,14 +73,15 @@ export const AccountsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Accounts
-        </h1>
-        {!creating && (
-          <Button onClick={() => setCreating(true)}>New account</Button>
-        )}
-      </div>
+      <PageHeader
+        title="Accounts"
+        subtitle="Every place your money lives."
+        actions={
+          !creating && (
+            <Button onClick={() => setCreating(true)}>New account</Button>
+          )
+        }
+      />
 
       {creating && (
         <Card>

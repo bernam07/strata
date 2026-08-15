@@ -71,6 +71,17 @@ body,
   height: 100%;
 }
 
+/* No page may scroll or drift horizontally. `clip` cuts the overflow without
+   creating a scroll container, so sticky headers keep working. `hidden` is the
+   fallback for browsers without `clip`. Genuinely wide content (e.g. tables)
+   must scroll inside its own `overflow-x-auto` wrapper. */
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
