@@ -63,8 +63,8 @@ export const icons: Record<IconName, ReactNode> = {
   ),
   settings: wrap(
     <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6 6l1.5 1.5M18 18l-1.5-1.5M6 18l1.5-1.5M18 6l-1.5 1.5" />
+      <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3" />
+      <path d="M15 4v4M9 10v4M15 16v4" />
     </>,
   ),
   more: wrap(
