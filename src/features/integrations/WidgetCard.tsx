@@ -296,54 +296,36 @@ function roundedCard(color) {
 }
 
 function renderRectangular() {
-  // The widest lock-screen slot. Draw our own rounded card (see roundedCard)
-  // and fill the width: total + today's move on the left, top two movers right.
+  // The slot is narrow, so a single left-aligned column: the total gets the
+  // whole width on line 1 (with the day move beside it), then the top movers on
+  // line 2. Two columns squeezed the total into an ellipsis, so avoid them.
   w.backgroundImage = roundedCard(new Color("#ffffff", 0.18));
-  w.setPadding(7, 14, 7, 14);
-  const row = w.addStack();
-  row.centerAlignContent();
+  w.setPadding(6, 12, 6, 12);
 
-  const left = row.addStack();
-  left.layoutVertically();
-  const total = left.addText(eur0(data.total));
+  const line1 = w.addStack();
+  line1.centerAlignContent();
+  const total = line1.addText(eur0(data.total));
   total.font = Font.boldSystemFont(18);
-  total.lineLimit = 1; // keep on one line; shrink rather than wrap
-  total.minimumScaleFactor = 0.5;
-  left.addSpacer(2);
-  const dayRow = left.addStack();
-  dayRow.centerAlignContent();
-  symbol(dayRow, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
-  dayRow.addSpacer(3);
-  const day = dayRow.addText(pct1(data.dayChangePct));
-  day.font = Font.semiboldSystemFont(12);
+  total.lineLimit = 1;
+  total.minimumScaleFactor = 0.6;
+  line1.addSpacer(8);
+  symbol(line1, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
+  line1.addSpacer(2);
+  const day = line1.addText(pct1(data.dayChangePct));
+  day.font = Font.semiboldSystemFont(13);
   day.lineLimit = 1;
-  day.minimumScaleFactor = 0.7;
 
-  row.addSpacer();
-
-  const right = row.addStack();
-  right.layoutVertically();
-  right.size = new Size(84, 0);
+  w.addSpacer(4);
   const movers = data.positions.slice(0, 2);
-  if (movers.length === 0) {
-    const none = right.addText("Since cost " + pct1(data.totalChangePct));
-    none.font = Font.systemFont(11);
-    none.textColor = Color.gray();
-  } else {
-    for (let i = 0; i < movers.length; i++) {
-      const p = movers[i];
-      const prow = right.addStack();
-      prow.centerAlignContent();
-      const t = prow.addText(p.ticker || p.name);
-      t.font = Font.mediumSystemFont(11);
-      t.textColor = Color.gray();
-      t.lineLimit = 1;
-      prow.addSpacer();
-      const c = prow.addText(pct1(p.dayPct));
-      c.font = Font.semiboldSystemFont(11);
-      if (i === 0) right.addSpacer(3);
-    }
-  }
+  const second =
+    movers.length > 0
+      ? movers.map((p) => (p.ticker || p.name) + " " + pct1(p.dayPct)).join("   ")
+      : "Since cost " + pct1(data.totalChangePct);
+  const l2 = w.addText(second);
+  l2.font = Font.systemFont(11);
+  l2.textColor = Color.gray();
+  l2.lineLimit = 1;
+  l2.minimumScaleFactor = 0.7;
 }
 
 if (!data) {
