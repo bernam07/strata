@@ -204,8 +204,10 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
         to={item.to}
         end={item.end}
         className={({ isActive }) =>
-          `tap flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold ${
-            isActive ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'
+          `tap relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold ${
+            isActive
+              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-7 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)]'
+              : 'text-[var(--text-muted)]'
           }`
         }
       >
