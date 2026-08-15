@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { SeriesPoint } from '@/core/analytics/series';
 
 const eur = new Intl.NumberFormat('en-GB', {
@@ -27,8 +27,15 @@ const niceStep = (rough: number): number => {
 
 export const NetWorthChart = ({ series }: { series: SeriesPoint[] }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(720);
+  const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
+
+  // Measure synchronously before paint so the first frame is drawn at the real
+  // container width — otherwise the chart renders too wide and spills off / is
+  // clipped until the ResizeObserver catches up.
+  useLayoutEffect(() => {
+    if (ref.current) setWidth(ref.current.clientWidth);
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
