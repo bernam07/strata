@@ -126,6 +126,14 @@ body {
     border-color 0.15s ease;
 }
 
+/* Privacy mode: blur every amount/percentage (they carry `tabular-nums`). */
+:root[data-privacy='on'] .tabular-nums {
+  filter: blur(7px);
+  transition: filter 0.18s ease;
+  user-select: none;
+  cursor: default;
+}
+
 @keyframes fade-rise {
   from {
     opacity: 0;

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
+import { setPrivacy, usePrivacy } from '@/ui/privacy';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -50,6 +51,7 @@ const backupTables = [
 export const SettingsPage = () => {
   const { session, signOut } = useAuth();
   const { theme, toggle } = useTheme();
+  const privacyOn = usePrivacy();
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -153,6 +155,21 @@ export const SettingsPage = () => {
         </div>
         <Button variant="ghost" onClick={toggle}>
           {theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+        </Button>
+      </Card>
+
+      <Card className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--text-strong)]">
+            Hide amounts
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            Blur every balance and value across the app. Toggle anytime with
+            ⌘K → “Hide amounts”.
+          </p>
+        </div>
+        <Button variant="ghost" onClick={() => setPrivacy(!privacyOn)}>
+          {privacyOn ? 'Show' : 'Hide'}
         </Button>
       </Card>
 

@@ -5,6 +5,7 @@ import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { icons, type IconName } from '@/app/icons';
 import { toast } from '@/ui/toast';
+import { isPrivacyOn, togglePrivacy, usePrivacy } from '@/ui/privacy';
 import { filterCommands } from './commands';
 
 interface Command {
@@ -28,6 +29,7 @@ export const CommandPalette = ({
   const { signOut } = useAuth();
   const { theme, toggle } = useTheme();
   const refresh = useRefreshPrices();
+  const privacy = usePrivacy();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -70,6 +72,17 @@ export const CommandPalette = ({
         },
       },
       {
+        id: 'action:privacy',
+        label: privacy ? 'Show amounts' : 'Hide amounts',
+        group: 'Actions',
+        glyph: privacy ? '𐄂' : '⦿',
+        keywords: ['privacy', 'blur', 'balances', 'hide'],
+        run: () => {
+          togglePrivacy();
+          toast(isPrivacyOn() ? 'Amounts hidden' : 'Amounts visible');
+        },
+      },
+      {
         id: 'action:theme',
         label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
         group: 'Actions',
@@ -86,7 +99,7 @@ export const CommandPalette = ({
         run: () => void signOut(),
       },
     ];
-  }, [navigate, refresh, theme, toggle, signOut]);
+  }, [navigate, refresh, theme, toggle, signOut, privacy]);
 
   const results = useMemo(() => filterCommands(commands, query), [commands, query]);
 
