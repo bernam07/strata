@@ -3,6 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
+import { CommandPalette } from '@/features/command/CommandPalette';
+import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
 
 interface NavEntry {
@@ -80,10 +82,10 @@ const ThemeButton = () => {
   );
 };
 
-const Sidebar = () => {
+const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   const { signOut } = useAuth();
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-6 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-4 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
       <div className="flex items-center gap-2.5 px-2">
         <StrataMark />
         <div>
@@ -93,6 +95,20 @@ const Sidebar = () => {
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onCommand}
+        className="tap mt-1 flex items-center gap-2.5 rounded-[var(--radius-field)] neu-sunken px-2.5 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-2)]"
+      >
+        <span className="h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+          {icons.search}
+        </span>
+        <span className="flex-1 text-left">Search or jump…</span>
+        <kbd className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold">
+          ⌘K
+        </kbd>
+      </button>
 
       <nav className="flex flex-col gap-0.5">
         {sections.map((section) => (
@@ -188,8 +204,10 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
         to={item.to}
         end={item.end}
         className={({ isActive }) =>
-          `tap flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold ${
-            isActive ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'
+          `tap relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold ${
+            isActive
+              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-7 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)]'
+              : 'text-[var(--text-muted)]'
           }`
         }
       >
@@ -214,6 +232,7 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const recurring = useProcessRecurring();
   const ranRecurring = useRef(false);
@@ -225,13 +244,34 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <Sidebar onCommand={() => setPaletteOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Search or jump to a page"
+            className="tap ml-auto grid h-9 w-9 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)]"
+          >
+            <span className="h-[18px] w-[18px] [&>svg]:h-full [&>svg]:w-full">
+              {icons.search}
+            </span>
+          </button>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
           <div key={location.pathname} className="page-enter">
@@ -241,6 +281,8 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       </div>
       <BottomBar onMore={() => setMoreOpen(true)} />
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <Toaster />
     </div>
   );
 };

@@ -21,7 +21,7 @@ import {
 import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHistory';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
-import { Surface } from '@/ui/Surface';
+import { Stat } from '@/ui/Stat';
 import { Link } from 'react-router-dom';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { NetWorthChart } from './NetWorthChart';
@@ -73,26 +73,6 @@ const periods = [
   { key: '1Y', days: 365 },
   { key: 'All', days: null },
 ] as const;
-
-const StatTile = ({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) => (
-  <Surface elevation="sunken" className="flex flex-col gap-1 p-5">
-    <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-      {label}
-    </span>
-    <span className="text-2xl font-bold tabular-nums text-[var(--text-strong)]">
-      {value}
-    </span>
-    {hint && <span className="text-[11px] text-[var(--text-muted)]">{hint}</span>}
-  </Surface>
-);
 
 const sanePercent = (
   value: number | null,
@@ -209,17 +189,17 @@ export const AnalyticsView = () => {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <StatTile
+            <Stat
               label="Invested value"
               value={eur.format(model.investedMarket)}
               hint="Market value of holdings"
             />
-            <StatTile
+            <Stat
               label="TWR"
               value={sanePercent(model.twr, percent)}
               hint="Time-weighted return"
             />
-            <StatTile
+            <Stat
               label="XIRR"
               value={sanePercent(model.irr, percent)}
               hint="Money-weighted, annualized"

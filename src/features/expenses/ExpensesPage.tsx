@@ -11,6 +11,7 @@ import { TransactionForm } from '@/features/transactions/components/TransactionF
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
+import { Stat } from '@/ui/Stat';
 import { Select } from '@/ui/Field';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
@@ -102,6 +103,22 @@ export const ExpensesPage = () => {
 
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
+  const spend = useMemo(() => {
+    const totalFor = (offset: number): Money =>
+      transactions
+        .filter(
+          (t) =>
+            (t.kind === 'expense' || t.kind === 'fee') &&
+            t.occurredAt.startsWith(monthKey(offset)),
+        )
+        .reduce((sum, t) => sum.plus(money(t.amount).abs()), zero());
+    const current = totalFor(0);
+    const previous = totalFor(1);
+    return { current, previous, delta: current.minus(previous) };
+  }, [transactions]);
+
+  const spendUp = spend.delta.greaterThan(0);
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-3">
@@ -124,6 +141,26 @@ export const ExpensesPage = () => {
           />
         </Card>
       )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat
+          label="Spent this month"
+          value={formatEur(spend.current)}
+          hint={monthLabel(monthKey(0))}
+          tone="negative"
+        />
+        <Stat
+          label="vs last month"
+          value={`${spendUp ? '+' : '−'}${formatEur(spend.delta.abs())}`}
+          hint={spendUp ? 'more than last month' : 'less than last month'}
+          tone={spendUp ? 'negative' : 'positive'}
+        />
+        <Stat
+          label="Recurring"
+          value={`~${formatEur(recurringMonthly)}`}
+          hint="estimated per month"
+        />
+      </div>
 
       <Card className="flex flex-col gap-4">
         <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
