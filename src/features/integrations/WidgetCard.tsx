@@ -275,27 +275,51 @@ function renderCircular() {
 }
 
 function renderRectangular() {
-  // System-drawn rounded, tinted background — no manual padding or fill, and a
-  // compact two-line layout so nothing overflows the rounded container.
+  // The widest lock-screen slot. iOS fixes its size, so use the full width:
+  // total + today's move on the left, the top two movers on the right. The
+  // system draws the rounded, tinted background.
   w.addAccessoryWidgetBackground = true;
-  const line1 = w.addStack();
-  line1.centerAlignContent();
-  const total = line1.addText(eur0(data.total));
-  total.font = Font.boldSystemFont(16);
-  line1.addSpacer(6);
-  symbol(line1, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
-  line1.addSpacer(2);
-  const day = line1.addText(pct1(data.dayChangePct));
+  const row = w.addStack();
+  row.centerAlignContent();
+
+  const left = row.addStack();
+  left.layoutVertically();
+  const total = left.addText(eur0(data.total));
+  total.font = Font.boldSystemFont(18);
+  total.minimumScaleFactor = 0.6;
+  left.addSpacer(2);
+  const dayRow = left.addStack();
+  dayRow.centerAlignContent();
+  symbol(dayRow, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
+  dayRow.addSpacer(2);
+  const day = dayRow.addText(pct1(data.dayChangePct) + " today");
   day.font = Font.semiboldSystemFont(12);
 
-  w.addSpacer(3);
-  const topPos = data.positions[0];
-  const second = topPos
-    ? topPos.ticker + "  " + pct1(topPos.dayPct) + " today"
-    : "Since cost  " + pct1(data.totalChangePct);
-  const l2 = w.addText(second);
-  l2.font = Font.systemFont(11);
-  l2.textColor = Color.gray();
+  row.addSpacer();
+
+  const right = row.addStack();
+  right.layoutVertically();
+  right.size = new Size(84, 0);
+  const movers = data.positions.slice(0, 2);
+  if (movers.length === 0) {
+    const none = right.addText("Since cost " + pct1(data.totalChangePct));
+    none.font = Font.systemFont(11);
+    none.textColor = Color.gray();
+  } else {
+    for (let i = 0; i < movers.length; i++) {
+      const p = movers[i];
+      const prow = right.addStack();
+      prow.centerAlignContent();
+      const t = prow.addText(p.ticker || p.name);
+      t.font = Font.mediumSystemFont(11);
+      t.textColor = Color.gray();
+      t.lineLimit = 1;
+      prow.addSpacer();
+      const c = prow.addText(pct1(p.dayPct));
+      c.font = Font.semiboldSystemFont(11);
+      if (i === 0) right.addSpacer(3);
+    }
+  }
 }
 
 if (!data) {
@@ -364,8 +388,14 @@ export const WidgetCard = () => {
               <li>Install the free Scriptable app from the App Store.</li>
               <li>New script → paste the script below → name it Strata.</li>
               <li>
-                Add a Scriptable widget to your home screen or lock screen →
-                choose the Strata script. All sizes are supported.
+                Add a Scriptable widget → choose the Strata script. On the lock
+                screen, pick the wide <b>rectangular</b> slot below the clock for
+                the most detail (iOS fixes the size of lock-screen widgets).
+              </li>
+              <li>
+                Updating the script later? Remove the widget and add it again so
+                iOS reloads the new layout — editing the script alone won't
+                always refresh it.
               </li>
             </ol>
           </Surface>
