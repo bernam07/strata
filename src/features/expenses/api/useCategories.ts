@@ -46,6 +46,27 @@ export const useCreateCategory = () => {
   });
 };
 
+export const useUpdateCategory = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      name?: string;
+      parentId?: string | null;
+    }) => {
+      const patch: { name?: string; parent_id?: string | null } = {};
+      if (input.name !== undefined) patch.name = input.name;
+      if (input.parentId !== undefined) patch.parent_id = input.parentId;
+      const { error } = await supabase
+        .from('categories')
+        .update(patch)
+        .eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: categoriesKey }),
+  });
+};
+
 export const useDeleteCategory = () => {
   const client = useQueryClient();
   return useMutation({
