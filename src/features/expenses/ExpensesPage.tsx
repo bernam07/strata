@@ -181,20 +181,14 @@ export const ExpensesPage = () => {
               return (
                 <div
                   key={row.month}
-                  className="flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
+                  className="flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-3"
                 >
                   <span className="text-sm font-semibold capitalize text-[var(--text-strong)]">
                     {monthLabel(row.month)}
                   </span>
-                  <div className="flex items-center gap-4 text-xs tabular-nums">
-                    <span className="text-[var(--positive)]">
-                      +{formatEur(row.inflow)}
-                    </span>
-                    <span className="text-[var(--negative)]">
-                      −{formatEur(row.outflow)}
-                    </span>
+                  <div className="flex flex-col items-end gap-0.5 tabular-nums">
                     <span
-                      className="w-20 text-right text-sm font-semibold"
+                      className="whitespace-nowrap text-sm font-semibold"
                       style={{
                         color: negative
                           ? 'var(--negative)'
@@ -202,6 +196,15 @@ export const ExpensesPage = () => {
                       }}
                     >
                       {formatEur(row.net)}
+                    </span>
+                    <span className="whitespace-nowrap text-[11px] text-[var(--text-muted)]">
+                      <span className="text-[var(--positive)]">
+                        +{formatEur(row.inflow)}
+                      </span>
+                      {' · '}
+                      <span className="text-[var(--negative)]">
+                        −{formatEur(row.outflow)}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -333,35 +336,39 @@ export const ExpensesPage = () => {
               <Surface
                 key={transaction.id}
                 elevation="flat"
-                className="flex items-center gap-4 p-3"
+                className="flex flex-col gap-2 p-3"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate text-sm font-semibold text-[var(--text-strong)]">
                     {transaction.note || 'Expense'}
                   </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {transaction.occurredAt.slice(0, 10)}
-                  </p>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--negative)]">
+                    {formatEur(money(transaction.amount))}
+                  </span>
                 </div>
-                <span className="text-sm font-semibold tabular-nums text-[var(--negative)]">
-                  {formatEur(money(transaction.amount))}
-                </span>
-                <Select
-                  value={assignments?.get(transaction.id) ?? ''}
-                  onChange={(event) =>
-                    assign.mutate({
-                      transactionId: transaction.id,
-                      categoryId: event.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Uncategorized</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+                    {transaction.occurredAt.slice(0, 10)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <Select
+                      value={assignments?.get(transaction.id) ?? ''}
+                      onChange={(event) =>
+                        assign.mutate({
+                          transactionId: transaction.id,
+                          categoryId: event.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">Uncategorized</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
               </Surface>
             ))}
           </ul>
