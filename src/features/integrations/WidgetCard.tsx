@@ -307,14 +307,17 @@ function renderRectangular() {
   left.layoutVertically();
   const total = left.addText(eur0(data.total));
   total.font = Font.boldSystemFont(18);
-  total.minimumScaleFactor = 0.6;
+  total.lineLimit = 1; // keep on one line; shrink rather than wrap
+  total.minimumScaleFactor = 0.5;
   left.addSpacer(2);
   const dayRow = left.addStack();
   dayRow.centerAlignContent();
   symbol(dayRow, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
-  dayRow.addSpacer(2);
+  dayRow.addSpacer(3);
   const day = dayRow.addText(pct1(data.dayChangePct));
   day.font = Font.semiboldSystemFont(12);
+  day.lineLimit = 1;
+  day.minimumScaleFactor = 0.7;
 
   row.addSpacer();
 
