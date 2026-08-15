@@ -158,11 +158,36 @@ function homeBackground(pad) {
 
 function renderSmall() {
   homeBackground(14);
-  header();
-  w.addSpacer(6);
-  totalBlock(26);
-  w.addSpacer(8);
-  w.addImage(sparkImage(data.history, 130, 34)).imageSize = new Size(130, 34);
+  const top = w.addStack();
+  top.centerAlignContent();
+  const label = top.addText("STRATA");
+  label.font = Font.semiboldSystemFont(9);
+  label.textColor = SUBTLE;
+  top.addSpacer();
+  const d = top.addText(arrow(data.dayChangePct) + " " + pct1(data.dayChangePct));
+  d.font = Font.semiboldSystemFont(10);
+  d.textColor = tone(data.dayChangePct);
+
+  w.addSpacer(4);
+  const v = w.addText(eur0(data.total));
+  v.font = Font.boldSystemFont(23);
+  v.textColor = INK;
+  v.minimumScaleFactor = 0.7;
+
+  w.addSpacer(9);
+  for (const p of data.positions.slice(0, 3)) {
+    const row = w.addStack();
+    row.centerAlignContent();
+    const name = row.addText(p.ticker || p.name);
+    name.font = Font.mediumSystemFont(13);
+    name.textColor = FAINT;
+    name.lineLimit = 1;
+    row.addSpacer();
+    const c = row.addText(pct1(p.dayPct));
+    c.font = Font.semiboldSystemFont(13);
+    c.textColor = tone(p.dayPct);
+    w.addSpacer(6);
+  }
 }
 
 function renderMedium() {
@@ -225,8 +250,9 @@ function renderInline() {
 }
 
 function renderCircular() {
+  // The system draws the round, tinted lock-screen background; we only place
+  // content and let it clip to the circle. No manual padding or fill.
   w.addAccessoryWidgetBackground = true;
-  w.setPadding(2, 2, 2, 2);
   const col = w.addStack();
   col.layoutVertically();
   col.centerAlignContent();
@@ -249,30 +275,27 @@ function renderCircular() {
 }
 
 function renderRectangular() {
+  // System-drawn rounded, tinted background — no manual padding or fill, and a
+  // compact two-line layout so nothing overflows the rounded container.
   w.addAccessoryWidgetBackground = true;
-  w.setPadding(4, 6, 4, 6);
-  const top = w.addStack();
-  top.centerAlignContent();
-  const label = top.addText("STRATA");
-  label.font = Font.semiboldSystemFont(10);
-  label.textColor = Color.gray();
-  top.addSpacer();
-  const total = top.addText(eur0(data.total));
-  total.font = Font.boldSystemFont(15);
-  w.addSpacer(1);
-  const mid = w.addStack();
-  mid.centerAlignContent();
-  symbol(mid, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 11, Color.white());
-  mid.addSpacer(3);
-  const day = mid.addText(pct1(data.dayChangePct) + " today");
+  const line1 = w.addStack();
+  line1.centerAlignContent();
+  const total = line1.addText(eur0(data.total));
+  total.font = Font.boldSystemFont(16);
+  line1.addSpacer(6);
+  symbol(line1, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
+  line1.addSpacer(2);
+  const day = line1.addText(pct1(data.dayChangePct));
   day.font = Font.semiboldSystemFont(12);
+
+  w.addSpacer(3);
   const topPos = data.positions[0];
-  if (topPos) {
-    w.addSpacer(1);
-    const l3 = w.addText(topPos.ticker + "  " + pct1(topPos.dayPct));
-    l3.font = Font.systemFont(11);
-    l3.textColor = Color.gray();
-  }
+  const second = topPos
+    ? topPos.ticker + "  " + pct1(topPos.dayPct) + " today"
+    : "Since cost  " + pct1(data.totalChangePct);
+  const l2 = w.addText(second);
+  l2.font = Font.systemFont(11);
+  l2.textColor = Color.gray();
 }
 
 if (!data) {
