@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { icons, type IconName } from '@/app/icons';
+import { toast } from '@/ui/toast';
 import { filterCommands } from './commands';
 
 interface Command {
@@ -56,7 +57,17 @@ export const CommandPalette = ({
         group: 'Actions',
         glyph: '↻',
         keywords: ['sync', 'update', 'market'],
-        run: () => refresh.mutate(),
+        run: () => {
+          toast('Refreshing prices…');
+          refresh.mutate(undefined, {
+            onSuccess: (result) =>
+              toast(
+                `Updated ${result?.updated ?? 0} holding${result?.updated === 1 ? '' : 's'}`,
+                'success',
+              ),
+            onError: () => toast("Couldn't refresh prices", 'error'),
+          });
+        },
       },
       {
         id: 'action:theme',
