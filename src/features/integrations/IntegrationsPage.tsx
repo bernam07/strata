@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Labelled, TextInput } from '@/ui/Field';
 import { Surface } from '@/ui/Surface';
@@ -48,9 +49,10 @@ export const IntegrationsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Integrations
-      </h1>
+      <PageHeader
+        title="Integrations"
+        subtitle="Connect Trading 212 and set up your iPhone widget."
+      />
 
       <NotificationsCard />
 

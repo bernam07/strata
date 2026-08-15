@@ -9,6 +9,7 @@ import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
 import { Stat } from '@/ui/Stat';
@@ -121,16 +122,20 @@ export const ExpensesPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Expenses
-        </h1>
-        {!adding && (
-          <Button onClick={() => setAdding(true)} disabled={accounts.length === 0}>
-            Add expense
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Expenses"
+        subtitle="Where your money goes each month."
+        actions={
+          !adding && (
+            <Button
+              onClick={() => setAdding(true)}
+              disabled={accounts.length === 0}
+            >
+              Add expense
+            </Button>
+          )
+        }
+      />
 
       {adding && (
         <Card>

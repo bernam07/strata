@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
@@ -181,14 +182,10 @@ export const SearchPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Search
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-          Look up any stock or ETF — even ones you don't own.
-        </p>
-      </div>
+      <PageHeader
+        title="Search"
+        subtitle="Look up any stock or ETF — even ones you don't own."
+      />
 
       <TextInput
         value={text}

@@ -5,6 +5,7 @@ import {
   expectedByMonth,
 } from '@/core/dividends/forecast';
 import { Card } from '@/ui/Card';
+import { PageHeader } from '@/ui/PageHeader';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
@@ -132,9 +133,10 @@ export const DividendsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-        Dividends
-      </h1>
+      <PageHeader
+        title="Dividends"
+        subtitle="Income received and what's on the way."
+      />
 
       <div className="flex gap-1 self-start rounded-[var(--radius-field)] neu-sunken p-1">
         <button

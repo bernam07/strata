@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Transaction } from '@/core/types';
 import { transactionsToCsv } from '@/core/transactions/exportCsv';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Labelled, Select, TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
@@ -68,30 +69,31 @@ export const TransactionsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Transactions
-        </h1>
-        {mode === 'none' && (
-          <div className="flex gap-2">
-            {transactions.length > 0 && (
-              <Button variant="ghost" onClick={exportCsv}>
-                Export
+      <PageHeader
+        title="Transactions"
+        subtitle="Every movement across your accounts."
+        actions={
+          mode === 'none' && (
+            <>
+              {transactions.length > 0 && (
+                <Button variant="ghost" onClick={exportCsv}>
+                  Export
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                onClick={() => setMode('transfer')}
+                disabled={accounts.length < 2}
+              >
+                Transfer
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              onClick={() => setMode('transfer')}
-              disabled={accounts.length < 2}
-            >
-              Transfer
-            </Button>
-            <Button onClick={() => setMode('transaction')} disabled={noAccounts}>
-              New
-            </Button>
-          </div>
-        )}
-      </div>
+              <Button onClick={() => setMode('transaction')} disabled={noAccounts}>
+                New
+              </Button>
+            </>
+          )
+        }
+      />
 
       {editing && (
         <Card>

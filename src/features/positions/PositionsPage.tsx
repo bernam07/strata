@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { usePositions } from './api/usePositions';
@@ -62,20 +63,21 @@ export const PositionsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)]">
-          Portfolio
-        </h1>
-        {positions.length > 0 && (
-          <Button
-            variant="ghost"
-            onClick={() => refresh.mutate()}
-            disabled={refresh.isPending}
-          >
-            {refresh.isPending ? 'Refreshing…' : 'Refresh prices'}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Portfolio"
+        subtitle="Your holdings, performance and allocation."
+        actions={
+          positions.length > 0 && (
+            <Button
+              variant="ghost"
+              onClick={() => refresh.mutate()}
+              disabled={refresh.isPending}
+            >
+              {refresh.isPending ? 'Refreshing…' : 'Refresh prices'}
+            </Button>
+          )
+        }
+      />
 
       {refresh.isError && (
         <p className="text-sm text-[var(--negative)]">
