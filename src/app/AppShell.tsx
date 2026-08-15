@@ -258,7 +258,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   return (
     <div className="flex min-h-screen">
       <Sidebar onCommand={() => setPaletteOpen(true)} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
         <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
@@ -273,7 +273,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
             </span>
           </button>
         </header>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+        <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 overflow-x-clip px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
           <div key={location.pathname} className="page-enter">
             {children}
           </div>
