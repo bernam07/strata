@@ -274,11 +274,32 @@ function renderCircular() {
   lab.addSpacer();
 }
 
+function roundedCard(color) {
+  // iOS's own accessory background renders with near-square corners on some
+  // versions, so we draw our own rounded card. The card is inset inside a
+  // larger canvas whose transparent margin absorbs any aspect-fill cropping,
+  // so the rounded corners always survive.
+  const W = 360;
+  const H = 158;
+  const inset = 10;
+  const radius = 30;
+  const ctx = new DrawContext();
+  ctx.size = new Size(W, H);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+  const path = new Path();
+  path.addRoundedRect(new Rect(inset, inset, W - inset * 2, H - inset * 2), radius, radius);
+  ctx.addPath(path);
+  ctx.setFillColor(color);
+  ctx.fillPath();
+  return ctx.getImage();
+}
+
 function renderRectangular() {
-  // The widest lock-screen slot. iOS fixes its size, so use the full width:
-  // total + today's move on the left, the top two movers on the right. The
-  // system draws the rounded, tinted background.
-  w.addAccessoryWidgetBackground = true;
+  // The widest lock-screen slot. Draw our own rounded card (see roundedCard)
+  // and fill the width: total + today's move on the left, top two movers right.
+  w.backgroundImage = roundedCard(new Color("#ffffff", 0.18));
+  w.setPadding(7, 14, 7, 14);
   const row = w.addStack();
   row.centerAlignContent();
 
@@ -292,7 +313,7 @@ function renderRectangular() {
   dayRow.centerAlignContent();
   symbol(dayRow, data.dayChangePct >= 0 ? "arrow.up.right" : "arrow.down.right", 10, Color.white());
   dayRow.addSpacer(2);
-  const day = dayRow.addText(pct1(data.dayChangePct) + " today");
+  const day = dayRow.addText(pct1(data.dayChangePct));
   day.font = Font.semiboldSystemFont(12);
 
   row.addSpacer();
