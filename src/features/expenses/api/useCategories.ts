@@ -81,6 +81,30 @@ export const useDeleteCategory = () => {
   });
 };
 
+// Reassign every transaction from one category to another, then delete the
+// emptied category — a merge.
+export const useMergeCategory = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { sourceId: string; targetId: string }) => {
+      const { error: reassignError } = await supabase
+        .from('transaction_categories')
+        .update({ category_id: input.targetId })
+        .eq('category_id', input.sourceId);
+      if (reassignError) throw reassignError;
+      const { error: deleteError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', input.sourceId);
+      if (deleteError) throw deleteError;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: categoriesKey });
+      client.invalidateQueries({ queryKey: assignmentsKey });
+    },
+  });
+};
+
 export const useAssignments = () =>
   useQuery<Map<string, string>>({
     queryKey: assignmentsKey,

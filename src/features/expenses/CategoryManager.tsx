@@ -5,6 +5,7 @@ import {
   useCategories,
   useCreateCategory,
   useDeleteCategory,
+  useMergeCategory,
   useUpdateCategory,
   type Category,
 } from './api/useCategories';
@@ -15,15 +16,26 @@ const childrenOf = (categories: Category[], parentId: string | null) =>
 const editInputClass =
   'min-w-0 flex-1 rounded-[var(--radius-field)] neu-sunken px-3 py-1.5 text-sm text-[var(--text-strong)] outline-none focus:border-[var(--accent)]';
 
+const actionClass = 'tap text-xs text-[var(--text-muted)]';
+
 export const CategoryManager = () => {
   const { data: categories = [] } = useCategories();
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const remove = useDeleteCategory();
+  const merge = useMergeCategory();
   const [name, setName] = useState('');
   const [parentId, setParentId] = useState<string>('');
+
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  const [draftName, setDraftName] = useState('');
+  const [draftParent, setDraftParent] = useState<string>('');
+  const [mergingId, setMergingId] = useState<string | null>(null);
+  const [mergeTarget, setMergeTarget] = useState<string>('');
+
+  const roots = childrenOf(categories, null);
+  const hasChildren = (id: string) =>
+    categories.some((category) => category.parentId === id);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -35,62 +47,144 @@ export const CategoryManager = () => {
   };
 
   const startEdit = (category: Category) => {
+    setMergingId(null);
     setEditingId(category.id);
-    setDraft(category.name);
+    setDraftName(category.name);
+    setDraftParent(category.parentId ?? '');
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setDraft('');
+    setDraftName('');
+    setDraftParent('');
   };
 
-  const saveEdit = () => {
-    const trimmed = draft.trim();
+  const saveEdit = (category: Category) => {
+    const trimmed = draftName.trim();
     if (!trimmed) return;
+    const leaf = !hasChildren(category.id);
     update.mutate(
-      { id: editingId!, name: trimmed },
+      {
+        id: category.id,
+        name: trimmed,
+        // Only leaves can be re-parented (the tree is two levels deep).
+        ...(leaf ? { parentId: draftParent || null } : {}),
+      },
       { onSuccess: cancelEdit },
     );
   };
 
-  // A plain function (not a nested component used via JSX) so the edit input
-  // keeps focus across re-renders instead of remounting on every keystroke.
+  const startMerge = (category: Category) => {
+    setEditingId(null);
+    setMergingId(category.id);
+    setMergeTarget('');
+  };
+
+  const confirmMerge = (category: Category) => {
+    if (!mergeTarget) return;
+    const target = categories.find((c) => c.id === mergeTarget);
+    if (
+      !window.confirm(
+        `Move every transaction in “${category.name}” to “${target?.name}” and delete “${category.name}”?`,
+      )
+    ) {
+      return;
+    }
+    merge.mutate(
+      { sourceId: category.id, targetId: mergeTarget },
+      { onSuccess: () => setMergingId(null) },
+    );
+  };
+
+  // Plain functions (not nested components) so inputs keep focus across renders.
   const renderRow = (category: Category, variant: 'root' | 'child') => {
-    const editing = editingId === category.id;
     const rowClass =
       variant === 'root'
-        ? 'flex items-center gap-2 rounded-[var(--radius-field)] neu-flat px-4 py-2'
-        : 'ml-6 flex items-center gap-2 rounded-[var(--radius-field)] neu-flat px-4 py-1.5';
+        ? 'flex flex-wrap items-center gap-2 rounded-[var(--radius-field)] neu-flat px-4 py-2'
+        : 'ml-6 flex flex-wrap items-center gap-2 rounded-[var(--radius-field)] neu-flat px-4 py-1.5';
     const nameClass =
       variant === 'root'
         ? 'font-semibold text-[var(--text-strong)]'
         : 'text-sm text-[var(--text-muted)]';
+    const leaf = !hasChildren(category.id);
 
-    if (editing) {
+    if (editingId === category.id) {
       return (
         <div className={rowClass}>
           <input
             autoFocus
             className={editInputClass}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') saveEdit();
+              if (event.key === 'Enter') saveEdit(category);
               if (event.key === 'Escape') cancelEdit();
             }}
           />
+          {leaf && (
+            <select
+              value={draftParent}
+              onChange={(event) => setDraftParent(event.target.value)}
+              className="rounded-[var(--radius-field)] neu-sunken px-2 py-1.5 text-xs text-[var(--text-strong)] outline-none focus:border-[var(--accent)]"
+            >
+              <option value="">Root</option>
+              {roots
+                .filter((root) => root.id !== category.id)
+                .map((root) => (
+                  <option key={root.id} value={root.id}>
+                    in {root.name}
+                  </option>
+                ))}
+            </select>
+          )}
           <button
             type="button"
-            onClick={saveEdit}
-            disabled={update.isPending || !draft.trim()}
+            onClick={() => saveEdit(category)}
+            disabled={update.isPending || !draftName.trim()}
             className="tap text-xs font-semibold text-[var(--accent)] disabled:opacity-50"
           >
             save
           </button>
+          <button type="button" onClick={cancelEdit} className={actionClass}>
+            cancel
+          </button>
+        </div>
+      );
+    }
+
+    if (mergingId === category.id) {
+      const targets = categories.filter(
+        (c) => c.id !== category.id && c.parentId !== category.id,
+      );
+      return (
+        <div className={rowClass}>
+          <span className={`min-w-0 flex-1 truncate ${nameClass}`}>
+            {category.name} →
+          </span>
+          <select
+            value={mergeTarget}
+            onChange={(event) => setMergeTarget(event.target.value)}
+            className="min-w-0 rounded-[var(--radius-field)] neu-sunken px-2 py-1.5 text-xs text-[var(--text-strong)] outline-none focus:border-[var(--accent)]"
+          >
+            <option value="">Merge into…</option>
+            {targets.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.parentId ? `↳ ${c.name}` : c.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
-            onClick={cancelEdit}
-            className="tap text-xs text-[var(--text-muted)]"
+            onClick={() => confirmMerge(category)}
+            disabled={merge.isPending || !mergeTarget}
+            className="tap text-xs font-semibold text-[var(--accent)] disabled:opacity-50"
+          >
+            merge
+          </button>
+          <button
+            type="button"
+            onClick={() => setMergingId(null)}
+            className={actionClass}
           >
             cancel
           </button>
@@ -106,22 +200,29 @@ export const CategoryManager = () => {
         <button
           type="button"
           onClick={() => startEdit(category)}
-          className="tap text-xs text-[var(--text-muted)] hover:text-[var(--accent)]"
+          className={`${actionClass} hover:text-[var(--accent)]`}
         >
           edit
         </button>
+        {leaf && categories.length > 1 && (
+          <button
+            type="button"
+            onClick={() => startMerge(category)}
+            className={`${actionClass} hover:text-[var(--text-strong)]`}
+          >
+            merge
+          </button>
+        )}
         <button
           type="button"
           onClick={() => remove.mutate(category.id)}
-          className="tap text-xs text-[var(--text-muted)] hover:text-[var(--negative)]"
+          className={`${actionClass} hover:text-[var(--negative)]`}
         >
           remove
         </button>
       </div>
     );
   };
-
-  const roots = childrenOf(categories, null);
 
   return (
     <div className="flex flex-col gap-5">
