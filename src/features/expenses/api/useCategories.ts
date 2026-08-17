@@ -46,12 +46,57 @@ export const useCreateCategory = () => {
   });
 };
 
+export const useUpdateCategory = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      name?: string;
+      parentId?: string | null;
+    }) => {
+      const patch: { name?: string; parent_id?: string | null } = {};
+      if (input.name !== undefined) patch.name = input.name;
+      if (input.parentId !== undefined) patch.parent_id = input.parentId;
+      const { error } = await supabase
+        .from('categories')
+        .update(patch)
+        .eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: categoriesKey }),
+  });
+};
+
 export const useDeleteCategory = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('categories').delete().eq('id', id);
       if (error) throw error;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: categoriesKey });
+      client.invalidateQueries({ queryKey: assignmentsKey });
+    },
+  });
+};
+
+// Reassign every transaction from one category to another, then delete the
+// emptied category — a merge.
+export const useMergeCategory = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { sourceId: string; targetId: string }) => {
+      const { error: reassignError } = await supabase
+        .from('transaction_categories')
+        .update({ category_id: input.targetId })
+        .eq('category_id', input.sourceId);
+      if (reassignError) throw reassignError;
+      const { error: deleteError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', input.sourceId);
+      if (deleteError) throw deleteError;
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: categoriesKey });
