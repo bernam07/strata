@@ -21,6 +21,7 @@ import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
 import { NetWorthTrend } from './NetWorthTrend';
 import { GoalCard } from './GoalCard';
+import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
 import {
@@ -261,6 +262,11 @@ export const DashboardPage = () => {
           />
 
           <GoalCard net={netWithCrypto} />
+
+          <InsightsStrip
+            cash={Math.max(0, toNumber(model.netWorth.totalAssets) - toNumber(investments))}
+            investments={toNumber(investments) + cryptoTotal}
+          />
 
           <MonthlySummary snapshots={snapshots} />
 
