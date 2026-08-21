@@ -4,6 +4,7 @@ import { transactionsToCsv } from '@/core/transactions/exportCsv';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
+import { Collapsible } from '@/ui/Collapsible';
 import { Labelled, Select, TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
@@ -24,7 +25,6 @@ export const TransactionsPage = () => {
   const { data: accounts = [] } = useAccounts();
   const [filter, setFilter] = useState<TransactionFilter>({});
   const [mode, setMode] = useState<AddMode>('none');
-  const [scheduledOpen, setScheduledOpen] = useState(false);
   const { data: transactions = [], isLoading } = useTransactions(filter);
   const { data: instruments } = useInstruments();
   const reverse = useReverseTransaction();
@@ -116,25 +116,9 @@ export const TransactionsPage = () => {
       )}
 
       {accounts.length > 0 && (
-        <Card className="flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={() => setScheduledOpen((open) => !open)}
-            aria-expanded={scheduledOpen}
-            className="tap flex items-center justify-between gap-3"
-          >
-            <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Scheduled · recurring
-            </span>
-            <span
-              className="text-[var(--text-muted)] transition-transform"
-              style={{ transform: scheduledOpen ? 'rotate(90deg)' : 'none' }}
-            >
-              ›
-            </span>
-          </button>
-          {scheduledOpen && <RecurringManager accounts={accounts} />}
-        </Card>
+        <Collapsible title="Scheduled · recurring">
+          <RecurringManager accounts={accounts} />
+        </Collapsible>
       )}
 
       <Card>
