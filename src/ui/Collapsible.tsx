@@ -41,7 +41,9 @@ export const Collapsible = ({
           ›
         </span>
       </button>
-      {open && <div className="flex flex-col gap-4">{children}</div>}
+      {open && (
+        <div className="page-enter flex flex-col gap-4">{children}</div>
+      )}
     </Card>
   );
 };
