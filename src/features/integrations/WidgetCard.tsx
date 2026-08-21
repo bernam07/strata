@@ -15,6 +15,13 @@ const scriptableSource = (endpoint: string, appUrl: string): string => `// Strat
 const ENDPOINT = "${endpoint}";
 const APP_URL = "${appUrl}";
 
+// iOS opens https links in Safari, not an installed PWA. To open the PWA on
+// tap, make a Shortcut named exactly SHORTCUT_NAME whose only action is
+// "Open App" → Strata, and keep OPEN_WITH as "shortcut". Prefer plain Safari?
+// Set OPEN_WITH to "browser".
+const OPEN_WITH = "shortcut"; // "shortcut" | "browser"
+const SHORTCUT_NAME = "Strata";
+
 const BG_TOP = new Color("#17181b");
 const BG_BOT = new Color("#0a0a0b");
 const INK = new Color("#f3f0ea");
@@ -34,8 +41,13 @@ try {
 
 const family = config.widgetFamily || "medium";
 const w = new ListWidget();
-// Tapping the widget opens the Strata app instead of the Scriptable editor.
-if (APP_URL) w.url = APP_URL;
+// Tapping the widget opens Strata instead of the Scriptable editor — via a
+// Shortcut so the installed PWA opens rather than Safari (see OPEN_WITH above).
+if (OPEN_WITH === "shortcut") {
+  w.url = "shortcuts://run-shortcut?name=" + encodeURIComponent(SHORTCUT_NAME);
+} else if (APP_URL) {
+  w.url = APP_URL;
+}
 // Hint iOS to refresh roughly every 15 min. iOS ultimately decides the cadence
 // and no app can force it — but the endpoint reads live prices, so each refresh
 // already reflects your latest in-app "refresh prices" without opening this.
@@ -411,9 +423,16 @@ export const WidgetCard = () => {
               </li>
             </ol>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Tapping the widget opens Strata (not Scriptable). It refreshes on
-              iOS's own schedule — no app can force it — but it reads live
-              prices, so each refresh already shows your latest “refresh prices”.
+              <b>To open the installed app on tap</b> (not Safari): create a
+              Shortcut named exactly <b>Strata</b> whose only action is “Open
+              App” → the Strata web app. iOS can't open a PWA from a link
+              directly, so the widget runs that Shortcut. Prefer Safari? Set{' '}
+              <code>OPEN_WITH = "browser"</code> at the top of the script.
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              The widget refreshes on iOS's own schedule — no app can force it —
+              but it reads live prices, so each refresh already shows your latest
+              “refresh prices”.
             </p>
           </Surface>
 
