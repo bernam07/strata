@@ -8,11 +8,12 @@ import {
   widgetEndpoint,
 } from './api/useWidget';
 
-const scriptableSource = (endpoint: string): string => `// Strata — iPhone widget
+const scriptableSource = (endpoint: string, appUrl: string): string => `// Strata — iPhone widget
 // Scriptable: New script → paste this → name it Strata → add a Scriptable
 // widget to your home screen OR lock screen and pick this script. Every size
 // is supported, including the three lock-screen slots.
 const ENDPOINT = "${endpoint}";
+const APP_URL = "${appUrl}";
 
 const BG_TOP = new Color("#17181b");
 const BG_BOT = new Color("#0a0a0b");
@@ -33,7 +34,12 @@ try {
 
 const family = config.widgetFamily || "medium";
 const w = new ListWidget();
-w.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
+// Tapping the widget opens the Strata app instead of the Scriptable editor.
+if (APP_URL) w.url = APP_URL;
+// Hint iOS to refresh roughly every 15 min. iOS ultimately decides the cadence
+// and no app can force it — but the endpoint reads live prices, so each refresh
+// already reflects your latest in-app "refresh prices" without opening this.
+w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
 
 const eur0 = (n) => "€" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
 const pct1 = (n) => (n >= 0 ? "+" : "") + Number(n).toFixed(1) + "%";
@@ -404,12 +410,19 @@ export const WidgetCard = () => {
                 always refresh it.
               </li>
             </ol>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Tapping the widget opens Strata (not Scriptable). It refreshes on
+              iOS's own schedule — no app can force it — but it reads live
+              prices, so each refresh already shows your latest “refresh prices”.
+            </p>
           </Surface>
 
           <div className="flex flex-wrap gap-2">
             <Button
               variant="ghost"
-              onClick={() => copy('script', scriptableSource(endpoint))}
+              onClick={() =>
+                copy('script', scriptableSource(endpoint, window.location.origin))
+              }
             >
               {copied === 'script' ? 'Copied ✓' : 'Copy Scriptable script'}
             </Button>
