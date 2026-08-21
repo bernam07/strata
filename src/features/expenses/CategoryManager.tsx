@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/ui/Button';
 import { Labelled, Select, TextInput } from '@/ui/Field';
+import { toast } from '@/ui/toast';
 import {
   useCategories,
   useCreateCategory,
@@ -42,7 +43,12 @@ export const CategoryManager = () => {
     if (!name.trim()) return;
     create.mutate(
       { name: name.trim(), parentId: parentId || null },
-      { onSuccess: () => setName('') },
+      {
+        onSuccess: () => {
+          setName('');
+          toast('Category added', 'success');
+        },
+      },
     );
   };
 
@@ -70,7 +76,12 @@ export const CategoryManager = () => {
         // Only leaves can be re-parented (the tree is two levels deep).
         ...(leaf ? { parentId: draftParent || null } : {}),
       },
-      { onSuccess: cancelEdit },
+      {
+        onSuccess: () => {
+          cancelEdit();
+          toast('Category updated', 'success');
+        },
+      },
     );
   };
 
@@ -92,7 +103,13 @@ export const CategoryManager = () => {
     }
     merge.mutate(
       { sourceId: category.id, targetId: mergeTarget },
-      { onSuccess: () => setMergingId(null) },
+      {
+        onSuccess: () => {
+          setMergingId(null);
+          toast('Categories merged', 'success');
+        },
+        onError: () => toast("Couldn't merge categories", 'error'),
+      },
     );
   };
 
@@ -215,7 +232,11 @@ export const CategoryManager = () => {
         )}
         <button
           type="button"
-          onClick={() => remove.mutate(category.id)}
+          onClick={() =>
+            remove.mutate(category.id, {
+              onSuccess: () => toast('Category removed'),
+            })
+          }
           className={`${actionClass} hover:text-[var(--negative)]`}
         >
           remove

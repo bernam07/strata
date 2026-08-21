@@ -3,6 +3,7 @@ import { useStockSearch } from '@/features/search/api/useMarket';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { Button } from '@/ui/Button';
 import { MoneyInput, TextInput } from '@/ui/Field';
+import { toast } from '@/ui/toast';
 import { useAddCrypto, useCrypto, useDeleteCrypto } from './api/useCrypto';
 
 const eur = new Intl.NumberFormat('en-GB', {
@@ -57,7 +58,9 @@ export const CryptoManager = () => {
           setQuery('');
           setQuantity('');
           setAvgCost('');
+          toast('Holding added', 'success');
         },
+        onError: () => toast("Couldn't add holding", 'error'),
       },
     );
   };
@@ -101,7 +104,11 @@ export const CryptoManager = () => {
               </div>
               <button
                 type="button"
-                onClick={() => remove.mutate(holding.symbol)}
+                onClick={() =>
+                  remove.mutate(holding.symbol, {
+                    onSuccess: () => toast('Holding removed'),
+                  })
+                }
                 className="tap text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
               >
                 Remove
