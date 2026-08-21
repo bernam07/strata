@@ -4,16 +4,10 @@ import { kindMeta } from '@/core/transactions/kinds';
 import { formatEur, isNegative, money } from '@/core/money/money';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
-
-const dateFormatter = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-});
-
-const quantityFormatter = new Intl.NumberFormat('en-GB', {
-  maximumFractionDigits: 4,
-});
+import {
+  dayMonthYear as dateFormatter,
+  qty4 as quantityFormatter,
+} from '@/ui/format';
 
 export const TransactionList = ({
   transactions,

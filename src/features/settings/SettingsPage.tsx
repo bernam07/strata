@@ -4,6 +4,7 @@ import { supabase } from '@/db/supabase';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { setPrivacy, usePrivacy } from '@/ui/privacy';
+import { toast } from '@/ui/toast';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -124,6 +125,9 @@ export const SettingsPage = () => {
       link.download = `strata-backup-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(url);
+      toast('Backup downloaded', 'success');
+    } catch {
+      toast("Couldn't export your data", 'error');
     } finally {
       setExporting(false);
     }

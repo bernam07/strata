@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
+import { pctMax1 as percent } from '@/ui/format';
 import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, type Money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
@@ -13,11 +14,6 @@ const luminance = (hex: string): number => {
   const b = parseInt(value.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 };
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 1,
-});
 
 const assetPalette = [
   '#e0a44a',

@@ -3,12 +3,9 @@ import { formatEur, money, toNumber, type Money } from '@/core/money/money';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { MoneyInput } from '@/ui/Field';
+import { toast } from '@/ui/toast';
+import { pct0 as percent } from '@/ui/format';
 import { useNetWorthGoal, useSetNetWorthGoal } from './api/usePreferences';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 0,
-});
 
 export const GoalCard = ({ net }: { net: Money }) => {
   const { data: goal, isLoading } = useNetWorthGoal();
@@ -21,7 +18,13 @@ export const GoalCard = ({ net }: { net: Money }) => {
   const save = () => {
     const value = Number(draft);
     if (!Number.isFinite(value) || value <= 0) return;
-    setGoal.mutate(value, { onSuccess: () => setEditing(false) });
+    setGoal.mutate(value, {
+      onSuccess: () => {
+        setEditing(false);
+        toast('Goal saved', 'success');
+      },
+      onError: () => toast("Couldn't save goal", 'error'),
+    });
   };
 
   if (goal === null && !editing) {

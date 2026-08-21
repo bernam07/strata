@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { pct0 as pct } from '@/ui/format';
 import type { Money } from '@/core/money/money';
 import { formatEur } from '@/core/money/money';
 import { budgetLines, totalBudget } from '@/core/expenses/budget';
@@ -6,11 +7,6 @@ import { Button } from '@/ui/Button';
 import { MoneyInput, Select } from '@/ui/Field';
 import type { Category } from './api/useCategories';
 import { useBudgets, useSetBudget } from './api/useBudgets';
-
-const pct = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 0,
-});
 
 const ProgressBar = ({ ratio, over }: { ratio: number; over: boolean }) => (
   <div className="h-2 overflow-hidden rounded-full neu-sunken">

@@ -1,11 +1,13 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
+import { Collapsible } from '@/ui/Collapsible';
 import { SkeletonRows } from '@/ui/Skeleton';
+import { pct1 as percent } from '@/ui/format';
 import { usePositions } from './api/usePositions';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
@@ -17,53 +19,6 @@ const AnalyticsView = lazy(() =>
   import('@/features/analytics/AnalyticsView').then((module) => ({
     default: module.AnalyticsView,
   })),
-);
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
-const Section = ({
-  title,
-  badge,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  badge?: ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) => (
-  <Card className="flex flex-col gap-4">
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      className="tap flex items-center justify-between gap-3"
-    >
-      <span className="flex items-baseline gap-2">
-        <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          {title}
-        </span>
-        {badge != null && (
-          <span className="text-sm font-semibold tabular-nums text-[var(--text-2)]">
-            {badge}
-          </span>
-        )}
-      </span>
-      <span
-        className="text-[var(--text-muted)] transition-transform"
-        style={{ transform: open ? 'rotate(90deg)' : 'none' }}
-      >
-        ›
-      </span>
-    </button>
-    {open && <div className="flex flex-col gap-4">{children}</div>}
-  </Card>
 );
 
 const Bars = ({
@@ -100,9 +55,6 @@ export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
   const { data: crypto = [] } = useCrypto();
   const refresh = useRefreshPrices();
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  const toggle = (key: string) =>
-    setOpen((current) => ({ ...current, [key]: !current[key] }));
 
   const positions = data?.positions ?? [];
   const totalMarket = sum(
@@ -150,14 +102,9 @@ export const PositionsPage = () => {
     );
 
   const cryptoSection = (
-    <Section
-      title="Crypto"
-      badge={cryptoBadge}
-      open={!!open.crypto}
-      onToggle={() => toggle('crypto')}
-    >
+    <Collapsible title="Crypto" badge={cryptoBadge}>
       <CryptoManager />
-    </Section>
+    </Collapsible>
   );
 
   return (
@@ -251,21 +198,13 @@ export const PositionsPage = () => {
           </div>
 
           {allocation.length > 1 && (
-            <Section
-              title="Allocation"
-              open={!!open.allocation}
-              onToggle={() => toggle('allocation')}
-            >
+            <Collapsible title="Allocation">
               <Bars rows={allocation} />
-            </Section>
+            </Collapsible>
           )}
 
           {hasSectors && (
-            <Section
-              title="Sectors"
-              open={!!open.sectors}
-              onToggle={() => toggle('sectors')}
-            >
+            <Collapsible title="Sectors">
               <Bars
                 rows={sectorSlices.map((slice) => ({
                   key: slice.group,
@@ -273,14 +212,10 @@ export const PositionsPage = () => {
                   weight: slice.weight,
                 }))}
               />
-            </Section>
+            </Collapsible>
           )}
 
-          <Section
-            title="Performance"
-            open={!!open.performance}
-            onToggle={() => toggle('performance')}
-          >
+          <Collapsible title="Performance">
             <Suspense
               fallback={
                 <p className="text-sm text-[var(--text-muted)]">Loading…</p>
@@ -288,14 +223,10 @@ export const PositionsPage = () => {
             >
               <AnalyticsView />
             </Suspense>
-          </Section>
+          </Collapsible>
 
           {allocation.length > 1 && (
-            <Section
-              title="Rebalancing"
-              open={!!open.rebalancing}
-              onToggle={() => toggle('rebalancing')}
-            >
+            <Collapsible title="Rebalancing">
               <RebalancePanel
                 positions={positions.map((position) => ({
                   instrumentId: position.instrumentId,
@@ -304,7 +235,7 @@ export const PositionsPage = () => {
                 instruments={data?.instruments ?? new Map()}
                 total={totalMarketNumber}
               />
-            </Section>
+            </Collapsible>
           )}
 
           {cryptoSection}

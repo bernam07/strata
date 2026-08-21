@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { pct1 as percent, qty4 as quantity } from '@/ui/format';
 import { Link, useParams } from 'react-router-dom';
 import { usePersistentState } from '@/app/usePersistentState';
 import { formatEur, isNegative, money } from '@/core/money/money';
@@ -12,14 +13,6 @@ import { PriceChart } from './PriceChart';
 import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
 import { InstrumentNote } from './components/InstrumentNote';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
-const quantity = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 });
 
 const nativeMoney = (value: number, currency: string): string =>
   new Intl.NumberFormat('en-GB', {

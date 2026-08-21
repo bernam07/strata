@@ -1,15 +1,5 @@
 import type { Slice } from '@/core/analytics/series';
-
-const eur = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 1,
-});
+import { eur0 as eur, pctMax1 as percent } from '@/ui/format';
 
 export const DiversificationBars = ({
   title,

@@ -1,13 +1,9 @@
 import { useState } from 'react';
+import { pct0 as percent } from '@/ui/format';
 import { formatEur, money } from '@/core/money/money';
 import { rebalanceRows } from '@/core/positions/rebalance';
 import type { InstrumentMeta } from './api/usePositions';
 import { useAllocationTargets, useSetTarget } from './api/useTargets';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 0,
-});
 
 interface Entry {
   instrumentId: string;

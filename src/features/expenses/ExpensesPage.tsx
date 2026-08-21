@@ -11,6 +11,7 @@ import { TransactionForm } from '@/features/transactions/components/TransactionF
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
+import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
 import { Stat } from '@/ui/Stat';
 import { Select } from '@/ui/Field';
@@ -173,8 +174,7 @@ export const ExpensesPage = () => {
       </Card>
 
       {cashflow.length > 0 && (
-        <Card className="flex flex-col gap-3">
-          <h2 className="font-semibold text-[var(--text-strong)]">Cash flow</h2>
+        <Collapsible title="Cash flow">
           <div className="flex flex-col gap-2">
             {cashflow.map((row) => {
               const negative = isNegative(row.net);
@@ -211,19 +211,14 @@ export const ExpensesPage = () => {
               );
             })}
           </div>
-        </Card>
+        </Collapsible>
       )}
 
       {recurring.length > 0 && (
-        <Card className="flex flex-col gap-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold text-[var(--text-strong)]">
-              Recurring
-            </h2>
-            <span className="text-sm text-[var(--text-muted)]">
-              ~{formatEur(recurringMonthly)}/mo
-            </span>
-          </div>
+        <Collapsible
+          title="Recurring"
+          badge={`~${formatEur(recurringMonthly)}/mo`}
+        >
           <ul className="flex flex-col gap-2">
             {recurring.map((item) => (
               <li
@@ -248,21 +243,15 @@ export const ExpensesPage = () => {
               </li>
             ))}
           </ul>
-        </Card>
+        </Collapsible>
       )}
 
-      <Card>
-        <h2 className="mb-4 font-semibold text-[var(--text-strong)]">
-          Categories
-        </h2>
+      <Collapsible title="Categories">
         <CategoryManager />
-      </Card>
+      </Collapsible>
 
       {comparison.length > 0 && (
-        <Card className="flex flex-col gap-4">
-          <h2 className="font-semibold text-[var(--text-strong)]">
-            This month vs. last
-          </h2>
+        <Collapsible title="This month vs. last">
           <ul className="flex flex-col gap-2">
             {comparison.map((row) => {
               const up = row.delta.greaterThan(0);
@@ -291,14 +280,11 @@ export const ExpensesPage = () => {
               );
             })}
           </ul>
-        </Card>
+        </Collapsible>
       )}
 
       {months.length > 0 && (
-        <Card className="flex flex-col gap-4">
-          <h2 className="font-semibold text-[var(--text-strong)]">
-            Monthly summary
-          </h2>
+        <Collapsible title="Monthly summary">
           <div className="flex flex-col gap-4">
             {months.slice(0, 6).map((month) => (
               <div key={month.month} className="flex flex-col gap-2">
@@ -323,11 +309,10 @@ export const ExpensesPage = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </Collapsible>
       )}
 
-      <Card className="flex flex-col gap-4">
-        <h2 className="font-semibold text-[var(--text-strong)]">Categorize</h2>
+      <Collapsible title="Categorize" badge={String(expenses.length)}>
         {expenses.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">No expenses.</p>
         ) : (
@@ -373,7 +358,7 @@ export const ExpensesPage = () => {
             ))}
           </ul>
         )}
-      </Card>
+      </Collapsible>
     </div>
   );
 };

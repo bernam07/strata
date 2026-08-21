@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
+import { toast } from '@/ui/toast';
 import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
@@ -94,10 +95,16 @@ const QuotePanel = ({
             variant="ghost"
             disabled={toggle.isPending}
             onClick={() =>
-              toggle.mutate({
-                item: { symbol, name, currency: q?.currency ?? 'USD' },
-                watched,
-              })
+              toggle.mutate(
+                {
+                  item: { symbol, name, currency: q?.currency ?? 'USD' },
+                  watched,
+                },
+                {
+                  onSuccess: () =>
+                    toast(watched ? 'Removed from watchlist' : 'Added to watchlist'),
+                },
+              )
             }
           >
             {watched ? 'Watching ✓' : 'Watch'}
