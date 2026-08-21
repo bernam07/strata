@@ -1,9 +1,12 @@
 {
   "name": "Strata",
   "short_name": "Strata",
+  "id": "/",
+  "scope": "/",
   "description": "Your wealth, layer by layer.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone"],
   "background_color": "#0a0a0b",
   "theme_color": "#0a0a0b",
   "icons": [
