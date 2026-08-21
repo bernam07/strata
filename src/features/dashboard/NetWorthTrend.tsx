@@ -1,13 +1,8 @@
 import type { ReactNode } from 'react';
+import { pct1 as percent } from '@/ui/format';
 import { formatEur, money } from '@/core/money/money';
 import type { SeriesPoint } from '@/core/analytics/series';
 import { Card } from '@/ui/Card';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 const Sparkline = ({ series }: { series: SeriesPoint[] }) => {
   if (series.length < 2) {

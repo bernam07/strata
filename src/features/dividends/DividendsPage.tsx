@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { pct1 as percent } from '@/ui/format';
 import { formatEur, money, sum } from '@/core/money/money';
 import {
   annualIncomeByInstrument,
@@ -22,12 +23,6 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
-});
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
 });
 
 const cadenceLabel: Record<string, string> = {

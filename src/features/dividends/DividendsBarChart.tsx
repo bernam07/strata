@@ -1,8 +1,4 @@
-const eur = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
+import { eur0 as eur } from '@/ui/format';
 
 export interface Bar {
   label: string;

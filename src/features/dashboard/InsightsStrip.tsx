@@ -6,12 +6,7 @@ import {
   useCategories,
 } from '@/features/expenses/api/useCategories';
 import { Card } from '@/ui/Card';
-
-const eur0 = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
+import { eur0 } from '@/ui/format';
 
 const dotColor: Record<Insight['tone'], string> = {
   positive: 'var(--positive)',

@@ -1,14 +1,9 @@
 import { Link } from 'react-router-dom';
+import { pct1 as percent } from '@/ui/format';
 import { formatEur, isNegative, zero } from '@/core/money/money';
 import type { Position } from '@/core/positions/derivePositions';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 const MoverRow = ({
   position,

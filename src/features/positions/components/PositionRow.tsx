@@ -4,16 +4,7 @@ import type { Position } from '@/core/positions/derivePositions';
 import { Surface } from '@/ui/Surface';
 import type { InstrumentMeta } from '../api/usePositions';
 import { StockAvatar } from './StockAvatar';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
-const quantityFormat = new Intl.NumberFormat('en-GB', {
-  maximumFractionDigits: 4,
-});
+import { pct1 as percent, qty4 as quantityFormat } from '@/ui/format';
 
 export const PositionRow = ({
   position,

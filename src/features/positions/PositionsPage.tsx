@@ -7,6 +7,7 @@ import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
 import { SkeletonRows } from '@/ui/Skeleton';
+import { pct1 as percent } from '@/ui/format';
 import { usePositions } from './api/usePositions';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
@@ -19,12 +20,6 @@ const AnalyticsView = lazy(() =>
     default: module.AnalyticsView,
   })),
 );
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 const Bars = ({
   rows,

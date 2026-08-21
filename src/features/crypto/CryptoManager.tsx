@@ -4,19 +4,8 @@ import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { Button } from '@/ui/Button';
 import { MoneyInput, TextInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
+import { eur2 as eur, pct1 as pct, qty8 as qtyFmt } from '@/ui/format';
 import { useAddCrypto, useCrypto, useDeleteCrypto } from './api/useCrypto';
-
-const eur = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 2,
-});
-const pct = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-const qtyFmt = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 8 });
 
 export const CryptoManager = () => {
   const { data: holdings = [] } = useCrypto();

@@ -4,12 +4,8 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { MoneyInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
+import { pct0 as percent } from '@/ui/format';
 import { useNetWorthGoal, useSetNetWorthGoal } from './api/usePreferences';
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 0,
-});
 
 export const GoalCard = ({ net }: { net: Money }) => {
   const { data: goal, isLoading } = useNetWorthGoal();

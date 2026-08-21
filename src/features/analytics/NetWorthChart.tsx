@@ -1,16 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { SeriesPoint } from '@/core/analytics/series';
-
-const eur = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
-
-const monthDay = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: 'short',
-});
+import { dayMonth as monthDay, eur0 as eur } from '@/ui/format';
 
 const H = 260;
 const padL = 60;

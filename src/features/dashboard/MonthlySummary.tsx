@@ -6,12 +6,7 @@ import {
 import type { SeriesPoint } from '@/core/analytics/series';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Card } from '@/ui/Card';
-
-const eur = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
+import { eur0 as eur } from '@/ui/format';
 
 const monthName = new Intl.DateTimeFormat('en-GB', { month: 'long' });
 

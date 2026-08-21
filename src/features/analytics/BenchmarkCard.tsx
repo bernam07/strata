@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { pct1 as percent } from '@/ui/format';
 import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHistory';
 import { useQuote } from '@/features/search/api/useMarket';
 import { Card } from '@/ui/Card';
@@ -20,12 +21,6 @@ const ranges = [
   { label: '1Y', value: '1y', days: 365 },
   { label: '5Y', value: '5y', days: 1825 },
 ] as const;
-
-const percent = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 const rebase = (points: { date: string; value: number }[]): Point[] => {
   const base = points.find((point) => point.value > 0)?.value;
