@@ -15,11 +15,12 @@ const scriptableSource = (endpoint: string, appUrl: string): string => `// Strat
 const ENDPOINT = "${endpoint}";
 const APP_URL = "${appUrl}";
 
-// iOS opens https links in Safari, not an installed PWA. To open the PWA on
-// tap, make a Shortcut named exactly SHORTCUT_NAME whose only action is
-// "Open App" → Strata, and keep OPEN_WITH as "shortcut". Prefer plain Safari?
-// Set OPEN_WITH to "browser".
-const OPEN_WITH = "shortcut"; // "shortcut" | "browser"
+// iOS opens https links in Safari, not an installed PWA, and only some iOS
+// versions let a Shortcut open a home-screen web app. Default: open the app in
+// Safari (reliable everywhere). If your iOS DOES list the Strata web app under
+// Shortcuts → "Open App", make a Shortcut with that single action named exactly
+// SHORTCUT_NAME and switch OPEN_WITH to "shortcut" to open the installed PWA.
+const OPEN_WITH = "browser"; // "browser" | "shortcut"
 const SHORTCUT_NAME = "Strata";
 
 const BG_TOP = new Color("#17181b");
@@ -423,11 +424,12 @@ export const WidgetCard = () => {
               </li>
             </ol>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              <b>To open the installed app on tap</b> (not Safari): create a
-              Shortcut named exactly <b>Strata</b> whose only action is “Open
-              App” → the Strata web app. iOS can't open a PWA from a link
-              directly, so the widget runs that Shortcut. Prefer Safari? Set{' '}
-              <code>OPEN_WITH = "browser"</code> at the top of the script.
+              Tapping the widget opens Strata in Safari — iOS can't open an
+              installed PWA from a link. If your iOS lists the Strata web app
+              under Shortcuts → “Open App”, you can make a Shortcut with that
+              action named <b>Strata</b> and set{' '}
+              <code>OPEN_WITH = "shortcut"</code> at the top of the script to open
+              the installed app instead.
             </p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               The widget refreshes on iOS's own schedule — no app can force it —

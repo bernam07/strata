@@ -10,10 +10,12 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useInstruments } from '@/features/positions/api/usePositions';
 import {
+  useDeleteTransaction,
   useReverseTransaction,
   useTransactions,
   type TransactionFilter,
 } from './api/useTransactions';
+import { toast } from '@/ui/toast';
 import { TransactionForm } from './components/TransactionForm';
 import { TransferForm } from './components/TransferForm';
 import { TransactionList } from './components/TransactionList';
@@ -28,6 +30,7 @@ export const TransactionsPage = () => {
   const { data: transactions = [], isLoading } = useTransactions(filter);
   const { data: instruments } = useInstruments();
   const reverse = useReverseTransaction();
+  const del = useDeleteTransaction();
   const [editing, setEditing] = useState<Transaction | null>(null);
 
   const patchFilter = (patch: Partial<TransactionFilter>) =>
@@ -46,6 +49,19 @@ export const TransactionsPage = () => {
       )
     ) {
       reverse.mutate(transaction);
+    }
+  };
+
+  const onDelete = (transaction: Transaction) => {
+    if (
+      window.confirm(
+        "Delete this transaction for good? This can't be undone — use Reverse instead if you want to keep a record.",
+      )
+    ) {
+      del.mutate(transaction.id, {
+        onSuccess: () => toast('Transaction deleted'),
+        onError: () => toast("Couldn't delete transaction", 'error'),
+      });
     }
   };
 
@@ -175,6 +191,7 @@ export const TransactionsPage = () => {
           accounts={accounts}
           instruments={instruments}
           onReverse={onReverse}
+          onDelete={onDelete}
           onEdit={(transaction) => {
             setMode('none');
             setEditing(transaction);

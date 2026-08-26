@@ -16,6 +16,7 @@ export const TransactionList = ({
   showAccount = true,
   instrumentView = false,
   onReverse,
+  onDelete,
   onEdit,
 }: {
   transactions: Transaction[];
@@ -24,6 +25,7 @@ export const TransactionList = ({
   showAccount?: boolean;
   instrumentView?: boolean;
   onReverse?: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
   onEdit?: (transaction: Transaction) => void;
 }) => {
   const accountsById = useMemo(
@@ -49,6 +51,7 @@ export const TransactionList = ({
           transaction.source === 'manual' &&
           transaction.transferGroupId === null;
         const canReverse = onReverse && isManual;
+        const canDelete = onDelete && isManual;
         const canEdit = onEdit && isManual;
 
         const instrument = transaction.instrumentId
@@ -127,6 +130,22 @@ export const TransactionList = ({
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 14L4 9l5-5" />
                   <path d="M4 9h11a5 5 0 015 5v1" />
+                </svg>
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(transaction)}
+                title="Delete this entry"
+                aria-label="Delete this entry"
+                className="tap grid h-8 w-8 place-items-center rounded-[var(--radius-field)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--negative)]"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 7h16" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M6 7l1 13h10l1-13" />
+                  <path d="M9 7V4h6v3" />
                 </svg>
               </button>
             )}
