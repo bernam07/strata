@@ -143,6 +143,25 @@ export const useUpdateTransaction = () => {
   });
 };
 
+export const useDeleteTransaction = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // Drop any category assignment first, then the transaction itself.
+      await supabase
+        .from('transaction_categories')
+        .delete()
+        .eq('transaction_id', id);
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['transactions'] });
+      client.invalidateQueries({ queryKey: ['category-assignments'] });
+    },
+  });
+};
+
 export const useReverseTransaction = () => {
   const client = useQueryClient();
   return useMutation({
