@@ -1,6 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { backoffDelayMs, retryAfterMs, sleep } from '../_shared/t212/backoff.ts';
-import { extractCursor } from '../_shared/t212/cursor.ts';
 import {
   cashTransactionToRow,
   dividendToTransactionRow,
@@ -35,6 +34,9 @@ const baseUrl = (useDemo: boolean): string =>
   useDemo
     ? 'https://demo.trading212.com/api/v0'
     : 'https://live.trading212.com/api/v0';
+
+const originUrl = (useDemo: boolean): string =>
+  useDemo ? 'https://demo.trading212.com' : 'https://live.trading212.com';
 
 const t212Fetch = async (
   url: string,
@@ -313,16 +315,28 @@ const syncStream = async <T>(
   config: StreamConfig<T>,
 ): Promise<number> => {
   const stored = await readWatermark(db, userId, config.stream);
-  let cursor: string | null = stored && stored.length > 0 ? stored : null;
+  // Resume by following the API's own nextPagePath verbatim — it carries every
+  // pagination param together (e.g. /history/transactions needs both cursor and
+  // time, and rejects one without the other). Older watermarks stored a bare
+  // cursor; ignore those and start fresh (ingest is idempotent).
+  let nextPath: string | null =
+    stored && stored.startsWith('/') ? stored : null;
   let inserted = 0;
   let reachedEnd = false;
 
   for (let page = 0; page < MAX_PAGES_PER_RUN; page += 1) {
-    const url = new URL(`${baseUrl(useDemo)}${config.path}`);
-    url.searchParams.set('limit', String(PAGE_LIMIT));
-    if (cursor) url.searchParams.set('cursor', cursor);
+    let requestUrl: string;
+    if (nextPath) {
+      requestUrl = nextPath.startsWith('http')
+        ? nextPath
+        : `${originUrl(useDemo)}${nextPath}`;
+    } else {
+      const url = new URL(`${baseUrl(useDemo)}${config.path}`);
+      url.searchParams.set('limit', String(PAGE_LIMIT));
+      requestUrl = url.toString();
+    }
 
-    const response = await t212Fetch(url.toString(), apiKey);
+    const response = await t212Fetch(requestUrl, apiKey);
     if (!response.ok) throw new Error(await httpError(response));
     const body = (await response.json()) as T212Page<T>;
     const items = body.items ?? [];
@@ -332,15 +346,14 @@ const syncStream = async <T>(
       .filter((row): row is TransactionRow => row !== null);
     inserted += await ingest(db, rows);
 
-    const next = extractCursor(body.nextPagePath);
-    if (!next) {
+    if (!body.nextPagePath) {
       reachedEnd = true;
       break;
     }
-    cursor = next;
+    nextPath = body.nextPagePath;
   }
 
-  await writeWatermark(db, userId, config.stream, reachedEnd ? '' : cursor ?? '');
+  await writeWatermark(db, userId, config.stream, reachedEnd ? '' : nextPath ?? '');
   return inserted;
 };
 
