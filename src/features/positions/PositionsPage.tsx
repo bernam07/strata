@@ -9,6 +9,7 @@ import { Collapsible } from '@/ui/Collapsible';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { pct1 as percent } from '@/ui/format';
 import { usePositions } from './api/usePositions';
+import { useBrokerAccounts } from '@/features/accounts/api/useBrokerAccounts';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
 import { PositionRow } from './components/PositionRow';
@@ -54,6 +55,7 @@ const Bars = ({
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
   const { data: crypto = [] } = useCrypto();
+  const { data: brokers } = useBrokerAccounts();
   const refresh = useRefreshPrices();
 
   const positions = data?.positions ?? [];
@@ -88,6 +90,10 @@ export const PositionsPage = () => {
     (position) => (position.marketValue ?? position.costBasis).toNumber(),
   );
   const hasSectors = sectorSlices.some((slice) => slice.group !== 'Other');
+
+  const freeCash = money(brokers?.get('t212')?.free ?? 0);
+  const hasCash = freeCash.greaterThan(0);
+  const totalWithCash = totalMarket.plus(freeCash);
 
   const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
   const cryptoBadge =
@@ -150,11 +156,16 @@ export const PositionsPage = () => {
           <Card className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                Market value
+                Portfolio value
               </p>
               <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                {formatEur(totalMarket)}
+                {formatEur(totalWithCash)}
               </p>
+              {hasCash && (
+                <p className="mt-1 text-xs tabular-nums text-[var(--text-muted)]">
+                  {formatEur(totalMarket)} holdings · {formatEur(freeCash)} cash
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-[var(--text-muted)]">Cost basis</p>
