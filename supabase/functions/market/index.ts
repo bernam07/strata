@@ -425,12 +425,12 @@ const refresh = async (
     if (!quoted || !entry) continue;
     entry.market += Number(holding.quantity) * quoted.price * rate(quoted.currency);
   }
-  for (const [userId, entry] of byUser) {
-    await db.rpc('set_broker_total', {
-      p_user: userId,
-      p_total: Math.round((entry.free + entry.market) * 100) / 100,
-    });
-  }
+  // NOTE: we deliberately do NOT overwrite broker_accounts.total here. That
+  // total is Trading 212's own authoritative account value (cash + holdings at
+  // T212's prices), set by the sync. Re-deriving it from Yahoo prices made the
+  // account balance drift away from what T212 shows every time prices refreshed.
+  // Holdings' current_price is still updated above, so the Portfolio view stays
+  // live; only the headline account total stays anchored to T212.
 
   await recordSnapshots(db, byUser).catch(() => undefined);
 
