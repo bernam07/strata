@@ -332,7 +332,7 @@ const refresh = async (
   const errors: string[] = [];
   let holdingsQuery = db
     .from('holdings')
-    .select('user_id, instrument_id, quantity, average_price, currency');
+    .select('user_id, instrument_id, quantity, average_price, current_price, currency');
   if (userId) holdingsQuery = holdingsQuery.eq('user_id', userId);
   const { data: holdings } = await holdingsQuery;
   if (!holdings || holdings.length === 0) return { updated: 0, errors };
@@ -420,17 +420,25 @@ const refresh = async (
   const { data: brokers } = await brokersQuery;
   for (const b of brokers ?? []) byUser.set(b.user_id, { free: Number(b.free), market: 0 });
   for (const holding of holdings) {
-    const quoted = priceByInstrument.get(holding.instrument_id);
     const entry = byUser.get(holding.user_id);
-    if (!quoted || !entry) continue;
-    entry.market += Number(holding.quantity) * quoted.price * rate(quoted.currency);
+    if (!entry) continue;
+    const quoted = priceByInstrument.get(holding.instrument_id);
+    // Use the fresh quote when we have one, else the last-known stored price, so
+    // a holding that failed to quote this run isn't dropped from the total.
+    const price = quoted ? quoted.price : Number(holding.current_price ?? 0);
+    const currency = quoted ? quoted.currency : holding.currency;
+    entry.market += Number(holding.quantity) * price * rate(currency);
   }
-  // NOTE: we deliberately do NOT overwrite broker_accounts.total here. That
-  // total is Trading 212's own authoritative account value (cash + holdings at
-  // T212's prices), set by the sync. Re-deriving it from Yahoo prices made the
-  // account balance drift away from what T212 shows every time prices refreshed.
-  // Holdings' current_price is still updated above, so the Portfolio view stays
-  // live; only the headline account total stays anchored to T212.
+  // Keep the broker account total in step with the live Portfolio value: free
+  // cash + holdings at the same prices the Portfolio shows. A price refresh now
+  // moves the account and the Portfolio together and they stay consistent; a
+  // T212 sync still resets both to T212's own authoritative numbers.
+  for (const [uid, entry] of byUser) {
+    await db.rpc('set_broker_total', {
+      p_user: uid,
+      p_total: Math.round((entry.free + entry.market) * 100) / 100,
+    });
+  }
 
   await recordSnapshots(db, byUser).catch(() => undefined);
 
