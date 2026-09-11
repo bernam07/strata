@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { formatEur, isNegative, money, zero, type Money } from '@/core/money/money';
+import {
+  formatEur,
+  isNegative,
+  money,
+  toNumber,
+  zero,
+  type Money,
+} from '@/core/money/money';
 import {
   comparePeriods,
   monthlyExpenses,
@@ -14,12 +21,14 @@ import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
-import { Stat } from '@/ui/Stat';
+import { Amount } from '@/ui/Amount';
 import { Select } from '@/ui/Field';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
+import { CategoryTiles, type CategoryTile } from './CategoryTiles';
+import { WeeklySpend } from './WeeklySpend';
 import {
   useAssignCategory,
   useAssignments,
@@ -101,6 +110,31 @@ export const ExpensesPage = () => {
     [spentThisMonth],
   );
 
+  const categoryTiles = useMemo<CategoryTile[]>(() => {
+    const currentMonth = monthKey(0);
+    const nameById = new Map(categories.map((c) => [c.id, c.name]));
+    const agg = new Map<string, { amount: number; count: number }>();
+    for (const transaction of transactions) {
+      if (transaction.kind !== 'expense') continue;
+      if (!transaction.occurredAt.startsWith(currentMonth)) continue;
+      const categoryId = assignments?.get(transaction.id);
+      if (!categoryId) continue;
+      const entry = agg.get(categoryId) ?? { amount: 0, count: 0 };
+      entry.amount += Math.abs(Number(transaction.amount));
+      entry.count += 1;
+      agg.set(categoryId, entry);
+    }
+    return [...agg.entries()]
+      .map(([id, value]) => ({
+        id,
+        name: nameById.get(id) ?? 'Uncategorized',
+        amount: value.amount,
+        count: value.count,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6);
+  }, [transactions, categories, assignments]);
+
   const cashflow = useMemo(
     () => monthlyCashflow(transactions).slice(0, 6),
     [transactions],
@@ -157,25 +191,42 @@ export const ExpensesPage = () => {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat
-          label="Spent this month"
-          value={formatEur(spend.current)}
-          hint={monthLabel(monthKey(0))}
-          tone="negative"
-        />
-        <Stat
-          label="vs last month"
-          value={`${spendUp ? '+' : '−'}${formatEur(spend.delta.abs())}`}
-          hint={spendUp ? 'more than last month' : 'less than last month'}
-          tone={spendUp ? 'negative' : 'positive'}
-        />
-        <Stat
-          label="Recurring"
-          value={`~${formatEur(recurringMonthly)}`}
-          hint="estimated per month"
-        />
-      </div>
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {monthLabel(monthKey(0))} · spent so far
+            </span>
+            <Amount value={toNumber(spend.current)} size="xl" />
+          </div>
+          <span
+            className="flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-bold"
+            style={{
+              color: spendUp ? 'var(--negative)' : 'var(--positive)',
+              background: `color-mix(in srgb, ${
+                spendUp ? 'var(--negative)' : 'var(--positive)'
+              } 13%, transparent)`,
+            }}
+          >
+            {spendUp ? '▲' : '▼'} {formatEur(spend.delta.abs())}
+          </span>
+        </div>
+        <WeeklySpend transactions={transactions} />
+      </Card>
+
+      {categoryTiles.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between px-0.5">
+            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Categories
+            </h2>
+            <span className="text-xs font-semibold tabular-nums text-[var(--text-muted)]">
+              {monthLabel(monthKey(0))}
+            </span>
+          </div>
+          <CategoryTiles tiles={categoryTiles} />
+        </section>
+      )}
 
       <Card className="flex flex-col gap-4">
         <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
