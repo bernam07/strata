@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { transactionsToCsv } from '@/core/transactions/exportCsv';
 import { Button } from '@/ui/Button';
@@ -32,6 +33,15 @@ export const TransactionsPage = () => {
   const reverse = useReverseTransaction();
   const del = useDeleteTransaction();
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const add = searchParams.get('new');
+    if (add === 'transaction' || add === 'transfer') {
+      setMode(add);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const patchFilter = (patch: Partial<TransactionFilter>) =>
     setFilter((current) => {
