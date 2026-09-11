@@ -13,8 +13,6 @@ import { useBrokerAccounts } from '@/features/accounts/api/useBrokerAccounts';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
 import { PositionRow } from './components/PositionRow';
-import { CryptoManager } from '@/features/crypto/CryptoManager';
-import { useCrypto } from '@/features/crypto/api/useCrypto';
 
 const AnalyticsView = lazy(() =>
   import('@/features/analytics/AnalyticsView').then((module) => ({
@@ -54,7 +52,6 @@ const Bars = ({
 
 export const PositionsPage = () => {
   const { data, isLoading } = usePositions();
-  const { data: crypto = [] } = useCrypto();
   const { data: brokers } = useBrokerAccounts();
   const refresh = useRefreshPrices();
 
@@ -95,10 +92,6 @@ export const PositionsPage = () => {
   const hasCash = freeCash.greaterThan(0);
   const totalWithCash = totalMarket.plus(freeCash);
 
-  const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
-  const cryptoBadge =
-    cryptoTotal > 0 ? formatEur(money(cryptoTotal)) : undefined;
-
   const sortedPositions = positions
     .slice()
     .sort((a, b) =>
@@ -106,12 +99,6 @@ export const PositionsPage = () => {
         .minus(a.marketValue ?? a.costBasis)
         .toNumber(),
     );
-
-  const cryptoSection = (
-    <Collapsible title="Crypto" badge={cryptoBadge}>
-      <CryptoManager />
-    </Collapsible>
-  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -149,7 +136,6 @@ export const PositionsPage = () => {
               <Button>Go to Integrations</Button>
             </Link>
           </Card>
-          {cryptoSection}
         </>
       ) : (
         <>
@@ -248,8 +234,6 @@ export const PositionsPage = () => {
               />
             </Collapsible>
           )}
-
-          {cryptoSection}
         </>
       )}
     </div>

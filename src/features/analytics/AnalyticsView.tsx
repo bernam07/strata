@@ -19,10 +19,15 @@ import {
   applyBrokerBalances,
   useBrokerAccounts,
 } from '@/features/accounts/api/useBrokerAccounts';
-import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHistory';
+import {
+  useBackfillHistory,
+  useInvestmentsHistory,
+} from '@/features/dashboard/api/useNetWorthHistory';
+import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Skeleton } from '@/ui/Skeleton';
 import { Stat } from '@/ui/Stat';
+import { toast } from '@/ui/toast';
 import { Link } from 'react-router-dom';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { NetWorthChart } from './NetWorthChart';
@@ -75,7 +80,20 @@ export const AnalyticsView = () => {
   const accountsQuery = useAccounts();
   const brokersQuery = useBrokerAccounts();
   const { data: investmentsHistory = [] } = useInvestmentsHistory();
+  const backfill = useBackfillHistory();
   const [period, setPeriod] = useState<(typeof periods)[number]['key']>('All');
+
+  const reconstruct = () =>
+    backfill.mutate(undefined, {
+      onSuccess: (data) =>
+        toast(
+          data?.inserted
+            ? `Reconstructed ${data.inserted} day${data.inserted === 1 ? '' : 's'} of history`
+            : 'History is already up to date',
+          'success',
+        ),
+      onError: () => toast("Couldn't reconstruct history", 'error'),
+    });
 
   const model = useMemo(() => {
     const transactions = transactionsQuery.data ?? [];
@@ -218,11 +236,20 @@ export const AnalyticsView = () => {
               </div>
             </div>
             <NetWorthChart series={shownSeries} />
-            <p className="text-xs text-[var(--text-muted)]">
-              {usingSnapshots
-                ? 'Market value of your holdings, from your daily snapshots.'
-                : 'Reconstructed at acquisition cost from your ledger. Market value fills in as daily snapshots accumulate — reconstruct earlier history from the dashboard.'}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                {usingSnapshots
+                  ? 'Market value of your holdings, from your daily snapshots.'
+                  : 'Reconstructed at acquisition cost from your ledger. Market value fills in as daily snapshots accumulate.'}
+              </p>
+              <Button
+                variant="ghost"
+                onClick={reconstruct}
+                disabled={backfill.isPending}
+              >
+                {backfill.isPending ? 'Reconstructing…' : 'Reconstruct history'}
+              </Button>
+            </div>
           </Card>
 
           <BenchmarkCard />

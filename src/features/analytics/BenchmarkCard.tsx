@@ -149,7 +149,7 @@ export const BenchmarkCard = () => {
 
       {model.mine.length < 2 ? (
         <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-          Not enough investment history yet. Reconstruct it on the dashboard, or
+          Not enough investment history yet. Use “Reconstruct history” above, or
           it fills in daily.
         </p>
       ) : (

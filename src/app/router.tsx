@@ -46,6 +46,7 @@ const SettingsPage = lazyPage(
   () => import('@/features/settings/SettingsPage'),
   'SettingsPage',
 );
+const CryptoPage = lazyPage(() => import('@/features/crypto/CryptoPage'), 'CryptoPage');
 
 const PageFallback = () => (
   <p className="text-sm text-[var(--text-muted)]">Loading…</p>
@@ -79,6 +80,7 @@ export const AppRouter = () => {
             <Route path="/positions/:id" element={<InstrumentDetailPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/dividends" element={<DividendsPage />} />
+            <Route path="/crypto" element={<CryptoPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
