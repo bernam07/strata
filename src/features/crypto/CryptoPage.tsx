@@ -2,7 +2,10 @@ import { useMemo } from 'react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/ui/PageHeader';
-import { Amount, AmountInline } from '@/ui/Amount';
+import { AmountInline } from '@/ui/Amount';
+import { PageHero } from '@/ui/PageHero';
+import { DeltaPill } from '@/ui/DeltaPill';
+import { Stat } from '@/ui/Stat';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { CryptoManager } from './CryptoManager';
 import { useCrypto } from './api/useCrypto';
@@ -54,46 +57,44 @@ export const CryptoPage = () => {
       />
 
       {holdings.length > 0 && (
-        <Card className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Total value
-            </span>
-            <Amount value={totals.value} size="xl" />
+        <PageHero
+          label="Total value"
+          value={totals.value}
+          aside={
+            totals.hasDay ? (
+              <DeltaPill
+                value={totals.day}
+                tone={dayUp ? 'positive' : 'negative'}
+                note="today"
+              />
+            ) : undefined
+          }
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Stat
+              label="Unrealized gain"
+              value={<AmountInline value={totals.gain} signed />}
+              hint={
+                totals.gainPct !== null
+                  ? `${gainUp ? '+' : '−'}${(Math.abs(totals.gainPct) * 100).toFixed(1)}%`
+                  : undefined
+              }
+              tone={gainUp ? 'positive' : 'negative'}
+            />
+            <Stat
+              label="Today"
+              value={
+                totals.hasDay ? (
+                  <AmountInline value={totals.day} signed />
+                ) : (
+                  '—'
+                )
+              }
+              hint={totals.hasDay ? undefined : 'no intraday data yet'}
+              tone={totals.hasDay ? (dayUp ? 'positive' : 'negative') : 'default'}
+            />
           </div>
-          <div className="text-right">
-            <p className="text-xs text-[var(--text-muted)]">Unrealized gain</p>
-            <p
-              className="mt-1 text-lg font-semibold"
-              style={{ color: gainUp ? 'var(--positive)' : 'var(--negative)' }}
-            >
-              <AmountInline value={totals.gain} signed />
-              {totals.gainPct !== null && (
-                <span className="ml-1.5 text-xs">
-                  {gainUp ? '+' : '−'}
-                  {(Math.abs(totals.gainPct) * 100).toFixed(1)}%
-                </span>
-              )}
-            </p>
-            <p className="mt-2 text-xs text-[var(--text-muted)]">Today</p>
-            <p
-              className="text-sm font-semibold"
-              style={{
-                color: !totals.hasDay
-                  ? 'var(--text-muted)'
-                  : dayUp
-                    ? 'var(--positive)'
-                    : 'var(--negative)',
-              }}
-            >
-              {totals.hasDay ? (
-                <AmountInline value={totals.day} signed />
-              ) : (
-                '— no intraday data yet'
-              )}
-            </p>
-          </div>
-        </Card>
+        </PageHero>
       )}
 
       <Card>

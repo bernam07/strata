@@ -70,7 +70,7 @@ export const Movers = ({
     <div className="grid gap-3 sm:grid-cols-2">
       {gainers.length > 0 && (
         <div className="rounded-[var(--radius-card)] neu-flat p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--positive)]">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--positive)]">
             {useDay ? 'Up today' : 'Leaders'}
           </p>
           <div className="flex flex-col gap-0.5">
@@ -87,7 +87,7 @@ export const Movers = ({
       )}
       {losers.length > 0 && (
         <div className="rounded-[var(--radius-card)] neu-flat p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--negative)]">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--negative)]">
             {useDay ? 'Down today' : 'Laggards'}
           </p>
           <div className="flex flex-col gap-0.5">

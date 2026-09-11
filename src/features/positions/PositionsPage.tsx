@@ -4,7 +4,10 @@ import { isNegative, money, sum, toNumber, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
-import { Amount, AmountInline } from '@/ui/Amount';
+import { AmountInline } from '@/ui/Amount';
+import { PageHero } from '@/ui/PageHero';
+import { DeltaPill } from '@/ui/DeltaPill';
+import { Stat } from '@/ui/Stat';
 import { SectionTitle } from '@/ui/SectionTitle';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
@@ -151,41 +154,45 @@ export const PositionsPage = () => {
         </Card>
       ) : (
         <>
-          <Card className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                Portfolio value
-              </span>
-              <Amount value={toNumber(totalWithCash)} size="xl" />
-              {hasCash && (
-                <span className="text-xs text-[var(--text-muted)]">
+          <PageHero
+            label="Portfolio value"
+            value={toNumber(totalWithCash)}
+            sub={
+              hasCash ? (
+                <>
                   <AmountInline value={toNumber(totalMarket)} /> holdings ·{' '}
                   <AmountInline value={toNumber(freeCash)} /> cash
-                </span>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-[var(--text-muted)]">Cost basis</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--text-2)]">
-                <AmountInline value={toNumber(totalCost)} />
-              </p>
-              <p className="mt-2 text-xs text-[var(--text-muted)]">
-                Unrealized gain
-              </p>
-              <p
-                className="text-lg font-semibold"
-                style={{
-                  color: totalGain.equals(zero())
-                    ? 'var(--text-muted)'
+                </>
+              ) : undefined
+            }
+            aside={
+              !totalGain.equals(zero()) ? (
+                <DeltaPill
+                  value={toNumber(totalGain)}
+                  tone={gainNegative ? 'negative' : 'positive'}
+                  note="unrealized"
+                />
+              ) : undefined
+            }
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <Stat
+                label="Cost basis"
+                value={<AmountInline value={toNumber(totalCost)} />}
+              />
+              <Stat
+                label="Unrealized gain"
+                value={<AmountInline value={toNumber(totalGain)} signed />}
+                tone={
+                  totalGain.equals(zero())
+                    ? 'default'
                     : gainNegative
-                      ? 'var(--negative)'
-                      : 'var(--positive)',
-                }}
-              >
-                <AmountInline value={toNumber(totalGain)} />
-              </p>
+                      ? 'negative'
+                      : 'positive'
+                }
+              />
             </div>
-          </Card>
+          </PageHero>
 
           <div className="flex flex-col gap-2">
             <SectionTitle note={`${positions.length} held`}>Stocks</SectionTitle>

@@ -9,7 +9,7 @@ export const DiversificationBars = ({
   slices: Slice[];
 }) => (
   <div className="flex flex-col gap-3">
-    <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+    <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
       {title}
     </h3>
     {slices.length === 0 ? (

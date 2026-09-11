@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Surface } from '@/ui/Surface';
+import { CardTitle } from '@/ui/Heading';
 import {
   useCreateWidgetToken,
   useWidgetToken,
@@ -387,7 +388,7 @@ export const WidgetCard = () => {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <h2 className="font-semibold text-[var(--text-strong)]">iPhone widget</h2>
+        <CardTitle>iPhone widget</CardTitle>
         <p className="text-xs text-[var(--text-muted)]">
           A read-only link with just your investments — no cash balances, no
           transactions. Use it with the Scriptable app.
@@ -406,7 +407,7 @@ export const WidgetCard = () => {
       ) : (
         <div className="flex flex-col gap-4">
           <Surface elevation="sunken" className="flex flex-col gap-2 p-4">
-            <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Steps
             </p>
             <ol className="ml-4 list-decimal text-sm text-[var(--text-2)]">

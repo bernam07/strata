@@ -1,6 +1,7 @@
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { usePushNotifications } from './usePush';
+import { CardTitle } from '@/ui/Heading';
 
 export const NotificationsCard = () => {
   const push = usePushNotifications();
@@ -10,9 +11,9 @@ export const NotificationsCard = () => {
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-[var(--text-strong)]">
+          <CardTitle>
             Price alert notifications
-          </h2>
+          </CardTitle>
           <p className="text-xs text-[var(--text-muted)]">
             Get a push when a price alert triggers, even with the app closed.
           </p>

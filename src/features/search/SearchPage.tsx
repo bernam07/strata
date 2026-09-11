@@ -11,6 +11,7 @@ import { RangeTabs } from '@/features/positions/RangeTabs';
 import { AlertForm, AlertsList } from '@/features/alerts/Alerts';
 import { usePriceAlerts } from '@/features/alerts/api/useAlerts';
 import { usePersistentState } from '@/app/usePersistentState';
+import { SectionTitle } from '@/ui/SectionTitle';
 import {
   useBatchQuotes,
   useQuote,
@@ -205,9 +206,7 @@ export const SearchPage = () => {
           <AlertsList alerts={alerts} quotes={quotes} />
           {watchlist.length > 0 ? (
             <section className="flex flex-col gap-3">
-              <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Watchlist
-              </h2>
+              <SectionTitle>Watchlist</SectionTitle>
               {watchlist.map((item) => (
               <button
                 key={item.symbol}

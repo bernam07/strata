@@ -188,7 +188,7 @@ export const TransactionForm = ({
       </Labelled>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Amount (EUR)
         </span>
         <div className="relative">

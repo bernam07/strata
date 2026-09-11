@@ -5,6 +5,7 @@ import { Button } from '@/ui/Button';
 import { MoneyInput } from '@/ui/Field';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import type { MiniQuote } from '@/features/search/api/useMarket';
+import { SectionTitle } from '@/ui/SectionTitle';
 import {
   useCreateAlert,
   useDeleteAlert,
@@ -69,7 +70,7 @@ export const AlertForm = ({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         Price alert
       </p>
       <div className="flex items-end gap-2">
@@ -142,9 +143,7 @@ export const AlertsList = ({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-        Alerts
-      </h2>
+      <SectionTitle>Alerts</SectionTitle>
       {alerts.map((alert) => {
         const quote = quotes[alert.symbol];
         const triggered = Boolean(alert.triggeredAt);

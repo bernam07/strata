@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { isNegative, toNumber } from '@/core/money/money';
-import { AmountInline } from '@/ui/Amount';
+import { PageHero } from '@/ui/PageHero';
+import { SectionTitle } from '@/ui/SectionTitle';
 import {
   useAccounts,
   useDeleteAccount,
@@ -157,18 +158,12 @@ export const AccountDetailPage = () => {
               : ''}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-            Balance
-          </p>
-          <p
-            className="text-2xl font-bold tabular-nums"
-            style={{ color: negative ? 'var(--negative)' : 'var(--text-strong)' }}
-          >
-            <AmountInline value={toNumber(balance)} />
-          </p>
-        </div>
       </Card>
+
+      <PageHero
+        label={negative ? 'Owed' : 'Balance'}
+        value={toNumber(balance)}
+      />
 
       {adding && account && (
         <Card>
@@ -181,17 +176,9 @@ export const AccountDetailPage = () => {
 
       {isInvestment && positions.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between px-0.5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Holdings
-            </h2>
-            <Link
-              to="/positions"
-              className="tap text-xs font-semibold text-[var(--accent)]"
-            >
-              Analytics →
-            </Link>
-          </div>
+          <SectionTitle action={{ to: '/positions', label: 'Analytics' }}>
+            Holdings
+          </SectionTitle>
           <div className="flex flex-col gap-2">
             {positions
               .slice()

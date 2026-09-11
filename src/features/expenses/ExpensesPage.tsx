@@ -23,6 +23,7 @@ import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
 import { AmountInline } from '@/ui/Amount';
 import { SectionTitle } from '@/ui/SectionTitle';
+import { CardTitle } from '@/ui/Heading';
 import { Select } from '@/ui/Field';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
@@ -55,9 +56,6 @@ const monthKey = (offset: number): string => {
 // sections below the chart belong to the same design language as the tiles.
 const rowClass =
   'flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-3';
-const headingClass =
-  'text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]';
-
 const ColorDot = ({ color }: { color: string | null }) => (
   <span
     aria-hidden="true"
@@ -210,7 +208,7 @@ export const ExpensesPage = () => {
       )}
 
       <Card className="flex flex-col gap-4">
-        <h2 className={headingClass}>Budgets</h2>
+        <CardTitle>Budgets</CardTitle>
         <BudgetPanel categories={categories} spentOf={spentOf} />
       </Card>
 

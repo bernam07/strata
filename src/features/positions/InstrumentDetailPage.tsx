@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { pct1 as percent, qty4 as quantity } from '@/ui/format';
 import { Link, useParams } from 'react-router-dom';
 import { usePersistentState } from '@/app/usePersistentState';
 import { isNegative, money, toNumber } from '@/core/money/money';
 import { AmountInline } from '@/ui/Amount';
+import { Stat } from '@/ui/Stat';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
@@ -77,28 +78,6 @@ const PriceSource = ({
   );
 };
 
-const Stat = ({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: ReactNode;
-  color?: string;
-}) => (
-  <div className="rounded-[var(--radius-field)] neu-sunken p-4">
-    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-      {label}
-    </p>
-    <p
-      className="mt-1 text-lg font-bold tabular-nums"
-      style={{ color: color ?? 'var(--text-strong)' }}
-    >
-      {value}
-    </p>
-  </div>
-);
-
 export const InstrumentDetailPage = () => {
   const { id = '' } = useParams();
   const positionsQuery = usePositions();
@@ -147,11 +126,11 @@ export const InstrumentDetailPage = () => {
   );
 
   const gain = position?.unrealized ?? null;
-  const gainColor = gain
+  const gainTone = gain
     ? isNegative(gain)
-      ? 'var(--negative)'
-      : 'var(--positive)'
-    : 'var(--text-muted)';
+      ? ('negative' as const)
+      : ('positive' as const)
+    : ('default' as const);
 
   return (
     <div className="flex flex-col gap-8">
@@ -179,7 +158,7 @@ export const InstrumentDetailPage = () => {
         </div>
         {position?.dayChange && position.dayChangePct !== null && (
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Today
             </p>
             <p
@@ -224,18 +203,18 @@ export const InstrumentDetailPage = () => {
                 '—'
               )
             }
-            color={gainColor}
+            tone={gainTone}
           />
         </div>
       )}
 
       {holding && holding.currency !== 'EUR' && (
         <Card className="flex flex-wrap items-center gap-x-8 gap-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Native · {holding.currency}
           </p>
           <div>
-            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Price{' '}
             </span>
             <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
@@ -243,7 +222,7 @@ export const InstrumentDetailPage = () => {
             </span>
           </div>
           <div>
-            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Avg cost{' '}
             </span>
             <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
@@ -251,7 +230,7 @@ export const InstrumentDetailPage = () => {
             </span>
           </div>
           <div>
-            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Market value{' '}
             </span>
             <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
@@ -264,10 +243,10 @@ export const InstrumentDetailPage = () => {
       {chartPoints.length >= 2 ? (
         <Card className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Price
             </p>
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               {usingLive ? 'live' : 'stored'}
             </p>
           </div>
@@ -281,7 +260,7 @@ export const InstrumentDetailPage = () => {
         </Card>
       ) : liveError ? (
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Price
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -303,7 +282,7 @@ export const InstrumentDetailPage = () => {
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Dividends received
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--positive)]">
