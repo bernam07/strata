@@ -4,6 +4,7 @@ import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHisto
 import { useQuote } from '@/features/search/api/useMarket';
 import { Card } from '@/ui/Card';
 import { SegmentedControl } from '@/ui/SegmentedControl';
+import { CardTitle } from '@/ui/Heading';
 
 interface Point {
   date: string;
@@ -109,9 +110,9 @@ export const BenchmarkCard = () => {
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold text-[var(--text-strong)]">
+        <CardTitle>
           Your portfolio vs the market
-        </h2>
+        </CardTitle>
         <div className="flex gap-2">
           <SegmentedControl
             value={benchmark.symbol}
@@ -147,7 +148,7 @@ export const BenchmarkCard = () => {
         <>
           <div className="flex flex-wrap gap-x-8 gap-y-1">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--accent)]">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--accent)]">
                 You
               </p>
               <p className="text-lg font-bold tabular-nums text-[var(--text-strong)]">
@@ -155,7 +156,7 @@ export const BenchmarkCard = () => {
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
                 {benchmark.label}
               </p>
               <p className="text-lg font-bold tabular-nums text-[var(--text-2)]">

@@ -102,7 +102,7 @@ export const RebalancePanel = ({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between px-0.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Set target weights to see what to buy or sell
         </span>
         {rows.length > 0 && (
@@ -119,7 +119,7 @@ export const RebalancePanel = ({
           </span>
         )}
       </div>
-      <div className="flex items-center gap-3 px-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+      <div className="flex items-center gap-3 px-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         <span className="flex-1">Holding</span>
         <span className="w-12 text-right">Now</span>
         <span className="w-14 text-right">Target</span>

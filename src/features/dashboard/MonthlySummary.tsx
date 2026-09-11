@@ -7,6 +7,7 @@ import type { SeriesPoint } from '@/core/analytics/series';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Card } from '@/ui/Card';
 import { eur0 as eur } from '@/ui/format';
+import { CardTitle } from '@/ui/Heading';
 
 const monthName = new Intl.DateTimeFormat('en-GB', { month: 'long' });
 
@@ -39,7 +40,7 @@ const Figure = ({
   children?: React.ReactNode;
 }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+    <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
       {label}
     </span>
     <span
@@ -86,9 +87,9 @@ export const MonthlySummary = ({
   return (
     <Card className={`flex flex-col gap-4${className ? ` ${className}` : ''}`}>
       <div className="flex items-baseline justify-between">
-        <h2 className="font-semibold text-[var(--text-strong)]">
+        <CardTitle>
           {model.label} so far
-        </h2>
+        </CardTitle>
         {model.netWorthChange !== null && (
           <span
             className="text-sm font-semibold tabular-nums"

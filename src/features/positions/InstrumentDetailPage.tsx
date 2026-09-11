@@ -158,7 +158,7 @@ export const InstrumentDetailPage = () => {
         </div>
         {position?.dayChange && position.dayChangePct !== null && (
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Today
             </p>
             <p
@@ -210,11 +210,11 @@ export const InstrumentDetailPage = () => {
 
       {holding && holding.currency !== 'EUR' && (
         <Card className="flex flex-wrap items-center gap-x-8 gap-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Native · {holding.currency}
           </p>
           <div>
-            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Price{' '}
             </span>
             <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
@@ -222,7 +222,7 @@ export const InstrumentDetailPage = () => {
             </span>
           </div>
           <div>
-            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Avg cost{' '}
             </span>
             <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
@@ -230,7 +230,7 @@ export const InstrumentDetailPage = () => {
             </span>
           </div>
           <div>
-            <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Market value{' '}
             </span>
             <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
@@ -243,10 +243,10 @@ export const InstrumentDetailPage = () => {
       {chartPoints.length >= 2 ? (
         <Card className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Price
             </p>
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
               {usingLive ? 'live' : 'stored'}
             </p>
           </div>
@@ -260,7 +260,7 @@ export const InstrumentDetailPage = () => {
         </Card>
       ) : liveError ? (
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Price
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -282,7 +282,7 @@ export const InstrumentDetailPage = () => {
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Dividends received
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--positive)]">

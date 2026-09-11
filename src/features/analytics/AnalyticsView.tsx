@@ -34,6 +34,7 @@ import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { NetWorthChart } from './NetWorthChart';
 import { BenchmarkCard } from './BenchmarkCard';
 import { DiversificationBars } from './DiversificationBars';
+import { CardTitle } from '@/ui/Heading';
 
 interface Mover {
   instrumentId: string;
@@ -216,9 +217,9 @@ export const AnalyticsView = () => {
 
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-[var(--text-strong)]">
+              <CardTitle>
                 Investments over time
-              </h2>
+              </CardTitle>
               <SegmentedControl
                 value={period}
                 onChange={setPeriod}
@@ -251,7 +252,7 @@ export const AnalyticsView = () => {
           {(model.gainers.length > 0 || model.losers.length > 0) && (
             <Card className="grid gap-8 sm:grid-cols-2">
               <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                   Top gainers
                 </h3>
                 {model.gainers.length > 0 ? (
@@ -263,7 +264,7 @@ export const AnalyticsView = () => {
                 )}
               </div>
               <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                   Top losers
                 </h3>
                 {model.losers.length > 0 ? (
@@ -284,13 +285,13 @@ export const AnalyticsView = () => {
 
           {model.years.length > 0 && (
             <Card className="flex flex-col gap-4">
-              <h2 className="font-semibold text-[var(--text-strong)]">
+              <CardTitle>
                 By calendar year
-              </h2>
+              </CardTitle>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                    <tr className="text-left text-xs uppercase tracking-[0.12em] text-[var(--text-muted)]">
                       <th className="pb-2 pr-4">Year</th>
                       <th className="pb-2 pr-4 text-right">Inflows</th>
                       <th className="pb-2 pr-4 text-right">Dividends</th>

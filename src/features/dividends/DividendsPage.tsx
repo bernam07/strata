@@ -307,7 +307,7 @@ export const DividendsPage = () => {
                     <div>
                       <p className="text-sm font-semibold text-[var(--text-strong)]">
                         {nameOf(instruments, item.instrumentId)}
-                        <span className="ml-2 rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                        <span className="ml-2 rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
                           estimated · {cadenceLabel[item.cadence]}
                         </span>
                       </p>

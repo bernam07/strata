@@ -17,6 +17,7 @@ import {
 } from './api/useT212';
 import { SyncRunList } from './SyncRunList';
 import { WidgetCard } from './WidgetCard';
+import { CardTitle } from '@/ui/Heading';
 
 export const IntegrationsPage = () => {
   const connection = useT212Connection();
@@ -134,7 +135,7 @@ export const IntegrationsPage = () => {
       <Card className="flex flex-col gap-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-[var(--text-strong)]">Sync</h2>
+            <CardTitle>Sync</CardTitle>
             <p className="text-xs text-[var(--text-muted)]">
               Imports orders, dividends and cash movements.
             </p>

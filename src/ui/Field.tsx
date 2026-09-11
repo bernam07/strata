@@ -20,7 +20,7 @@ interface LabelledProps {
 
 export const Labelled = ({ label, children }: LabelledProps) => (
   <label className="flex flex-col gap-1.5">
-    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
       {label}
     </span>
     {children}

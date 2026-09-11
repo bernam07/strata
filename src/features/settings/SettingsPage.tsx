@@ -9,6 +9,7 @@ import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/ui/PageHeader';
+import { CardTitle } from '@/ui/Heading';
 
 interface RestoreTable {
   table: string;
@@ -180,9 +181,9 @@ export const SettingsPage = () => {
 
       <Card className="flex flex-col gap-3">
         <div>
-          <h2 className="font-semibold text-[var(--text-strong)]">
+          <CardTitle>
             Backup your data
-          </h2>
+          </CardTitle>
           <p className="text-xs text-[var(--text-muted)]">
             Download everything — accounts, transactions, categories, budgets,
             alerts, watchlist, targets, notes and net-worth history — as a JSON
@@ -198,9 +199,9 @@ export const SettingsPage = () => {
 
       <Card className="flex flex-col gap-3">
         <div>
-          <h2 className="font-semibold text-[var(--text-strong)]">
+          <CardTitle>
             Restore from a backup
-          </h2>
+          </CardTitle>
           <p className="text-xs text-[var(--text-muted)]">
             Restores your categories, budgets, watchlist, price alerts, crypto
             and preferences from a backup file. The synced ledger (accounts and
