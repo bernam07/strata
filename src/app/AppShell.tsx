@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { CommandPalette } from '@/features/command/CommandPalette';
+import { QuickAdd } from './QuickAdd';
 import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
 
@@ -282,6 +283,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       <BottomBar onMore={() => setMoreOpen(true)} />
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <QuickAdd />
       <Toaster />
     </div>
   );

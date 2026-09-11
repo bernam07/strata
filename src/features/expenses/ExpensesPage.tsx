@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { formatEur, isNegative, money, zero, type Money } from '@/core/money/money';
 import {
   comparePeriods,
@@ -46,6 +47,14 @@ export const ExpensesPage = () => {
   const { data: assignments } = useAssignments();
   const assign = useAssignCategory();
   const [adding, setAdding] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('new')) {
+      setAdding(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const categoryName = useMemo(() => {
     const byId = new Map(categories.map((category) => [category.id, category.name]));
