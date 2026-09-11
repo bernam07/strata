@@ -23,6 +23,7 @@ export type IconName =
   | 'integrations'
   | 'search'
   | 'settings'
+  | 'crypto'
   | 'more';
 
 export const icons: Record<IconName, ReactNode> = {
@@ -65,6 +66,12 @@ export const icons: Record<IconName, ReactNode> = {
     <>
       <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3" />
       <path d="M15 4v4M9 10v4M15 16v4" />
+    </>,
+  ),
+  crypto: wrap(
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M10 8v8M13.5 8v8M9 10.2h4.2a1.9 1.9 0 0 1 0 3.8H9M9 12h4" />
     </>,
   ),
   more: wrap(

@@ -140,6 +140,7 @@ export const useRefreshPrices = () => {
       client.invalidateQueries({ queryKey: ['broker-accounts'] });
       client.invalidateQueries({ queryKey: ['instrument-prices'] });
       client.invalidateQueries({ queryKey: ['net-worth-history'] });
+      client.invalidateQueries({ queryKey: ['crypto-holdings'] });
     },
   });
 };

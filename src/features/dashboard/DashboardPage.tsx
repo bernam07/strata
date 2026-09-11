@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
-import { netWorthAtCostSeries, sliceFrom } from '@/core/analytics/series';
 import { money, sum, toNumber, zero, type Money } from '@/core/money/money';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import {
@@ -15,56 +14,14 @@ import { useCrypto } from '@/features/crypto/api/useCrypto';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
-import { usePersistentState } from '@/app/usePersistentState';
 import { AlertBanner } from '@/features/alerts/Alerts';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
-import { NetWorthTrend } from './NetWorthTrend';
 import { GoalCard } from './GoalCard';
 import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
-import {
-  useBackfillHistory,
-  useNetWorthHistory,
-  useRecordNetWorth,
-} from './api/useNetWorthHistory';
-
-type Period = '1M' | '6M' | '1Y' | 'All';
-
-const periods: Period[] = ['1M', '6M', '1Y', 'All'];
-
-const periodStart = (period: Period): Date | null => {
-  if (period === 'All') return null;
-  const now = new Date();
-  const months = period === '1M' ? 1 : period === '6M' ? 6 : 12;
-  return new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
-};
-
-const PeriodToggle = ({
-  value,
-  onChange,
-}: {
-  value: Period;
-  onChange: (period: Period) => void;
-}) => (
-  <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-    {periods.map((period) => (
-      <button
-        key={period}
-        type="button"
-        onClick={() => onChange(period)}
-        className={`tap rounded-[var(--radius-field)] px-2.5 py-1 text-xs font-semibold ${
-          value === period
-            ? 'neu-flat text-[var(--accent)]'
-            : 'text-[var(--text-muted)]'
-        }`}
-      >
-        {period}
-      </button>
-    ))}
-  </div>
-);
+import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
 
 const SectionTitle = ({
   children,
@@ -97,8 +54,6 @@ export const DashboardPage = () => {
   const { data: crypto = [] } = useCrypto();
   const { data: snapshots = [] } = useNetWorthHistory();
   const recordNetWorth = useRecordNetWorth();
-  const backfill = useBackfillHistory();
-  const [period, setPeriod] = usePersistentState<Period>('dashboard-period', '1Y');
 
   const model = useMemo(() => {
     const accounts = accountsQuery.data ?? [];
@@ -123,7 +78,6 @@ export const DashboardPage = () => {
       netWorth,
       assets,
       liabilities,
-      series: netWorthAtCostSeries(transactions),
       recent: transactions.slice(0, 5),
     };
   }, [accountsQuery.data, transactionsQuery.data, brokersQuery.data]);
@@ -143,7 +97,7 @@ export const DashboardPage = () => {
   const cryptoExtra = useMemo(
     () =>
       cryptoTotal > 0
-        ? [{ id: 'crypto', name: 'Crypto', value: cryptoTotal, to: '/positions' }]
+        ? [{ id: 'crypto', name: 'Crypto', value: cryptoTotal, to: '/crypto' }]
         : [],
     [cryptoTotal],
   );
@@ -171,15 +125,6 @@ export const DashboardPage = () => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataReady, netWithCrypto.toString()]);
-
-  const baseSeries = snapshots.length >= 2 ? snapshots : model.series;
-  const usingSnapshots = snapshots.length >= 2;
-
-  const displayedSeries = useMemo(() => {
-    const start = periodStart(period);
-    const sliced = start ? sliceFrom(baseSeries, start) : baseSeries;
-    return sliced.length >= 2 ? sliced : baseSeries;
-  }, [baseSeries, period]);
 
   const todayPl = useMemo<Money | null>(() => {
     const changes = positions
@@ -228,38 +173,6 @@ export const DashboardPage = () => {
               />
             </div>
           </section>
-
-          <NetWorthTrend
-            series={displayedSeries}
-            basisLabel={usingSnapshots ? 'market value' : 'at cost'}
-            control={<PeriodToggle value={period} onChange={setPeriod} />}
-            footer={
-              positions.length > 0 && snapshots.length < 60 ? (
-                <div className="flex items-center justify-end gap-3 border-t border-[var(--line)] pt-3">
-                  {backfill.isError && (
-                    <span className="text-xs text-[var(--negative)]">
-                      Couldn't reconstruct.
-                    </span>
-                  )}
-                  {backfill.data?.inserted !== undefined && !backfill.isError && (
-                    <span className="text-xs text-[var(--text-muted)]">
-                      Added {backfill.data.inserted} days.
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => backfill.mutate()}
-                    disabled={backfill.isPending}
-                    className="tap text-xs font-semibold text-[var(--accent)] disabled:opacity-60"
-                  >
-                    {backfill.isPending
-                      ? 'Reconstructing…'
-                      : 'Reconstruct earlier history'}
-                  </button>
-                </div>
-              ) : null
-            }
-          />
 
           <GoalCard net={netWithCrypto} />
 

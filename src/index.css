@@ -80,6 +80,8 @@ body {
   overflow-x: hidden;
   overflow-x: clip;
   max-width: 100%;
+  /* App-like: no rubber-band bounce or pull-to-refresh moving the chrome. */
+  overscroll-behavior: none;
 }
 
 body {

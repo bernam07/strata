@@ -34,6 +34,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/positions', label: 'Portfolio', icon: 'positions' },
       { to: '/search', label: 'Search', icon: 'search' },
+      { to: '/crypto', label: 'Crypto', icon: 'crypto' },
       { to: '/dividends', label: 'Dividends', icon: 'dividends' },
     ],
   },
@@ -56,6 +57,7 @@ const primaryTabs: NavEntry[] = [
 
 const secondaryLinks: NavEntry[] = [
   { to: '/search', label: 'Search', icon: 'search' },
+  { to: '/crypto', label: 'Crypto', icon: 'crypto' },
   { to: '/dividends', label: 'Dividends', icon: 'dividends' },
   { to: '/expenses', label: 'Expenses', icon: 'expenses' },
   { to: '/integrations', label: 'Integrations', icon: 'integrations' },
@@ -86,7 +88,7 @@ const ThemeButton = () => {
 const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   const { signOut } = useAuth();
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 flex-col gap-4 border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
+    <aside className="hidden h-full w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
       <div className="flex items-center gap-2.5 px-2">
         <StrataMark />
         <div>
@@ -237,6 +239,11 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const recurring = useProcessRecurring();
   const ranRecurring = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (ranRecurring.current) return;
@@ -257,33 +264,28 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-[100dvh] overflow-hidden">
       <Sidebar onCommand={() => setPaletteOpen(true)} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
-        <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            aria-label="Search or jump to a page"
-            className="tap ml-auto grid h-9 w-9 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)]"
-          >
-            <span className="h-[18px] w-[18px] [&>svg]:h-full [&>svg]:w-full">
-              {icons.search}
-            </span>
-          </button>
         </header>
-        <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 overflow-x-clip px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
-          <div key={location.pathname} className="page-enter">
-            {children}
+        <main
+          ref={mainRef}
+          className="flex-1 overflow-y-auto overscroll-contain overflow-x-clip"
+        >
+          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+            <div key={location.pathname} className="page-enter">
+              {children}
+            </div>
           </div>
         </main>
       </div>
       <BottomBar onMore={() => setMoreOpen(true)} />
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <QuickAdd />
+      {!moreOpen && <QuickAdd />}
       <Toaster />
     </div>
   );

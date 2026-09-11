@@ -49,6 +49,7 @@ export const CommandPalette = ({
       go('/transactions', 'Transactions', 'transactions', ['activity', 'ledger']),
       go('/positions', 'Portfolio', 'positions', ['holdings', 'stocks', 'analytics']),
       go('/search', 'Search', 'search', ['stocks', 'quote', 'watchlist']),
+      go('/crypto', 'Crypto', 'crypto', ['bitcoin', 'coins', 'ethereum']),
       go('/dividends', 'Dividends', 'dividends', ['income', 'forecast']),
       go('/expenses', 'Expenses', 'expenses', ['spending', 'budget']),
       go('/integrations', 'Integrations', 'integrations', ['trading 212', 't212', 'widget']),
