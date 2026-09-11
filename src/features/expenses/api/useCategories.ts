@@ -5,6 +5,8 @@ export interface Category {
   id: string;
   parentId: string | null;
   name: string;
+  /** Null means the neutral default tile. */
+  color: string | null;
 }
 
 export const categoriesKey = ['categories'] as const;
@@ -16,13 +18,14 @@ export const useCategories = () =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
-        .select('id, parent_id, name')
+        .select('id, parent_id, name, color')
         .order('name', { ascending: true });
       if (error) throw error;
       return (data ?? []).map((row) => ({
         id: row.id,
         parentId: row.parent_id,
         name: row.name,
+        color: row.color,
       }));
     },
   });
@@ -53,10 +56,16 @@ export const useUpdateCategory = () => {
       id: string;
       name?: string;
       parentId?: string | null;
+      color?: string | null;
     }) => {
-      const patch: { name?: string; parent_id?: string | null } = {};
+      const patch: {
+        name?: string;
+        parent_id?: string | null;
+        color?: string | null;
+      } = {};
       if (input.name !== undefined) patch.name = input.name;
       if (input.parentId !== undefined) patch.parent_id = input.parentId;
+      if (input.color !== undefined) patch.color = input.color;
       const { error } = await supabase
         .from('categories')
         .update(patch)

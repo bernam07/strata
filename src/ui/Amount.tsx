@@ -39,3 +39,23 @@ export const Amount = ({
     </span>
   );
 };
+
+const inline = new Intl.NumberFormat('en-GB', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+// Row-scale amount with a trailing euro sign, matching the hero treatment.
+// Inherits its colour so it works inside positive/negative rows.
+export const AmountInline = ({
+  value,
+  signed = false,
+}: {
+  value: number;
+  signed?: boolean;
+}) => (
+  <span className="whitespace-nowrap tabular-nums">
+    {signed && (value < 0 ? '−' : '+')}
+    {inline.format(Math.abs(value))} <span className="opacity-55">€</span>
+  </span>
+);

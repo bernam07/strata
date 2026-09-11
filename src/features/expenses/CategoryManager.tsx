@@ -10,6 +10,7 @@ import {
   useUpdateCategory,
   type Category,
 } from './api/useCategories';
+import { CATEGORY_COLORS, tileStyle } from './categoryColors';
 
 const childrenOf = (categories: Category[], parentId: string | null) =>
   categories.filter((category) => category.parentId === parentId);
@@ -18,6 +19,13 @@ const editInputClass =
   'min-w-0 flex-1 rounded-[var(--radius-field)] neu-sunken px-3 py-1.5 text-sm text-[var(--text-strong)] outline-none focus:border-[var(--accent)]';
 
 const actionClass = 'tap text-xs text-[var(--text-muted)]';
+
+const swatchClass = (selected: boolean): string =>
+  `tap h-5 w-5 rounded-full border ${
+    selected
+      ? 'outline outline-2 outline-offset-2 outline-[var(--accent)]'
+      : 'opacity-80 hover:opacity-100'
+  }`;
 
 export const CategoryManager = () => {
   const { data: categories = [] } = useCategories();
@@ -31,6 +39,7 @@ export const CategoryManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftParent, setDraftParent] = useState<string>('');
+  const [draftColor, setDraftColor] = useState<string | null>(null);
   const [mergingId, setMergingId] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState<string>('');
 
@@ -57,12 +66,14 @@ export const CategoryManager = () => {
     setEditingId(category.id);
     setDraftName(category.name);
     setDraftParent(category.parentId ?? '');
+    setDraftColor(category.color);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setDraftName('');
     setDraftParent('');
+    setDraftColor(null);
   };
 
   const saveEdit = (category: Category) => {
@@ -73,6 +84,7 @@ export const CategoryManager = () => {
       {
         id: category.id,
         name: trimmed,
+        color: draftColor,
         // Only leaves can be re-parented (the tree is two levels deep).
         ...(leaf ? { parentId: draftParent || null } : {}),
       },
@@ -154,6 +166,32 @@ export const CategoryManager = () => {
                 ))}
             </select>
           )}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setDraftColor(null)}
+              title="Default (neutral)"
+              aria-label="Default (neutral)"
+              aria-pressed={draftColor === null}
+              className={swatchClass(draftColor === null)}
+              style={{
+                background: 'var(--surface-sunken)',
+                borderColor: 'var(--line)',
+              }}
+            />
+            {CATEGORY_COLORS.map((swatch) => (
+              <button
+                key={swatch.hex}
+                type="button"
+                onClick={() => setDraftColor(swatch.hex)}
+                title={swatch.name}
+                aria-label={swatch.name}
+                aria-pressed={draftColor === swatch.hex}
+                className={swatchClass(draftColor === swatch.hex)}
+                style={{ background: swatch.hex, borderColor: 'transparent' }}
+              />
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => saveEdit(category)}
@@ -211,6 +249,11 @@ export const CategoryManager = () => {
 
     return (
       <div className={rowClass}>
+        <span
+          aria-hidden="true"
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: tileStyle(category.color).dot }}
+        />
         <span className={`min-w-0 flex-1 truncate ${nameClass}`}>
           {category.name}
         </span>

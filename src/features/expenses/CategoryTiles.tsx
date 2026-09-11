@@ -1,15 +1,14 @@
-// Spend-by-category tiles for the current month. Each tile is tinted from a
-// fixed hue mixed into the surface colour, so it reads as a deep, dark tint in
-// dark mode and a soft pastel in light mode — one definition, both themes.
-const grouped = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
+import { tileStyle } from './categoryColors';
 
-// Distinct, legible hues assigned in spend order. Kept few so colours repeat
-// predictably rather than drifting into muddy near-duplicates.
-const HUES = ['#52c48c', '#e0a44a', '#c58fd6', '#6aa6e0', '#ef6b78', '#9fce5f'];
+// Spend-by-category tiles for the selected month. A category with no colour
+// set renders neutral, so the grid stays calm by default and colour only shows
+// where the user put it deliberately.
+const grouped = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
 export interface CategoryTile {
   id: string;
   name: string;
+  color: string | null;
   amount: number;
   count: number;
 }
@@ -26,23 +25,17 @@ export const CategoryTiles = ({ tiles }: { tiles: CategoryTile[] }) => {
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      {tiles.map((tile, index) => {
-        const hue = HUES[index % HUES.length]!;
+      {tiles.map((tile) => {
+        const style = tileStyle(tile.color);
         return (
           <div
             key={tile.id}
             className="flex min-h-[104px] flex-col justify-between rounded-[var(--radius-card)] p-4"
-            style={{
-              background: `color-mix(in srgb, ${hue} 13%, var(--surface-flat))`,
-              border: `1px solid color-mix(in srgb, ${hue} 22%, transparent)`,
-            }}
+            style={{ background: style.background, border: style.border }}
           >
             <span
               className="grid h-8 w-8 place-items-center rounded-[10px] text-xs font-extrabold"
-              style={{
-                background: `color-mix(in srgb, ${hue} 26%, transparent)`,
-                color: hue,
-              }}
+              style={{ background: style.chipBackground, color: style.chipColor }}
             >
               {initials(tile.name)}
             </span>

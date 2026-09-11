@@ -21,14 +21,15 @@ import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
-import { Amount } from '@/ui/Amount';
+import { AmountInline } from '@/ui/Amount';
 import { Select } from '@/ui/Field';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import { CategoryTiles, type CategoryTile } from './CategoryTiles';
-import { WeeklySpend } from './WeeklySpend';
+import { SpendOverview } from './SpendOverview';
+import { tileStyle } from './categoryColors';
 import {
   useAssignCategory,
   useAssignments,
@@ -48,6 +49,21 @@ const monthKey = (offset: number): string => {
   const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 };
+
+// One row and one heading treatment for every list on the page, so the
+// sections below the chart belong to the same design language as the tiles.
+const rowClass =
+  'flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-3';
+const headingClass =
+  'text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]';
+
+const ColorDot = ({ color }: { color: string | null }) => (
+  <span
+    aria-hidden="true"
+    className="h-2.5 w-2.5 shrink-0 rounded-full"
+    style={{ background: tileStyle(color).dot }}
+  />
+);
 
 export const ExpensesPage = () => {
   const { data: transactions = [] } = useTransactions();
@@ -112,7 +128,7 @@ export const ExpensesPage = () => {
 
   const categoryTiles = useMemo<CategoryTile[]>(() => {
     const currentMonth = monthKey(0);
-    const nameById = new Map(categories.map((c) => [c.id, c.name]));
+    const byId = new Map(categories.map((c) => [c.id, c]));
     const agg = new Map<string, { amount: number; count: number }>();
     for (const transaction of transactions) {
       if (transaction.kind !== 'expense') continue;
@@ -127,13 +143,21 @@ export const ExpensesPage = () => {
     return [...agg.entries()]
       .map(([id, value]) => ({
         id,
-        name: nameById.get(id) ?? 'Uncategorized',
+        name: byId.get(id)?.name ?? 'Uncategorized',
+        color: byId.get(id)?.color ?? null,
         amount: value.amount,
         count: value.count,
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 6);
   }, [transactions, categories, assignments]);
+
+  // The comparison and summary rows key by category name, so colour has to be
+  // looked up that way to carry through from the tiles.
+  const colorByName = useMemo(
+    () => new Map(categories.map((category) => [category.name, category.color])),
+    [categories],
+  );
 
   const cashflow = useMemo(
     () => monthlyCashflow(transactions).slice(0, 6),
@@ -147,22 +171,6 @@ export const ExpensesPage = () => {
   );
 
   const expenses = transactions.filter((t) => t.kind === 'expense');
-
-  const spend = useMemo(() => {
-    const totalFor = (offset: number): Money =>
-      transactions
-        .filter(
-          (t) =>
-            (t.kind === 'expense' || t.kind === 'fee') &&
-            t.occurredAt.startsWith(monthKey(offset)),
-        )
-        .reduce((sum, t) => sum.plus(money(t.amount).abs()), zero());
-    const current = totalFor(0);
-    const previous = totalFor(1);
-    return { current, previous, delta: current.minus(previous) };
-  }, [transactions]);
-
-  const spendUp = spend.delta.greaterThan(0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -191,35 +199,12 @@ export const ExpensesPage = () => {
         </Card>
       )}
 
-      <Card className="flex flex-col gap-4">
-        <div className="flex items-end justify-between gap-3">
-          <div className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              {monthLabel(monthKey(0))} · spent so far
-            </span>
-            <Amount value={toNumber(spend.current)} size="xl" />
-          </div>
-          <span
-            className="flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-bold"
-            style={{
-              color: spendUp ? 'var(--negative)' : 'var(--positive)',
-              background: `color-mix(in srgb, ${
-                spendUp ? 'var(--negative)' : 'var(--positive)'
-              } 13%, transparent)`,
-            }}
-          >
-            {spendUp ? '▲' : '▼'} {formatEur(spend.delta.abs())}
-          </span>
-        </div>
-        <WeeklySpend transactions={transactions} />
-      </Card>
+      <SpendOverview transactions={transactions} />
 
       {categoryTiles.length > 0 && (
         <section className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between px-0.5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Categories
-            </h2>
+            <h2 className={headingClass}>Categories</h2>
             <span className="text-xs font-semibold tabular-nums text-[var(--text-muted)]">
               {monthLabel(monthKey(0))}
             </span>
@@ -229,7 +214,7 @@ export const ExpensesPage = () => {
       )}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-semibold text-[var(--text-strong)]">Budgets</h2>
+        <h2 className={headingClass}>Budgets</h2>
         <BudgetPanel categories={categories} spentOf={spentOf} />
       </Card>
 
@@ -239,31 +224,28 @@ export const ExpensesPage = () => {
             {cashflow.map((row) => {
               const negative = isNegative(row.net);
               return (
-                <div
-                  key={row.month}
-                  className="flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-3"
-                >
+                <div key={row.month} className={rowClass}>
                   <span className="text-sm font-semibold capitalize text-[var(--text-strong)]">
                     {monthLabel(row.month)}
                   </span>
-                  <div className="flex flex-col items-end gap-0.5 tabular-nums">
+                  <div className="flex flex-col items-end gap-0.5">
                     <span
-                      className="whitespace-nowrap text-sm font-semibold"
+                      className="text-sm font-semibold"
                       style={{
                         color: negative
                           ? 'var(--negative)'
                           : 'var(--positive)',
                       }}
                     >
-                      {formatEur(row.net)}
+                      <AmountInline value={toNumber(row.net)} />
                     </span>
-                    <span className="whitespace-nowrap text-[11px] text-[var(--text-muted)]">
+                    <span className="text-[11px] text-[var(--text-muted)]">
                       <span className="text-[var(--positive)]">
-                        +{formatEur(row.inflow)}
+                        <AmountInline value={toNumber(row.inflow)} signed />
                       </span>
                       {' · '}
                       <span className="text-[var(--negative)]">
-                        −{formatEur(row.outflow)}
+                        <AmountInline value={-toNumber(row.outflow)} signed />
                       </span>
                     </span>
                   </div>
@@ -281,10 +263,7 @@ export const ExpensesPage = () => {
         >
           <ul className="flex flex-col gap-2">
             {recurring.map((item) => (
-              <li
-                key={item.label}
-                className="flex items-center justify-between rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
-              >
+              <li key={item.label} className={rowClass}>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
                     {item.label}
@@ -297,8 +276,8 @@ export const ExpensesPage = () => {
                     })}
                   </p>
                 </div>
-                <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
-                  {formatEur(item.amount)}
+                <span className="text-sm font-semibold text-[var(--text-strong)]">
+                  <AmountInline value={toNumber(item.amount)} />
                 </span>
               </li>
             ))}
@@ -316,16 +295,16 @@ export const ExpensesPage = () => {
             {comparison.map((row) => {
               const up = row.delta.greaterThan(0);
               return (
-                <li
-                  key={row.category}
-                  className="flex items-center justify-between rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
-                >
-                  <span className="text-sm font-semibold text-[var(--text-strong)]">
-                    {row.category}
+                <li key={row.category} className={rowClass}>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <ColorDot color={colorByName.get(row.category) ?? null} />
+                    <span className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                      {row.category}
+                    </span>
                   </span>
-                  <div className="flex items-center gap-4 text-sm tabular-nums">
+                  <div className="flex items-center gap-4 text-sm">
                     <span className="text-[var(--text-strong)]">
-                      {formatEur(row.current)}
+                      <AmountInline value={toNumber(row.current)} />
                     </span>
                     <span
                       className="text-xs"
@@ -333,7 +312,8 @@ export const ExpensesPage = () => {
                         color: up ? 'var(--negative)' : 'var(--positive)',
                       }}
                     >
-                      {up ? '▲' : '▼'} {formatEur(row.delta.abs())}
+                      {up ? '▲' : '▼'}{' '}
+                      <AmountInline value={toNumber(row.delta.abs())} />
                     </span>
                   </div>
                 </li>
@@ -352,17 +332,18 @@ export const ExpensesPage = () => {
                   <span className="text-sm font-semibold capitalize text-[var(--text-strong)]">
                     {monthLabel(month.month)}
                   </span>
-                  <span className="text-sm font-semibold tabular-nums text-[var(--negative)]">
-                    {formatEur(month.total)}
+                  <span className="text-sm font-semibold text-[var(--negative)]">
+                    <AmountInline value={toNumber(month.total)} />
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {month.byCategory.map((entry) => (
                     <span
                       key={entry.category}
-                      className="rounded-full neu-sunken px-3 py-1 text-xs text-[var(--text-muted)]"
+                      className="flex items-center gap-2 rounded-full neu-sunken px-3 py-1 text-xs text-[var(--text-muted)]"
                     >
-                      {entry.category} · {formatEur(entry.total)}
+                      <ColorDot color={colorByName.get(entry.category) ?? null} />
+                      {entry.category} · <AmountInline value={toNumber(entry.total)} />
                     </span>
                   ))}
                 </div>
@@ -387,8 +368,8 @@ export const ExpensesPage = () => {
                   <p className="min-w-0 truncate text-sm font-semibold text-[var(--text-strong)]">
                     {transaction.note || 'Expense'}
                   </p>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--negative)]">
-                    {formatEur(money(transaction.amount))}
+                  <span className="shrink-0 text-sm font-semibold text-[var(--negative)]">
+                    <AmountInline value={Math.abs(Number(transaction.amount))} />
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
