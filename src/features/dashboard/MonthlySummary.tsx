@@ -54,8 +54,10 @@ const Figure = ({
 
 export const MonthlySummary = ({
   snapshots,
+  className,
 }: {
   snapshots: readonly SeriesPoint[];
+  className?: string;
 }) => {
   const { data: transactions = [] } = useTransactions();
 
@@ -82,7 +84,7 @@ export const MonthlySummary = ({
   if (!hasActivity) return null;
 
   return (
-    <Card className="flex flex-col gap-4">
+    <Card className={`flex flex-col gap-4${className ? ` ${className}` : ''}`}>
       <div className="flex items-baseline justify-between">
         <h2 className="font-semibold text-[var(--text-strong)]">
           {model.label} so far

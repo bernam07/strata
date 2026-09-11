@@ -328,14 +328,14 @@ const recordSnapshots = async (
 const refresh = async (
   db: SupabaseClient,
   userId?: string,
-): Promise<{ updated: number; errors: string[] }> => {
+): Promise<{ updated: number; stale: number; errors: string[] }> => {
   const errors: string[] = [];
   let holdingsQuery = db
     .from('holdings')
     .select('user_id, instrument_id, quantity, average_price, current_price, currency');
   if (userId) holdingsQuery = holdingsQuery.eq('user_id', userId);
   const { data: holdings } = await holdingsQuery;
-  if (!holdings || holdings.length === 0) return { updated: 0, errors };
+  if (!holdings || holdings.length === 0) return { updated: 0, stale: 0, errors };
 
   const ids = [...new Set(holdings.map((h) => h.instrument_id))];
   const { data: instruments } = await db
@@ -411,14 +411,15 @@ const refresh = async (
   });
   if (priceRows.length > 0) await db.rpc('upsert_prices', { p_rows: priceRows });
 
-  const byUser = new Map<string, { free: number; market: number }>();
+  const byUser = new Map<string, { free: number; market: number; stale: number }>();
   let brokersQuery = db
     .from('broker_accounts')
     .select('user_id, free')
     .eq('provider', 't212');
   if (userId) brokersQuery = brokersQuery.eq('user_id', userId);
   const { data: brokers } = await brokersQuery;
-  for (const b of brokers ?? []) byUser.set(b.user_id, { free: Number(b.free), market: 0 });
+  for (const b of brokers ?? [])
+    byUser.set(b.user_id, { free: Number(b.free), market: 0, stale: 0 });
   for (const holding of holdings) {
     const entry = byUser.get(holding.user_id);
     if (!entry) continue;
@@ -427,22 +428,27 @@ const refresh = async (
     // a holding that failed to quote this run isn't dropped from the total.
     const price = quoted ? quoted.price : Number(holding.current_price ?? 0);
     const currency = quoted ? quoted.currency : holding.currency;
+    if (!quoted) entry.stale += 1;
     entry.market += Number(holding.quantity) * price * rate(currency);
   }
   // Keep the broker account total in step with the live Portfolio value: free
-  // cash + holdings at the same prices the Portfolio shows. A price refresh now
-  // moves the account and the Portfolio together and they stay consistent; a
-  // T212 sync still resets both to T212's own authoritative numbers.
+  // cash + holdings at the same prices the Portfolio shows. But only overwrite
+  // the authoritative account total when every holding priced cleanly this run.
+  // A partial refresh (some quotes failed) would silently drift from Trading
+  // 212's real figure, so we leave the last authoritative total in place rather
+  // than corrupt it — a T212 sync always resets both to T212's own numbers.
   for (const [uid, entry] of byUser) {
+    if (entry.stale > 0) continue;
     await db.rpc('set_broker_total', {
       p_user: uid,
-      p_total: Math.round((entry.free + entry.market) * 100) / 100,
+      p_total: round2(entry.free + entry.market),
     });
   }
 
   await recordSnapshots(db, byUser).catch(() => undefined);
 
-  return { updated, errors };
+  const stale = [...byUser.values()].reduce((sum, entry) => sum + entry.stale, 0);
+  return { updated, stale, errors };
 };
 
 const refreshCrypto = async (
