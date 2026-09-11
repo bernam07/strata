@@ -526,33 +526,148 @@ const refresh = async (
   return { updated, stale, errors };
 };
 
+// --- CoinGecko -------------------------------------------------------------
+// Yahoo quotes crypto only as trading pairs, which made search a list of
+// BTC-EUR / BTC-USD duplicates and left thinner coins uncovered. CoinGecko
+// identifies a coin by slug and prices directly in euro, so there is no pair
+// to pick and no second FX conversion.
+
+const COINGECKO = 'https://api.coingecko.com/api/v3';
+
+const cgFetch = async (path: string, attempt = 0): Promise<Response> => {
+  const res = await fetch(`${COINGECKO}${path}`, {
+    headers: { Accept: 'application/json', 'User-Agent': UA },
+  });
+  // The free tier rate-limits by minute; back off rather than dropping prices.
+  if (res.status === 429 && attempt < 3) {
+    await res.body?.cancel();
+    await sleep(1000 * 2 ** attempt);
+    return cgFetch(path, attempt + 1);
+  }
+  return res;
+};
+
+interface CoinHit {
+  id: string;
+  symbol: string;
+  name: string;
+  rank: number | null;
+  image: string | null;
+}
+
+const cryptoSearch = async (query: string): Promise<CoinHit[]> => {
+  const q = query.trim();
+  if (q.length < 1) return [];
+  const res = await cgFetch(`/search?query=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error(`coingecko search: HTTP ${res.status}`);
+  const body = await res.json();
+  return (body?.coins ?? [])
+    .slice(0, 12)
+    .map((coin: Record<string, unknown>) => ({
+      id: String(coin.id),
+      symbol: String(coin.symbol ?? '').toUpperCase(),
+      name: String(coin.name ?? coin.id),
+      rank:
+        typeof coin.market_cap_rank === 'number' ? coin.market_cap_rank : null,
+      image: typeof coin.thumb === 'string' ? coin.thumb : null,
+    }));
+};
+
+interface CoinMarket {
+  id: string;
+  price: number;
+  changePct: number | null;
+  symbol: string;
+  name: string;
+  image: string | null;
+}
+
+const cryptoMarkets = async (
+  ids: readonly string[],
+): Promise<Map<string, CoinMarket>> => {
+  const out = new Map<string, CoinMarket>();
+  if (ids.length === 0) return out;
+  // Chunked so a long id list can't overflow the query string.
+  for (let start = 0; start < ids.length; start += 100) {
+    const chunk = ids.slice(start, start + 100);
+    const res = await cgFetch(
+      `/coins/markets?vs_currency=eur&ids=${encodeURIComponent(chunk.join(','))}&per_page=100&page=1`,
+    );
+    if (!res.ok) throw new Error(`coingecko markets: HTTP ${res.status}`);
+    for (const row of (await res.json()) ?? []) {
+      const price = Number(row?.current_price);
+      if (!Number.isFinite(price)) continue;
+      out.set(String(row.id), {
+        id: String(row.id),
+        price,
+        changePct:
+          typeof row.price_change_percentage_24h === 'number'
+            ? row.price_change_percentage_24h
+            : null,
+        symbol: String(row.symbol ?? '').toUpperCase(),
+        name: String(row.name ?? row.id),
+        image: typeof row.image === 'string' ? row.image : null,
+      });
+    }
+  }
+  return out;
+};
+
+// The ledger keeps previous_close, and the day change is derived from it
+// downstream. CoinGecko reports a 24h percentage instead, so convert back.
+const closeFromChange = (price: number, changePct: number | null): number | null =>
+  changePct === null || changePct <= -100 ? null : price / (1 + changePct / 100);
+
 const refreshCrypto = async (
   db: SupabaseClient,
   userId?: string,
 ): Promise<void> => {
-  let query = db.from('crypto_holdings').select('symbol');
+  let query = db.from('crypto_holdings').select('user_id, symbol, coin_id');
   if (userId) query = query.eq('user_id', userId);
   const { data: rows } = await query;
   if (!rows || rows.length === 0) return;
 
-  const symbols = [...new Set(rows.map((r) => r.symbol))];
-  await mapLimit(symbols, 6, async (symbol) => {
+  // Holdings added before the CoinGecko switch have no slug. Resolve it once
+  // from the ticker and store it, so the change self-heals rather than
+  // silently leaving those coins stale.
+  for (const row of rows) {
+    if (row.coin_id) continue;
     try {
-      const quoted = await fetchQuote(symbol, '5d');
-      let update = db
+      const hits = await cryptoSearch(row.symbol);
+      const match =
+        hits.find((hit) => hit.symbol === String(row.symbol).toUpperCase()) ??
+        hits[0];
+      if (!match) continue;
+      row.coin_id = match.id;
+      await db
         .from('crypto_holdings')
-        .update({
-          current_price: quoted.quote.price,
-          previous_close: quoted.quote.previousClose,
-          currency: quoted.quote.currency,
-        })
-        .eq('symbol', symbol);
-      if (userId) update = update.eq('user_id', userId);
-      await update;
+        .update({ coin_id: match.id, image_url: match.image })
+        .eq('user_id', row.user_id)
+        .eq('symbol', row.symbol);
     } catch {
-      // skip symbols that fail to quote
+      // leave unresolved; the next run tries again
     }
-  });
+  }
+
+  const ids = [
+    ...new Set(rows.map((row) => row.coin_id).filter(Boolean)),
+  ] as string[];
+  const markets = await cryptoMarkets(ids);
+
+  for (const row of rows) {
+    const market = row.coin_id ? markets.get(row.coin_id) : undefined;
+    if (!market) continue;
+    await db
+      .from('crypto_holdings')
+      .update({
+        current_price: market.price,
+        previous_close: closeFromChange(market.price, market.changePct),
+        currency: 'EUR',
+        image_url: market.image,
+      })
+      .eq('user_id', row.user_id)
+      .eq('symbol', row.symbol);
+  }
 };
 
 const evaluateAlerts = async (
@@ -761,6 +876,28 @@ Deno.serve(async (req) => {
       }
     });
     return json({ quotes });
+  }
+
+  if (action === 'crypto-search') {
+    try {
+      return json({ coins: await cryptoSearch(params.q ?? '') });
+    } catch (error) {
+      return json({ coins: [], error: msg(error) });
+    }
+  }
+
+  if (action === 'crypto-markets') {
+    const ids = (params.ids ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, 100);
+    try {
+      const markets = await cryptoMarkets(ids);
+      return json({ markets: Object.fromEntries(markets) });
+    } catch (error) {
+      return json({ markets: {}, error: msg(error) });
+    }
   }
 
   if (action === 'profile') {

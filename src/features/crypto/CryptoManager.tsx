@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useStockSearch } from '@/features/search/api/useMarket';
-import { StockAvatar } from '@/features/positions/components/StockAvatar';
+import { useEffect, useState } from 'react';
 import { Button } from '@/ui/Button';
 import { MoneyInput, TextInput } from '@/ui/Field';
 import { AmountInline } from '@/ui/Amount';
 import { CardTitle } from '@/ui/Heading';
 import { toast } from '@/ui/toast';
 import { pct1 as pct, qty8 as qtyFmt } from '@/ui/format';
-import { coinBase, distinctCoins, type CoinOption } from './coins';
-import { useAddCrypto, useCrypto, useDeleteCrypto } from './api/useCrypto';
+import { CoinIcon } from './CoinIcon';
+import {
+  useAddCrypto,
+  useCoinSearch,
+  useCrypto,
+  useDeleteCrypto,
+  type CoinHit,
+} from './api/useCrypto';
 
 export const CryptoManager = () => {
   const { data: holdings = [] } = useCrypto();
@@ -17,7 +21,7 @@ export const CryptoManager = () => {
 
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<CoinOption | null>(null);
+  const [selected, setSelected] = useState<CoinHit | null>(null);
   const [quantity, setQuantity] = useState('');
   const [avgCost, setAvgCost] = useState('');
 
@@ -26,8 +30,7 @@ export const CryptoManager = () => {
     return () => clearTimeout(id);
   }, [text]);
 
-  const { data: results = [], isFetching } = useStockSearch(query);
-  const coins = useMemo(() => distinctCoins(results), [results]);
+  const { data: coins = [], isFetching } = useCoinSearch(query);
 
   const reset = () => {
     setSelected(null);
@@ -41,8 +44,10 @@ export const CryptoManager = () => {
     if (!selected || !quantity) return;
     add.mutate(
       {
+        coinId: selected.id,
         symbol: selected.symbol,
         name: selected.name,
+        image: selected.image,
         quantity: Number(quantity),
         averagePrice: Number(avgCost) || 0,
       },
@@ -56,20 +61,20 @@ export const CryptoManager = () => {
     );
   };
 
-  const searching = query.trim().length >= 2;
+  const searching = query.trim().length >= 1;
 
   return (
     <div className="flex flex-col gap-5">
       {holdings.length > 0 && (
         <ul className="flex flex-col gap-2">
           {holdings.map((holding) => {
-            const base = coinBase(holding.symbol);
+            const base = holding.symbol;
             return (
               <li
                 key={holding.symbol}
                 className="flex items-center gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-2.5"
               >
-                <StockAvatar ticker={base} size={30} />
+                <CoinIcon src={holding.imageUrl} ticker={base} size={30} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
                     {holding.name}
@@ -115,18 +120,24 @@ export const CryptoManager = () => {
         </ul>
       )}
 
-      <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-5">
+      {/* The rule separates the add form from the holdings above it; with no
+          holdings there is nothing to separate, so it would hang on its own. */}
+      <div
+        className={`flex flex-col gap-3 ${
+          holdings.length > 0 ? 'border-t border-[var(--line)] pt-5' : ''
+        }`}
+      >
         <CardTitle>Add a coin</CardTitle>
 
         {selected ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 rounded-[var(--radius-field)] neu-flat px-4 py-2.5">
-              <StockAvatar ticker={selected.base} size={30} />
+              <CoinIcon src={selected.image} ticker={selected.symbol} size={30} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
                   {selected.name}
                 </p>
-                <p className="text-xs text-[var(--text-muted)]">{selected.base}</p>
+                <p className="text-xs text-[var(--text-muted)]">{selected.symbol}</p>
               </div>
               <button
                 type="button"
@@ -138,7 +149,7 @@ export const CryptoManager = () => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <MoneyInput
-                placeholder={`Quantity (${selected.base})`}
+                placeholder={`Quantity (${selected.symbol})`}
                 value={quantity}
                 onChange={setQuantity}
               />
@@ -172,18 +183,23 @@ export const CryptoManager = () => {
             {coins.length > 0 && (
               <ul className="flex flex-col gap-1.5">
                 {coins.map((coin) => (
-                  <li key={coin.base}>
+                  <li key={coin.id}>
                     <button
                       type="button"
                       onClick={() => setSelected(coin)}
                       className="tap flex w-full items-center gap-3 rounded-[var(--radius-field)] neu-flat px-3 py-2 text-left hover:border-[var(--accent)]"
                     >
-                      <StockAvatar ticker={coin.base} size={26} />
+                      <CoinIcon src={coin.image} ticker={coin.symbol} size={26} />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-strong)]">
                         {coin.name}
                       </span>
+                      {coin.rank !== null && (
+                        <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                          #{coin.rank}
+                        </span>
+                      )}
                       <span className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">
-                        {coin.base}
+                        {coin.symbol}
                       </span>
                     </button>
                   </li>

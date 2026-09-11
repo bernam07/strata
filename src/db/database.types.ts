@@ -431,6 +431,8 @@ export interface Database {
           current_price: number;
           previous_close: number | null;
           currency: string;
+          coin_id: string | null;
+          image_url: string | null;
           updated_at: string;
         };
         Insert: {
@@ -442,6 +444,8 @@ export interface Database {
           current_price?: number;
           previous_close?: number | null;
           currency?: string;
+          coin_id?: string | null;
+          image_url?: string | null;
         };
         Update: {
           name?: string;
@@ -450,6 +454,8 @@ export interface Database {
           current_price?: number;
           previous_close?: number | null;
           currency?: string;
+          coin_id?: string | null;
+          image_url?: string | null;
         };
         Relationships: [];
       };
