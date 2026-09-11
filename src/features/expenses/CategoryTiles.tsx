@@ -20,18 +20,35 @@ const initials = (name: string): string =>
     .map((word) => word[0]?.toUpperCase() ?? '')
     .join('') || '•';
 
-export const CategoryTiles = ({ tiles }: { tiles: CategoryTile[] }) => {
+export const CategoryTiles = ({
+  tiles,
+  selectedId = null,
+  onSelect,
+}: {
+  tiles: CategoryTile[];
+  selectedId?: string | null;
+  onSelect?: (id: string) => void;
+}) => {
   if (tiles.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 gap-3">
       {tiles.map((tile) => {
         const style = tileStyle(tile.color);
+        const selected = selectedId === tile.id;
         return (
-          <div
+          <button
             key={tile.id}
-            className="flex min-h-[104px] flex-col justify-between rounded-[var(--radius-card)] p-4"
-            style={{ background: style.background, border: style.border }}
+            type="button"
+            onClick={() => onSelect?.(tile.id)}
+            aria-expanded={onSelect ? selected : undefined}
+            className="tap flex min-h-[104px] flex-col justify-between rounded-[var(--radius-card)] p-4 text-left"
+            style={{
+              background: style.background,
+              border: style.border,
+              outline: selected ? '1.5px solid var(--accent)' : undefined,
+              outlineOffset: '1px',
+            }}
           >
             <span
               className="grid h-8 w-8 place-items-center rounded-[10px] text-xs font-extrabold"
@@ -51,7 +68,7 @@ export const CategoryTiles = ({ tiles }: { tiles: CategoryTile[] }) => {
                 {tile.count} transaction{tile.count === 1 ? '' : 's'}
               </p>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

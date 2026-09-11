@@ -40,7 +40,9 @@ export const QuickAdd = () => {
         />
       )}
 
-      <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end gap-2 lg:bottom-8 lg:right-8">
+      {/* Clears the bottom bar and the home indicator beneath it, so the
+          button never sits in front of the tab strip. */}
+      <div className="fixed right-4 z-40 flex flex-col items-end gap-2 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:right-8">
         {open && (
           <div className="page-enter flex flex-col items-end gap-2">
             {actions.map((action) => (
