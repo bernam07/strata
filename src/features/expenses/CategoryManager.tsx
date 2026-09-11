@@ -10,7 +10,8 @@ import {
   useUpdateCategory,
   type Category,
 } from './api/useCategories';
-import { CATEGORY_COLORS, tileStyle } from './categoryColors';
+import { tileStyle } from './categoryColors';
+import { ColorSwatches } from './ColorSwatches';
 
 const childrenOf = (categories: Category[], parentId: string | null) =>
   categories.filter((category) => category.parentId === parentId);
@@ -20,12 +21,6 @@ const editInputClass =
 
 const actionClass = 'tap text-xs text-[var(--text-muted)]';
 
-const swatchClass = (selected: boolean): string =>
-  `tap h-5 w-5 rounded-full border ${
-    selected
-      ? 'outline outline-2 outline-offset-2 outline-[var(--accent)]'
-      : 'opacity-80 hover:opacity-100'
-  }`;
 
 export const CategoryManager = () => {
   const { data: categories = [] } = useCategories();
@@ -166,32 +161,7 @@ export const CategoryManager = () => {
                 ))}
             </select>
           )}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setDraftColor(null)}
-              title="Default (neutral)"
-              aria-label="Default (neutral)"
-              aria-pressed={draftColor === null}
-              className={swatchClass(draftColor === null)}
-              style={{
-                background: 'var(--surface-sunken)',
-                borderColor: 'var(--line)',
-              }}
-            />
-            {CATEGORY_COLORS.map((swatch) => (
-              <button
-                key={swatch.hex}
-                type="button"
-                onClick={() => setDraftColor(swatch.hex)}
-                title={swatch.name}
-                aria-label={swatch.name}
-                aria-pressed={draftColor === swatch.hex}
-                className={swatchClass(draftColor === swatch.hex)}
-                style={{ background: swatch.hex, borderColor: 'transparent' }}
-              />
-            ))}
-          </div>
+          <ColorSwatches value={draftColor} onChange={setDraftColor} />
           <button
             type="button"
             onClick={() => saveEdit(category)}

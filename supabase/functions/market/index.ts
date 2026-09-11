@@ -218,6 +218,81 @@ const fetchSector = async (symbol: string): Promise<string | null> => {
     : null;
 };
 
+// Yahoo wraps every figure as { raw, fmt, longFmt }; we only ever want raw.
+const rawNumber = (node: unknown): number | null => {
+  const value = (node as { raw?: unknown } | null | undefined)?.raw;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+};
+
+// Dates arrive as epoch seconds. Return a plain YYYY-MM-DD so the client does
+// no timezone maths on a date that has no time-of-day meaning anyway.
+const rawDate = (node: unknown): string | null => {
+  const seconds = rawNumber(node);
+  return seconds === null
+    ? null
+    : new Date(seconds * 1000).toISOString().slice(0, 10);
+};
+
+interface InstrumentProfile {
+  symbol: string;
+  currency: string | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  marketCap: number | null;
+  trailingPe: number | null;
+  forwardPe: number | null;
+  dividendYield: number | null;
+  dividendRate: number | null;
+  beta: number | null;
+  earningsDate: string | null;
+  exDividendDate: string | null;
+  dividendDate: string | null;
+  sector: string | null;
+  industry: string | null;
+}
+
+const fetchProfile = async (symbol: string): Promise<InstrumentProfile> => {
+  const { crumb } = await getAuth();
+  const modules =
+    'calendarEvents,summaryDetail,defaultKeyStatistics,assetProfile';
+  const res = await yFetch(
+    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}&crumb=${encodeURIComponent(crumb)}`,
+  );
+  if (!res.ok) throw new Error(`profile ${symbol}: HTTP ${res.status}`);
+  const body = await res.json();
+  const result = body?.quoteSummary?.result?.[0];
+  if (!result) throw new Error(`profile ${symbol}: no data`);
+
+  const detail = result.summaryDetail ?? {};
+  const stats = result.defaultKeyStatistics ?? {};
+  const events = result.calendarEvents ?? {};
+  const asset = result.assetProfile ?? {};
+  // earningsDate is a list — the next scheduled one is the first entry.
+  const earnings = events.earnings?.earningsDate?.[0];
+
+  return {
+    symbol,
+    currency: typeof detail.currency === 'string' ? detail.currency : null,
+    fiftyTwoWeekHigh: rawNumber(detail.fiftyTwoWeekHigh),
+    fiftyTwoWeekLow: rawNumber(detail.fiftyTwoWeekLow),
+    dayHigh: rawNumber(detail.dayHigh),
+    dayLow: rawNumber(detail.dayLow),
+    marketCap: rawNumber(detail.marketCap),
+    trailingPe: rawNumber(detail.trailingPE),
+    forwardPe: rawNumber(stats.forwardPE),
+    dividendYield: rawNumber(detail.dividendYield),
+    dividendRate: rawNumber(detail.dividendRate),
+    beta: rawNumber(detail.beta),
+    earningsDate: rawDate(earnings),
+    exDividendDate: rawDate(events.exDividendDate ?? detail.exDividendDate),
+    dividendDate: rawDate(events.dividendDate),
+    sector: typeof asset.sector === 'string' ? asset.sector : null,
+    industry: typeof asset.industry === 'string' ? asset.industry : null,
+  };
+};
+
 const resolveSymbol = async (
   isin: string | null,
   ticker: string,
@@ -686,6 +761,22 @@ Deno.serve(async (req) => {
       }
     });
     return json({ quotes });
+  }
+
+  if (action === 'profile') {
+    try {
+      const symbol =
+        params.symbol ||
+        (await resolveSymbol(
+          params.isin || null,
+          params.ticker || '',
+          params.yahoo || null,
+        ));
+      if (!symbol) return json({ error: 'no symbol' });
+      return json({ profile: await fetchProfile(symbol) });
+    } catch (error) {
+      return json({ error: msg(error) });
+    }
   }
 
   if (action === 'quote') {

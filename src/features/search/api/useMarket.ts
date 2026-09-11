@@ -54,6 +54,52 @@ export const useQuote = (symbol: string | null, range = '1y') =>
       invokeMarket<QuoteData>({ action: 'quote', symbol: symbol ?? '', range }),
   });
 
+export interface InstrumentProfile {
+  symbol: string;
+  currency: string | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  marketCap: number | null;
+  trailingPe: number | null;
+  forwardPe: number | null;
+  dividendYield: number | null;
+  dividendRate: number | null;
+  beta: number | null;
+  earningsDate: string | null;
+  exDividendDate: string | null;
+  dividendDate: string | null;
+  sector: string | null;
+  industry: string | null;
+}
+
+// Reference data and the dates that matter for a holding. Changes rarely, so
+// it is cached for an hour rather than re-fetched alongside the price.
+export const useInstrumentProfile = (
+  instrument:
+    | { isin: string | null; ticker: string; yahoo?: string | null }
+    | null,
+) =>
+  useQuery<{ profile?: InstrumentProfile; error?: string }>({
+    queryKey: [
+      'instrument-profile',
+      instrument?.yahoo,
+      instrument?.isin,
+      instrument?.ticker,
+    ],
+    enabled: instrument !== null,
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+    queryFn: () =>
+      invokeMarket<{ profile?: InstrumentProfile; error?: string }>({
+        action: 'profile',
+        yahoo: instrument?.yahoo ?? '',
+        isin: instrument?.isin ?? '',
+        ticker: instrument?.ticker ?? '',
+      }),
+  });
+
 export const useInstrumentQuote = (
   instrument:
     | { isin: string | null; ticker: string; yahoo?: string | null }

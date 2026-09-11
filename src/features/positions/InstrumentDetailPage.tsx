@@ -13,7 +13,10 @@ import { Collapsible } from '@/ui/Collapsible';
 import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { toast } from '@/ui/toast';
-import { useInstrumentQuote } from '@/features/search/api/useMarket';
+import {
+  useInstrumentProfile,
+  useInstrumentQuote,
+} from '@/features/search/api/useMarket';
 import {
   usePositions,
   useInstrumentPrices,
@@ -24,6 +27,7 @@ import { PriceChart } from './PriceChart';
 import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
 import { InstrumentNote } from './components/InstrumentNote';
+import { InstrumentFacts } from './components/InstrumentFacts';
 
 const nativeMoney = (value: number, currency: string): string =>
   new Intl.NumberFormat('en-GB', {
@@ -98,6 +102,15 @@ export const InstrumentDetailPage = () => {
         }
       : null,
     range,
+  );
+  const profile = useInstrumentProfile(
+    instrument
+      ? {
+          isin: instrument.isin,
+          ticker: instrument.ticker,
+          yahoo: instrument.yahoo_symbol,
+        }
+      : null,
   );
   const position = useMemo(
     () => positionsQuery.data?.positions.find((entry) => entry.instrumentId === id),
@@ -268,6 +281,13 @@ export const InstrumentDetailPage = () => {
           </p>
         </Card>
       ) : null}
+
+      {profile.data?.profile && (
+        <InstrumentFacts
+          profile={profile.data.profile}
+          price={liveQuote.data?.quote?.price ?? null}
+        />
+      )}
 
       {instrument && (
         <PriceSource

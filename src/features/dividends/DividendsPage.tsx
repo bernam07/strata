@@ -57,7 +57,18 @@ export const DividendsPage = () => {
   const expectedTotal = sum(expected.map((item) => money(item.estimatedAmount)));
 
   const forecastBars = useMemo(
-    () => expectedByMonth(expected, new Date()),
+    () =>
+      expectedByMonth(expected, new Date()).map((bucket) => {
+        const [year, month] = bucket.month.split('-').map(Number);
+        return {
+          label: bucket.label,
+          value: bucket.value,
+          full: new Date(year!, month! - 1, 1).toLocaleDateString('en-GB', {
+            month: 'long',
+            year: 'numeric',
+          }),
+        };
+      }),
     [expected],
   );
 
@@ -92,12 +103,14 @@ export const DividendsPage = () => {
 
   const monthlyBars = useMemo(() => {
     const now = new Date();
-    const buckets: { key: string; label: string; value: number }[] = [];
+    const buckets: { key: string; label: string; full: string; value: number }[] =
+      [];
     for (let i = 11; i >= 0; i -= 1) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       buckets.push({
         key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
         label: d.toLocaleDateString('en-GB', { month: 'short' }),
+        full: d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
         value: 0,
       });
     }
@@ -106,7 +119,7 @@ export const DividendsPage = () => {
       const bucket = index.get(item.paidAt.slice(0, 7));
       if (bucket) bucket.value += Number(item.amount);
     }
-    return buckets.map(({ label, value }) => ({ label, value }));
+    return buckets.map(({ label, full, value }) => ({ label, full, value }));
   }, [received]);
 
   const topPayers = useMemo(() => {

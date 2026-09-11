@@ -22,9 +22,9 @@ import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
 import { AmountInline } from '@/ui/Amount';
-import { SectionTitle } from '@/ui/SectionTitle';
-import { CardTitle } from '@/ui/Heading';
-import { Select } from '@/ui/Field';
+import { CardTitle, headingClass } from '@/ui/Heading';
+import { Select, TextInput } from '@/ui/Field';
+import { toast } from '@/ui/toast';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
@@ -36,7 +36,9 @@ import {
   useAssignCategory,
   useAssignments,
   useCategories,
+  useUpdateCategory,
 } from './api/useCategories';
+import { ColorSwatches } from './ColorSwatches';
 
 const monthLabel = (month: string): string => {
   const [year, m] = month.split('-');
@@ -71,7 +73,30 @@ export const ExpensesPage = () => {
   const { data: assignments } = useAssignments();
   const assign = useAssignCategory();
   const [adding, setAdding] = useState(false);
+  const [managing, setManaging] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<{
+    id: string;
+    name: string;
+    color: string | null;
+  } | null>(null);
+  const updateCategory = useUpdateCategory();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const saveCategory = () => {
+    if (!editingCategory) return;
+    const name = editingCategory.name.trim();
+    if (!name) return;
+    updateCategory.mutate(
+      { id: editingCategory.id, name, color: editingCategory.color },
+      {
+        onSuccess: () => {
+          setEditingCategory(null);
+          toast('Category updated', 'success');
+        },
+        onError: () => toast("Couldn't update category", 'error'),
+      },
+    );
+  };
 
   useEffect(() => {
     if (searchParams.get('new')) {
@@ -200,12 +225,89 @@ export const ExpensesPage = () => {
 
       <SpendOverview transactions={transactions} />
 
-      {categoryTiles.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <SectionTitle note={monthLabel(monthKey(0))}>Categories</SectionTitle>
-          <CategoryTiles tiles={categoryTiles} />
-        </section>
-      )}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-3 px-0.5">
+          <h2 className={headingClass}>Categories</h2>
+          <button
+            type="button"
+            onClick={() => {
+              setManaging((open) => !open);
+              setEditingCategory(null);
+            }}
+            className="tap text-xs font-semibold text-[var(--accent)]"
+          >
+            {managing ? 'Done' : 'Manage'}
+          </button>
+        </div>
+
+        <CategoryTiles
+          tiles={categoryTiles}
+          selectedId={editingCategory?.id ?? null}
+          onSelect={(id) => {
+            setManaging(false);
+            setEditingCategory((current) =>
+              current?.id === id
+                ? null
+                : {
+                    id,
+                    name: categories.find((c) => c.id === id)?.name ?? '',
+                    color: categories.find((c) => c.id === id)?.color ?? null,
+                  },
+            );
+          }}
+        />
+
+        {editingCategory && (
+          <Card className="page-enter flex flex-col gap-3">
+            <CardTitle>Edit category</CardTitle>
+            <TextInput
+              value={editingCategory.name}
+              autoFocus
+              onChange={(event) =>
+                setEditingCategory((current) =>
+                  current ? { ...current, name: event.target.value } : current,
+                )
+              }
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') saveCategory();
+                if (event.key === 'Escape') setEditingCategory(null);
+              }}
+            />
+            <ColorSwatches
+              value={editingCategory.color}
+              onChange={(color) =>
+                setEditingCategory((current) =>
+                  current ? { ...current, color } : current,
+                )
+              }
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={saveCategory}
+                disabled={updateCategory.isPending || !editingCategory.name.trim()}
+              >
+                {updateCategory.isPending ? 'Saving…' : 'Save'}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingCategory(null)}>
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {managing && (
+          <Card className="page-enter">
+            <CategoryManager />
+          </Card>
+        )}
+
+        {categoryTiles.length === 0 && !managing && (
+          <p className="px-0.5 text-sm text-[var(--text-muted)]">
+            Nothing categorised in {monthLabel(monthKey(0))} yet — assign a few
+            expenses below, or use Manage to add categories.
+          </p>
+        )}
+      </section>
 
       <Card className="flex flex-col gap-4">
         <CardTitle>Budgets</CardTitle>
@@ -278,10 +380,6 @@ export const ExpensesPage = () => {
           </ul>
         </Collapsible>
       )}
-
-      <Collapsible title="Categories">
-        <CategoryManager />
-      </Collapsible>
 
       {comparison.length > 0 && (
         <Collapsible title="This month vs. last">
