@@ -3,6 +3,7 @@ import { pct1 as percent } from '@/ui/format';
 import { useInvestmentsHistory } from '@/features/dashboard/api/useNetWorthHistory';
 import { useQuote } from '@/features/search/api/useMarket';
 import { Card } from '@/ui/Card';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 
 interface Point {
   date: string;
@@ -112,38 +113,28 @@ export const BenchmarkCard = () => {
           Your portfolio vs the market
         </h2>
         <div className="flex gap-2">
-          <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-            {benchmarks.map((option) => (
-              <button
-                key={option.symbol}
-                type="button"
-                onClick={() => setBenchmark(option)}
-                className={`tap rounded-[var(--radius-field)] px-2.5 py-1 text-xs font-semibold ${
-                  benchmark.symbol === option.symbol
-                    ? 'neu-flat text-[var(--accent)]'
-                    : 'text-[var(--text-muted)]'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-            {ranges.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setRange(option)}
-                className={`tap rounded-[var(--radius-field)] px-2 py-1 text-xs font-semibold ${
-                  range.value === option.value
-                    ? 'neu-flat text-[var(--accent)]'
-                    : 'text-[var(--text-muted)]'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            value={benchmark.symbol}
+            onChange={(symbol) =>
+              setBenchmark(benchmarks.find((entry) => entry.symbol === symbol)!)
+            }
+            segments={benchmarks.map((entry) => ({
+              value: entry.symbol,
+              label: entry.label,
+            }))}
+            label="Benchmark"
+          />
+          <SegmentedControl
+            value={range.value}
+            onChange={(value) =>
+              setRange(ranges.find((entry) => entry.value === value)!)
+            }
+            segments={ranges.map((entry) => ({
+              value: entry.value,
+              label: entry.label,
+            }))}
+            label="Benchmark range"
+          />
         </div>
       </div>
 

@@ -9,14 +9,17 @@
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0a0a0b;
-  --surface-raised: #131315;
-  --surface-flat: #191a1d;
-  --surface-sunken: #0d0d0f;
-  --line: #26262b;
-  --text-strong: #f3f0ea;
-  --text-2: #b4b2ac;
-  --text-muted: #79776f;
+  /* A warm near-black rather than a neutral grey: the neutrals carry a slight
+     bias toward the gold accent, so the dark surfaces read as chosen rather
+     than inherited. */
+  --bg: #0a0908;
+  --surface-raised: #151311;
+  --surface-flat: #1c1a17;
+  --surface-sunken: #0f0e0d;
+  --line: #2a2723;
+  --text-strong: #f4f1ea;
+  --text-2: #b6b2aa;
+  --text-muted: #7c786f;
   --accent: #e0a44a;
   --accent-ink: #171106;
   --accent-soft: rgba(224, 164, 74, 0.14);

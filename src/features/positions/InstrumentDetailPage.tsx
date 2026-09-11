@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { pct1 as percent, qty4 as quantity } from '@/ui/format';
 import { Link, useParams } from 'react-router-dom';
 import { usePersistentState } from '@/app/usePersistentState';
-import { formatEur, isNegative, money } from '@/core/money/money';
+import { isNegative, money, toNumber } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
@@ -76,7 +77,15 @@ const PriceSource = ({
   );
 };
 
-const Stat = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+const Stat = ({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: ReactNode;
+  color?: string;
+}) => (
   <div className="rounded-[var(--radius-field)] neu-sunken p-4">
     <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
       {label}
@@ -190,17 +199,30 @@ export const InstrumentDetailPage = () => {
       {position && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Shares" value={quantity.format(position.quantity.toNumber())} />
-          <Stat label="Avg cost" value={formatEur(position.averageCost)} />
+          <Stat
+            label="Avg cost"
+            value={<AmountInline value={toNumber(position.averageCost)} />}
+          />
           <Stat
             label="Market value"
-            value={formatEur(position.marketValue ?? position.costBasis)}
+            value={
+              <AmountInline
+                value={toNumber(position.marketValue ?? position.costBasis)}
+              />
+            }
           />
           <Stat
             label="Unrealized"
             value={
-              gain
-                ? `${formatEur(gain)}${position.unrealizedPct !== null ? ` · ${percent.format(position.unrealizedPct)}` : ''}`
-                : '—'
+              gain ? (
+                <>
+                  <AmountInline value={toNumber(gain)} signed />
+                  {position.unrealizedPct !== null &&
+                    ` · ${percent.format(position.unrealizedPct)}`}
+                </>
+              ) : (
+                '—'
+              )
             }
             color={gainColor}
           />
@@ -285,7 +307,7 @@ export const InstrumentDetailPage = () => {
               Dividends received
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--positive)]">
-              {formatEur(dividendTotal)}
+              <AmountInline value={toNumber(dividendTotal)} />
             </p>
           </div>
           <p className="text-xs text-[var(--text-muted)]">{dividends.length} payments</p>

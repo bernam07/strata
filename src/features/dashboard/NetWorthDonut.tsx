@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { pctMax1 as percent } from '@/ui/format';
 import { Link } from 'react-router-dom';
-import { formatEur, isNegative, money, type Money } from '@/core/money/money';
+import { formatEur, isNegative, money, toNumber, type Money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
+import { Amount, AmountInline } from '@/ui/Amount';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import { getInstitution } from '@/features/accounts/institutions';
 
@@ -211,8 +212,8 @@ export const NetWorthDonut = ({
                 <p className="max-w-full truncate text-xs font-semibold text-[var(--text-muted)]">
                   {current.name}
                 </p>
-                <p className="text-xl font-extrabold tabular-nums text-[var(--text-strong)]">
-                  {formatEur(current.balance)}
+                <p className="text-xl font-extrabold text-[var(--text-strong)]">
+                  <AmountInline value={toNumber(current.balance)} />
                 </p>
                 <p
                   className="text-xs font-semibold tabular-nums"
@@ -230,19 +231,18 @@ export const NetWorthDonut = ({
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                   Net worth
                 </p>
-                <p className="text-[26px] font-extrabold leading-tight tabular-nums text-[var(--text-strong)]">
-                  {formatEur(centerNet)}
-                </p>
+                <Amount value={toNumber(centerNet)} size="md" />
                 {today !== null && (
                   <p
-                    className="text-xs font-semibold tabular-nums"
+                    className="text-xs font-semibold"
                     style={{
                       color: isNegative(today)
                         ? 'var(--negative)'
                         : 'var(--positive)',
                     }}
                   >
-                    {isNegative(today) ? '▼' : '▲'} {formatEur(today)} today
+                    {isNegative(today) ? '▼' : '▲'}{' '}
+                    <AmountInline value={Math.abs(toNumber(today))} /> today
                   </p>
                 )}
               </>
@@ -269,8 +269,8 @@ export const NetWorthDonut = ({
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-strong)]">
                 {segment.name}
               </span>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--text-strong)]">
-                {formatEur(segment.balance)}
+              <span className="shrink-0 text-sm font-semibold text-[var(--text-strong)]">
+                <AmountInline value={toNumber(segment.balance)} />
               </span>
               <span
                 className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums"

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
-import { formatEur, isNegative } from '@/core/money/money';
+import { isNegative, toNumber } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import {
   useAccounts,
   useDeleteAccount,
@@ -164,7 +165,7 @@ export const AccountDetailPage = () => {
             className="text-2xl font-bold tabular-nums"
             style={{ color: negative ? 'var(--negative)' : 'var(--text-strong)' }}
           >
-            {formatEur(balance)}
+            <AmountInline value={toNumber(balance)} />
           </p>
         </div>
       </Card>

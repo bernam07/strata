@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { formatEur, money, toNumber, type Money } from '@/core/money/money';
+import { money, toNumber, type Money } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { MoneyInput } from '@/ui/Field';
@@ -86,7 +87,7 @@ export const GoalCard = ({ net }: { net: Money }) => {
     <Card className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <p className="text-sm font-semibold text-[var(--text-strong)]">
-          Goal · {formatEur(target)}
+          Goal · <AmountInline value={toNumber(target)} />
         </p>
         <button
           type="button"
@@ -110,7 +111,12 @@ export const GoalCard = ({ net }: { net: Money }) => {
       </div>
       <p className="text-xs font-semibold tabular-nums text-[var(--text-muted)]">
         {percent.format(ratio)}
-        {!reached && ` · ${formatEur(target.minus(net))} to go`}
+        {!reached && (
+          <>
+            {' · '}
+            <AmountInline value={toNumber(target.minus(net))} /> to go
+          </>
+        )}
         {reached && ' · reached 🎉'}
       </p>
     </Card>

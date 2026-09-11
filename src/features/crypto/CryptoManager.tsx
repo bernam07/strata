@@ -3,8 +3,9 @@ import { useStockSearch } from '@/features/search/api/useMarket';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { Button } from '@/ui/Button';
 import { MoneyInput, TextInput } from '@/ui/Field';
+import { AmountInline } from '@/ui/Amount';
 import { toast } from '@/ui/toast';
-import { eur2 as eur, pct1 as pct, qty8 as qtyFmt } from '@/ui/format';
+import { pct1 as pct, qty8 as qtyFmt } from '@/ui/format';
 import { useAddCrypto, useCrypto, useDeleteCrypto } from './api/useCrypto';
 
 export const CryptoManager = () => {
@@ -73,8 +74,8 @@ export const CryptoManager = () => {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
-                  {eur.format(holding.valueEur)}
+                <p className="text-sm font-semibold text-[var(--text-strong)]">
+                  <AmountInline value={holding.valueEur} />
                 </p>
                 {holding.gainPct !== null && (
                   <p

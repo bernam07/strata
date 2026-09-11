@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { pct0 as pct } from '@/ui/format';
 import type { Money } from '@/core/money/money';
-import { formatEur } from '@/core/money/money';
+import { toNumber } from '@/core/money/money';
 import { budgetLines, totalBudget } from '@/core/expenses/budget';
+import { AmountInline } from '@/ui/Amount';
 import { Button } from '@/ui/Button';
 import { MoneyInput, Select } from '@/ui/Field';
 import type { Category } from './api/useCategories';
 import { useBudgets, useSetBudget } from './api/useBudgets';
+import { tileStyle } from './categoryColors';
 
 const ProgressBar = ({ ratio, over }: { ratio: number; over: boolean }) => (
   <div className="h-2 overflow-hidden rounded-full neu-sunken">
@@ -37,6 +39,11 @@ export const BudgetPanel = ({
     [categories],
   );
 
+  const colorOf = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.color])),
+    [categories],
+  );
+
   const lines = useMemo(
     () => budgetLines(budgets, spentOf),
     [budgets, spentOf],
@@ -64,10 +71,10 @@ export const BudgetPanel = ({
       {lines.length > 0 && (
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-[var(--text-muted)]">This month</span>
-          <span className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
-            {formatEur(totals.spent)}{' '}
+          <span className="text-sm font-semibold text-[var(--text-strong)]">
+            <AmountInline value={toNumber(totals.spent)} />{' '}
             <span className="text-[var(--text-muted)]">
-              / {formatEur(totals.limit)}
+              / <AmountInline value={toNumber(totals.limit)} />
             </span>
           </span>
         </div>
@@ -76,11 +83,21 @@ export const BudgetPanel = ({
       {lines.map((line) => (
         <div key={line.categoryId} className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="truncate text-sm font-semibold text-[var(--text-strong)]">
-              {nameOf.get(line.categoryId) ?? 'Category'}
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{
+                  background: tileStyle(colorOf.get(line.categoryId) ?? null).dot,
+                }}
+              />
+              <span className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                {nameOf.get(line.categoryId) ?? 'Category'}
+              </span>
             </span>
-            <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
-              {formatEur(line.spent)} / {formatEur(line.limit)}
+            <span className="shrink-0 text-xs text-[var(--text-muted)]">
+              <AmountInline value={toNumber(line.spent)} /> /{' '}
+              <AmountInline value={toNumber(line.limit)} />
             </span>
           </div>
           <ProgressBar ratio={line.ratio} over={line.over} />
@@ -91,9 +108,16 @@ export const BudgetPanel = ({
                 color: line.over ? 'var(--negative)' : 'var(--text-muted)',
               }}
             >
-              {line.over
-                ? `${formatEur(line.remaining.abs())} over`
-                : `${formatEur(line.remaining)} left · ${pct.format(line.ratio)}`}
+              {line.over ? (
+                <>
+                  <AmountInline value={toNumber(line.remaining.abs())} /> over
+                </>
+              ) : (
+                <>
+                  <AmountInline value={toNumber(line.remaining)} /> left ·{' '}
+                  {pct.format(line.ratio)}
+                </>
+              )}
             </span>
             <button
               type="button"

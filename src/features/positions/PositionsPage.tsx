@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { formatEur, isNegative, money, sum, zero } from '@/core/money/money';
+import { isNegative, money, sum, toNumber, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
+import { Amount, AmountInline } from '@/ui/Amount';
+import { SectionTitle } from '@/ui/SectionTitle';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
 import { SkeletonRows } from '@/ui/Skeleton';
@@ -150,29 +152,28 @@ export const PositionsPage = () => {
       ) : (
         <>
           <Card className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                 Portfolio value
-              </p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                {formatEur(totalWithCash)}
-              </p>
+              </span>
+              <Amount value={toNumber(totalWithCash)} size="xl" />
               {hasCash && (
-                <p className="mt-1 text-xs tabular-nums text-[var(--text-muted)]">
-                  {formatEur(totalMarket)} holdings · {formatEur(freeCash)} cash
-                </p>
+                <span className="text-xs text-[var(--text-muted)]">
+                  <AmountInline value={toNumber(totalMarket)} /> holdings ·{' '}
+                  <AmountInline value={toNumber(freeCash)} /> cash
+                </span>
               )}
             </div>
             <div className="text-right">
               <p className="text-xs text-[var(--text-muted)]">Cost basis</p>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--text-2)]">
-                {formatEur(totalCost)}
+              <p className="mt-1 text-sm font-semibold text-[var(--text-2)]">
+                <AmountInline value={toNumber(totalCost)} />
               </p>
               <p className="mt-2 text-xs text-[var(--text-muted)]">
                 Unrealized gain
               </p>
               <p
-                className="text-lg font-semibold tabular-nums"
+                className="text-lg font-semibold"
                 style={{
                   color: totalGain.equals(zero())
                     ? 'var(--text-muted)'
@@ -181,20 +182,13 @@ export const PositionsPage = () => {
                       : 'var(--positive)',
                 }}
               >
-                {formatEur(totalGain)}
+                <AmountInline value={toNumber(totalGain)} />
               </p>
             </div>
           </Card>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-baseline gap-2 px-0.5">
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Stocks
-              </span>
-              <span className="text-sm font-semibold tabular-nums text-[var(--text-2)]">
-                {positions.length}
-              </span>
-            </div>
+            <SectionTitle note={`${positions.length} held`}>Stocks</SectionTitle>
             {sortedPositions.map((position) => (
               <PositionRow
                 key={position.instrumentId}

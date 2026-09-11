@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
 import { money, sum, toNumber, zero, type Money } from '@/core/money/money';
@@ -14,6 +13,7 @@ import { useCrypto } from '@/features/crypto/api/useCrypto';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
+import { SectionTitle } from '@/ui/SectionTitle';
 import { AlertBanner } from '@/features/alerts/Alerts';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
@@ -22,28 +22,6 @@ import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
-
-const SectionTitle = ({
-  children,
-  action,
-}: {
-  children: string;
-  action?: { to: string; label: string };
-}) => (
-  <div className="flex items-baseline justify-between px-0.5">
-    <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-      {children}
-    </h2>
-    {action && (
-      <Link
-        to={action.to}
-        className="tap text-xs font-semibold text-[var(--accent)]"
-      >
-        {action.label} →
-      </Link>
-    )}
-  </div>
-);
 
 export const DashboardPage = () => {
   const accountsQuery = useAccounts();

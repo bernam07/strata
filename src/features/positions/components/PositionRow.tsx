@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { formatEur, isNegative } from '@/core/money/money';
+import { isNegative, toNumber } from '@/core/money/money';
 import type { Position } from '@/core/positions/derivePositions';
+import { AmountInline } from '@/ui/Amount';
 import { Surface } from '@/ui/Surface';
 import type { InstrumentMeta } from '../api/usePositions';
 import { StockAvatar } from './StockAvatar';
@@ -38,18 +39,18 @@ export const PositionRow = ({
           </p>
           <p className="text-xs text-[var(--text-muted)]">
             {quantityFormat.format(position.quantity.toNumber())} sh ·{' '}
-            {formatEur(position.averageCost)} avg
+            <AmountInline value={toNumber(position.averageCost)} /> avg
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
-            {position.marketValue
-              ? formatEur(position.marketValue)
-              : formatEur(position.costBasis)}
+          <p className="text-sm font-semibold text-[var(--text-strong)]">
+            <AmountInline
+              value={toNumber(position.marketValue ?? position.costBasis)}
+            />
           </p>
           {gain && (
-            <p className="text-xs font-semibold tabular-nums" style={{ color }}>
-              {formatEur(gain)}
+            <p className="text-xs font-semibold" style={{ color }}>
+              <AmountInline value={toNumber(gain)} signed />
               {position.unrealizedPct !== null &&
                 ` · ${percent.format(position.unrealizedPct)}`}
             </p>
