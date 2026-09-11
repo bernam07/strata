@@ -127,16 +127,14 @@ export const PositionsPage = () => {
       {isLoading ? (
         <SkeletonRows count={4} />
       ) : positions.length === 0 ? (
-        <>
-          <Card className="flex flex-col items-start gap-4">
-            <p className="text-sm text-[var(--text-muted)]">
-              No open positions yet. Connect Trading 212 to import your holdings.
-            </p>
-            <Link to="/integrations">
-              <Button>Go to Integrations</Button>
-            </Link>
-          </Card>
-        </>
+        <Card className="flex flex-col items-start gap-4">
+          <p className="text-sm text-[var(--text-muted)]">
+            No open positions yet. Connect Trading 212 to import your holdings.
+          </p>
+          <Link to="/integrations">
+            <Button>Go to Integrations</Button>
+          </Link>
+        </Card>
       ) : (
         <>
           <Card className="flex flex-wrap items-end justify-between gap-4">

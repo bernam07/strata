@@ -70,8 +70,9 @@ export const icons: Record<IconName, ReactNode> = {
   ),
   crypto: wrap(
     <>
-      <circle cx="12" cy="12" r="8" />
-      <path d="M10 8v8M13.5 8v8M9 10.2h4.2a1.9 1.9 0 0 1 0 3.8H9M9 12h4" />
+      <circle cx="9" cy="9" r="5.5" />
+      <circle cx="15" cy="15" r="5.5" />
+      <path d="M15 12.2v5.6" />
     </>,
   ),
   more: wrap(

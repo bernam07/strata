@@ -16,10 +16,12 @@ export const CryptoPage = () => {
     let value = 0;
     let cost = 0;
     let day = 0;
+    let hasDay = false;
     for (const holding of holdings) {
       value += holding.valueEur;
       cost += holding.costEur;
       day += holding.dayChangeEur;
+      if (holding.dayChangePct !== null) hasDay = true;
     }
     return {
       value,
@@ -27,6 +29,7 @@ export const CryptoPage = () => {
       gain: value - cost,
       gainPct: cost > 0 ? (value - cost) / cost : null,
       day,
+      hasDay,
     };
   }, [holdings]);
 
@@ -66,8 +69,13 @@ export const CryptoPage = () => {
           />
           <Stat
             label="Today"
-            value={`${dayUp ? '+' : '−'}${formatEur(money(Math.abs(totals.day)))}`}
-            tone={dayUp ? 'positive' : 'negative'}
+            value={
+              totals.hasDay
+                ? `${dayUp ? '+' : '−'}${formatEur(money(Math.abs(totals.day)))}`
+                : '—'
+            }
+            hint={totals.hasDay ? undefined : 'no intraday data yet'}
+            tone={totals.hasDay ? (dayUp ? 'positive' : 'negative') : undefined}
           />
         </div>
       )}
