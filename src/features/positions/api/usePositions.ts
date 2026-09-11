@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   derivePositions,
   type Position,
@@ -21,6 +21,31 @@ export interface PricePoint {
   date: string;
   value: number;
 }
+
+// Override (or clear, with '') the Yahoo symbol used to price an instrument,
+// then refresh so its price is re-fetched from the corrected symbol.
+export const useSetInstrumentYahoo = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { instrumentId: string; symbol: string }) => {
+      const { error } = await supabase.rpc('set_instrument_yahoo_mine', {
+        p_id: input.instrumentId,
+        p_symbol: input.symbol,
+      });
+      if (error) throw error;
+      const { error: refreshError } = await supabase.functions.invoke('market', {
+        body: { action: 'refresh' },
+      });
+      if (refreshError) throw refreshError;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['positions'] });
+      client.invalidateQueries({ queryKey: ['instrument-prices'] });
+      client.invalidateQueries({ queryKey: ['instrument-quote'] });
+      client.invalidateQueries({ queryKey: ['broker-accounts'] });
+    },
+  });
+};
 
 export const useInstrumentPrices = (instrumentId: string) =>
   useQuery<PricePoint[]>({
