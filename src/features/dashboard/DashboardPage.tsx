@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { deriveBalances } from '@/core/balances/deriveBalances';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
-import { money, sum, toNumber, zero, type Money } from '@/core/money/money';
+import { isNegative, money, sum, toNumber, zero, type Money } from '@/core/money/money';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import {
   applyBrokerBalances,
@@ -13,6 +13,8 @@ import { useCrypto } from '@/features/crypto/api/useCrypto';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
+import { PageHero } from '@/ui/PageHero';
+import { DeltaPill } from '@/ui/DeltaPill';
 import { SectionTitle } from '@/ui/SectionTitle';
 import { AlertBanner } from '@/features/alerts/Alerts';
 import { Onboarding } from '@/features/onboarding/Onboarding';
@@ -135,23 +137,27 @@ export const DashboardPage = () => {
           <AlertBanner />
 
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-            <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6 lg:col-span-2">
-              <div
-                className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
-                style={{
-                  background:
-                    'radial-gradient(circle, var(--accent-soft), transparent 70%)',
-                }}
-              />
-              <div className="relative">
+            <div className="lg:col-span-2">
+              <PageHero
+                label="Net worth"
+                value={toNumber(netWithCrypto)}
+                aside={
+                  todayPl !== null ? (
+                    <DeltaPill
+                      value={toNumber(todayPl)}
+                      tone={isNegative(todayPl) ? 'negative' : 'positive'}
+                      note="today"
+                    />
+                  ) : undefined
+                }
+              >
                 <NetWorthDonut
                   netWorth={model.netWorth}
-                  today={todayPl}
                   extra={cryptoExtra}
                   net={netWithCrypto}
                 />
-              </div>
-            </section>
+              </PageHero>
+            </div>
 
             <MonthlySummary snapshots={snapshots} className="lg:col-span-2" />
 

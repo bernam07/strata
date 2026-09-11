@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { isNegative, toNumber, type Money, sum } from '@/core/money/money';
 import { AmountInline } from '@/ui/Amount';
+import { PageHero } from '@/ui/PageHero';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
@@ -63,6 +64,11 @@ export const AccountsPage = () => {
     }));
   }, [accounts, transactions, brokers]);
 
+  const netTotal = useMemo(
+    () => sum(groups.map((group) => group.total)),
+    [groups],
+  );
+
   const balanceById = useMemo(() => {
     const balances = applyBrokerBalances(
       deriveBalances(transactions),
@@ -94,6 +100,11 @@ export const AccountsPage = () => {
         <SkeletonRows count={4} />
       ) : accounts && accounts.length > 0 ? (
         <div className="flex flex-col gap-6">
+          <PageHero
+            label="Total balance"
+            value={toNumber(netTotal)}
+            sub={`Across ${accounts.length} account${accounts.length === 1 ? '' : 's'}`}
+          />
           {groups.map((group) => {
             const institution = getInstitution(group.institutionId);
             const many = group.accounts.length > 1;

@@ -26,15 +26,17 @@ const netWorth: NetWorth = {
 const renderDonut = () =>
   render(
     <MemoryRouter>
-      <NetWorthDonut netWorth={netWorth} today={money('12')} />
+      <NetWorthDonut netWorth={netWorth} />
     </MemoryRouter>,
   );
 
 describe('NetWorthDonut', () => {
-  it('shows the total net worth in the centre and lists each account', () => {
+  // The headline figure moved out to the page hero above the donut, so the
+  // centre now counts the holdings it is splitting instead of repeating it.
+  it('counts the holdings in the centre and lists each account', () => {
     renderDonut();
-    expect(screen.getByText('Net worth')).toBeInTheDocument();
-    expect(screen.getByText(/5,000/)).toBeInTheDocument();
+    expect(screen.getByText('Holdings')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('Savings')).toBeInTheDocument();
     expect(screen.getByText('Card')).toBeInTheDocument();
   });

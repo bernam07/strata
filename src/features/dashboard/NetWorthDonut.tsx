@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { pctMax1 as percent } from '@/ui/format';
 import { Link } from 'react-router-dom';
-import { formatEur, isNegative, money, toNumber, type Money } from '@/core/money/money';
+import { formatEur, money, toNumber, type Money } from '@/core/money/money';
 import type { NetWorth } from '@/core/networth/netWorth';
-import { Amount, AmountInline } from '@/ui/Amount';
+import { AmountInline } from '@/ui/Amount';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import { getInstitution } from '@/features/accounts/institutions';
 
@@ -50,12 +50,10 @@ export interface ExtraSegment {
 
 export const NetWorthDonut = ({
   netWorth,
-  today = null,
   extra = [],
   net,
 }: {
   netWorth: NetWorth;
-  today?: Money | null;
   extra?: ExtraSegment[];
   net?: Money;
 }) => {
@@ -229,22 +227,14 @@ export const NetWorthDonut = ({
             ) : (
               <>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Net worth
+                  Holdings
                 </p>
-                <Amount value={toNumber(centerNet)} size="md" />
-                {today !== null && (
-                  <p
-                    className="text-xs font-semibold"
-                    style={{
-                      color: isNegative(today)
-                        ? 'var(--negative)'
-                        : 'var(--positive)',
-                    }}
-                  >
-                    {isNegative(today) ? '▼' : '▲'}{' '}
-                    <AmountInline value={Math.abs(toNumber(today))} /> today
-                  </p>
-                )}
+                <p className="text-2xl font-extrabold leading-tight tabular-nums text-[var(--text-strong)]">
+                  {segments.length}
+                </p>
+                <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                  {segments.length === 1 ? 'account' : 'accounts'}
+                </p>
               </>
             )}
           </div>

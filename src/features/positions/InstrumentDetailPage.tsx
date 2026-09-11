@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { pct1 as percent, qty4 as quantity } from '@/ui/format';
 import { Link, useParams } from 'react-router-dom';
 import { usePersistentState } from '@/app/usePersistentState';
 import { isNegative, money, toNumber } from '@/core/money/money';
 import { AmountInline } from '@/ui/Amount';
+import { Stat } from '@/ui/Stat';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
@@ -77,28 +78,6 @@ const PriceSource = ({
   );
 };
 
-const Stat = ({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: ReactNode;
-  color?: string;
-}) => (
-  <div className="rounded-[var(--radius-field)] neu-sunken p-4">
-    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-      {label}
-    </p>
-    <p
-      className="mt-1 text-lg font-bold tabular-nums"
-      style={{ color: color ?? 'var(--text-strong)' }}
-    >
-      {value}
-    </p>
-  </div>
-);
-
 export const InstrumentDetailPage = () => {
   const { id = '' } = useParams();
   const positionsQuery = usePositions();
@@ -147,11 +126,11 @@ export const InstrumentDetailPage = () => {
   );
 
   const gain = position?.unrealized ?? null;
-  const gainColor = gain
+  const gainTone = gain
     ? isNegative(gain)
-      ? 'var(--negative)'
-      : 'var(--positive)'
-    : 'var(--text-muted)';
+      ? ('negative' as const)
+      : ('positive' as const)
+    : ('default' as const);
 
   return (
     <div className="flex flex-col gap-8">
@@ -224,7 +203,7 @@ export const InstrumentDetailPage = () => {
                 '—'
               )
             }
-            color={gainColor}
+            tone={gainTone}
           />
         </div>
       )}

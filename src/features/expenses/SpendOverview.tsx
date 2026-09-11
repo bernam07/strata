@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { Transaction } from '@/core/types';
-import { Card } from '@/ui/Card';
-import { Amount } from '@/ui/Amount';
+import { PageHero } from '@/ui/PageHero';
+import { DeltaPill } from '@/ui/DeltaPill';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { dayMonth } from '@/ui/format';
 
@@ -197,67 +197,56 @@ export const SpendOverview = ({
   const targetPct = Math.min(96, (model.average / model.max) * 100);
 
   return (
-    <Card className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <SegmentedControl
-          value={range}
-          onChange={changeRange}
-          segments={RANGES}
-          label="Chart range"
-        />
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => step(1)}
-            aria-label="Previous period"
-            className="tap grid h-7 w-7 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)]"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={offset === 0}
-            aria-label="Next period"
-            className="tap grid h-7 w-7 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)] disabled:opacity-35"
-          >
-            ›
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          {active ? active.full : model.label}
-        </span>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <Amount value={active ? active.total : model.total} size="xl" />
-          {!active && model.previousTotal > 0 && (
-            <span
-              className="flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-bold"
-              style={{
-                color: spendUp ? 'var(--negative)' : 'var(--positive)',
-                background: `color-mix(in srgb, ${
-                  spendUp ? 'var(--negative)' : 'var(--positive)'
-                } 13%, transparent)`,
-              }}
-            >
-              {spendUp ? '▲' : '▼'} {grouped.format(Math.abs(Math.round(delta)))} €
-              <span className="font-semibold opacity-70">vs previous</span>
-            </span>
-          )}
-          {active && (
+    <PageHero
+      label={active ? active.full : model.label}
+      value={active ? active.total : model.total}
+      toolbar={
+        <>
+          <SegmentedControl
+            value={range}
+            onChange={changeRange}
+            segments={RANGES}
+            label="Chart range"
+          />
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setSelected(null)}
-              className="tap text-xs font-semibold text-[var(--accent)]"
+              onClick={() => step(1)}
+              aria-label="Previous period"
+              className="tap grid h-7 w-7 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)]"
             >
-              Show period total
+              ‹
             </button>
-          )}
-        </div>
-      </div>
-
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              disabled={offset === 0}
+              aria-label="Next period"
+              className="tap grid h-7 w-7 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)] disabled:opacity-35"
+            >
+              ›
+            </button>
+          </div>
+        </>
+      }
+      aside={
+        active ? (
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="tap text-xs font-semibold text-[var(--accent)]"
+          >
+            Show period total
+          </button>
+        ) : model.previousTotal > 0 ? (
+          <DeltaPill
+            value={delta}
+            tone={spendUp ? 'negative' : 'positive'}
+            note="vs previous"
+          />
+        ) : undefined
+      }
+    >
       <div className="flex flex-col gap-1.5">
         <div
           ref={plotRef}
@@ -362,6 +351,6 @@ export const SpendOverview = ({
           ))}
         </div>
       </div>
-    </Card>
+    </PageHero>
   );
 };

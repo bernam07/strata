@@ -8,6 +8,8 @@ import {
 } from '@/core/dividends/forecast';
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/ui/PageHeader';
+import { PageHero } from '@/ui/PageHero';
+import { Stat } from '@/ui/Stat';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Surface } from '@/ui/Surface';
@@ -151,34 +153,26 @@ export const DividendsPage = () => {
         <SkeletonRows count={4} />
       ) : tab === 'received' ? (
         <>
-          <Card className="flex flex-col gap-5">
-            <div className="flex flex-wrap gap-x-10 gap-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                  Total received
-                </p>
-                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
-                  <AmountInline value={toNumber(receivedTotal)} />
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                  {thisYear}
-                </p>
-                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                  <AmountInline value={toNumber(thisYearTotal)} />
-                </p>
-              </div>
-            </div>
+          <PageHero
+            label="Total received"
+            value={toNumber(receivedTotal)}
+            aside={
+              <Stat
+                label={thisYear}
+                value={<AmountInline value={toNumber(thisYearTotal)} />}
+                hint="received this year"
+              />
+            }
+          >
             {received.length > 0 && (
-              <div>
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                   Last 12 months
                 </p>
                 <DividendsBarChart bars={monthlyBars} />
               </div>
             )}
-          </Card>
+          </PageHero>
 
           {topPayers.length > 0 && (
             <Card className="flex flex-col gap-3">
@@ -236,36 +230,28 @@ export const DividendsPage = () => {
         </>
       ) : (
         <>
-          <Card className="flex flex-col gap-5">
-            <div className="flex flex-wrap gap-x-10 gap-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                  Estimated next 12 months
-                </p>
-                <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                  <AmountInline value={toNumber(expectedTotal)} />
-                </p>
-              </div>
-              {overallYield !== null && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    Yield on cost
-                  </p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--accent)]">
-                    {percent.format(overallYield)}
-                  </p>
-                </div>
-              )}
-            </div>
+          <PageHero
+            label="Estimated next 12 months"
+            value={toNumber(expectedTotal)}
+            aside={
+              overallYield !== null ? (
+                <Stat
+                  label="Yield on cost"
+                  value={percent.format(overallYield)}
+                  hint="across paying holdings"
+                />
+              ) : undefined
+            }
+          >
             {expected.length > 0 && (
-              <div>
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                   Projected by month
                 </p>
                 <DividendsBarChart bars={forecastBars} />
               </div>
             )}
-          </Card>
+          </PageHero>
 
           {forecastByHolding.length > 0 && (
             <Card className="flex flex-col gap-3">
