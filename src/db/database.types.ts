@@ -564,6 +564,7 @@ export interface Database {
           user_id: string;
           parent_id: string | null;
           name: string;
+          color: string | null;
           created_at: string;
         };
         Insert: {
@@ -571,10 +572,12 @@ export interface Database {
           user_id?: string;
           parent_id?: string | null;
           name: string;
+          color?: string | null;
         };
         Update: {
           parent_id?: string | null;
           name?: string;
+          color?: string | null;
         };
         Relationships: [];
       };
