@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
-import { formatEur, money } from '@/core/money/money';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/ui/PageHeader';
-import { Stat } from '@/ui/Stat';
+import { Amount, AmountInline } from '@/ui/Amount';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { CryptoManager } from './CryptoManager';
 import { useCrypto } from './api/useCrypto';
@@ -55,29 +54,46 @@ export const CryptoPage = () => {
       />
 
       {holdings.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat label="Total value" value={formatEur(money(totals.value))} />
-          <Stat
-            label="Unrealized gain"
-            value={`${gainUp ? '+' : '−'}${formatEur(money(Math.abs(totals.gain)))}`}
-            hint={
-              totals.gainPct !== null
-                ? `${gainUp ? '+' : '−'}${(Math.abs(totals.gainPct) * 100).toFixed(1)}%`
-                : undefined
-            }
-            tone={gainUp ? 'positive' : 'negative'}
-          />
-          <Stat
-            label="Today"
-            value={
-              totals.hasDay
-                ? `${dayUp ? '+' : '−'}${formatEur(money(Math.abs(totals.day)))}`
-                : '—'
-            }
-            hint={totals.hasDay ? undefined : 'no intraday data yet'}
-            tone={totals.hasDay ? (dayUp ? 'positive' : 'negative') : undefined}
-          />
-        </div>
+        <Card className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Total value
+            </span>
+            <Amount value={totals.value} size="xl" />
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-[var(--text-muted)]">Unrealized gain</p>
+            <p
+              className="mt-1 text-lg font-semibold"
+              style={{ color: gainUp ? 'var(--positive)' : 'var(--negative)' }}
+            >
+              <AmountInline value={totals.gain} signed />
+              {totals.gainPct !== null && (
+                <span className="ml-1.5 text-xs">
+                  {gainUp ? '+' : '−'}
+                  {(Math.abs(totals.gainPct) * 100).toFixed(1)}%
+                </span>
+              )}
+            </p>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">Today</p>
+            <p
+              className="text-sm font-semibold"
+              style={{
+                color: !totals.hasDay
+                  ? 'var(--text-muted)'
+                  : dayUp
+                    ? 'var(--positive)'
+                    : 'var(--negative)',
+              }}
+            >
+              {totals.hasDay ? (
+                <AmountInline value={totals.day} signed />
+              ) : (
+                '— no intraday data yet'
+              )}
+            </p>
+          </div>
+        </Card>
       )}
 
       <Card>

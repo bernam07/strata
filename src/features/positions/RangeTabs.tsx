@@ -1,3 +1,5 @@
+import { SegmentedControl } from '@/ui/SegmentedControl';
+
 export interface ChartRange {
   label: string;
   value: string;
@@ -18,20 +20,11 @@ export const RangeTabs = ({
   value: string;
   onChange: (range: string) => void;
 }) => (
-  <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-    {chartRanges.map((range) => (
-      <button
-        key={range.value}
-        type="button"
-        onClick={() => onChange(range.value)}
-        className={`tap flex-1 rounded-[var(--radius-field)] px-2 py-1 text-xs font-semibold ${
-          value === range.value
-            ? 'neu-flat text-[var(--accent)]'
-            : 'text-[var(--text-muted)]'
-        }`}
-      >
-        {range.label}
-      </button>
-    ))}
-  </div>
+  <SegmentedControl
+    value={value}
+    onChange={onChange}
+    segments={chartRanges}
+    fill
+    label="Chart range"
+  />
 );

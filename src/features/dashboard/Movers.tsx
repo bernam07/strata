@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { pct1 as percent } from '@/ui/format';
-import { formatEur, isNegative, zero } from '@/core/money/money';
+import { isNegative, toNumber, zero } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import type { Position } from '@/core/positions/derivePositions';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
@@ -35,8 +36,8 @@ const MoverRow = ({
         <p className="text-sm font-semibold tabular-nums" style={{ color }}>
           {pct !== null ? `${down ? '' : '+'}${percent.format(pct)}` : '—'}
         </p>
-        <p className="text-[11px] tabular-nums text-[var(--text-muted)]">
-          {formatEur(value)}
+        <p className="text-[11px] text-[var(--text-muted)]">
+          <AmountInline value={toNumber(value)} />
         </p>
       </div>
     </Link>

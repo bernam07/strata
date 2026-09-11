@@ -22,6 +22,7 @@ import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
 import { AmountInline } from '@/ui/Amount';
+import { SectionTitle } from '@/ui/SectionTitle';
 import { Select } from '@/ui/Field';
 import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
@@ -203,12 +204,7 @@ export const ExpensesPage = () => {
 
       {categoryTiles.length > 0 && (
         <section className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between px-0.5">
-            <h2 className={headingClass}>Categories</h2>
-            <span className="text-xs font-semibold tabular-nums text-[var(--text-muted)]">
-              {monthLabel(monthKey(0))}
-            </span>
-          </div>
+          <SectionTitle note={monthLabel(monthKey(0))}>Categories</SectionTitle>
           <CategoryTiles tiles={categoryTiles} />
         </section>
       )}

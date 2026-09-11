@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { Transaction } from '@/core/types';
 import { Card } from '@/ui/Card';
 import { Amount } from '@/ui/Amount';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 import { dayMonth } from '@/ui/format';
 
 const grouped = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
@@ -19,10 +20,10 @@ const monthLong = new Intl.DateTimeFormat('en-GB', {
 
 type Range = 'week' | 'month' | '6m';
 
-const RANGES: { key: Range; label: string }[] = [
-  { key: 'week', label: 'Week' },
-  { key: 'month', label: 'Month' },
-  { key: '6m', label: '6 months' },
+const RANGES: { value: Range; label: string }[] = [
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: '6m', label: '6 months' },
 ];
 
 interface Bucket {
@@ -198,23 +199,12 @@ export const SpendOverview = ({
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-          {RANGES.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              onClick={() => changeRange(entry.key)}
-              aria-pressed={range === entry.key}
-              className={`tap rounded-[var(--radius-field)] px-2.5 py-1 text-xs font-semibold ${
-                range === entry.key
-                  ? 'neu-flat text-[var(--accent)]'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              {entry.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={range}
+          onChange={changeRange}
+          segments={RANGES}
+          label="Chart range"
+        />
         <div className="flex items-center gap-1">
           <button
             type="button"

@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import type { Account, Transaction } from '@/core/types';
 import { kindMeta } from '@/core/transactions/kinds';
-import { formatEur, isNegative, money } from '@/core/money/money';
+import { isNegative, money, toNumber } from '@/core/money/money';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
+import { AmountInline } from '@/ui/Amount';
 import {
   dayMonthYear as dateFormatter,
   qty4 as quantityFormatter,
@@ -73,13 +74,15 @@ export const TransactionList = ({
         if (showAccount && account) meta.push(account.name);
         meta.push(dateFormatter.format(new Date(transaction.occurredAt)));
 
-        let valueText = formatEur(amount);
+        let valueNumber = toNumber(amount);
+        let valueSigned = false;
         let valueColor = negative ? 'var(--negative)' : 'var(--positive)';
         if (instrumentView && transaction.kind === 'buy') {
-          valueText = formatEur(amount.abs());
+          valueNumber = Math.abs(valueNumber);
           valueColor = 'var(--text-2)';
         } else if (instrumentView && transaction.kind === 'sell') {
-          valueText = `+${formatEur(amount.abs())}`;
+          valueNumber = Math.abs(valueNumber);
+          valueSigned = true;
           valueColor = 'var(--positive)';
         }
 
@@ -100,10 +103,10 @@ export const TransactionList = ({
               </p>
             </div>
             <span
-              className="text-sm font-semibold tabular-nums"
+              className="text-sm font-semibold"
               style={{ color: valueColor }}
             >
-              {valueText}
+              <AmountInline value={valueNumber} signed={valueSigned} />
             </span>
             {canEdit && (
               <button

@@ -25,6 +25,7 @@ import {
 } from '@/features/dashboard/api/useNetWorthHistory';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Skeleton } from '@/ui/Skeleton';
 import { Stat } from '@/ui/Stat';
 import { toast } from '@/ui/toast';
@@ -218,22 +219,15 @@ export const AnalyticsView = () => {
               <h2 className="font-semibold text-[var(--text-strong)]">
                 Investments over time
               </h2>
-              <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-                {periods.map((entry) => (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    onClick={() => setPeriod(entry.key)}
-                    className={`rounded-[var(--radius-field)] px-3 py-1 text-xs font-semibold ${
-                      period === entry.key
-                        ? 'neu-flat text-[var(--accent)]'
-                        : 'text-[var(--text-muted)]'
-                    }`}
-                  >
-                    {entry.key}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={period}
+                onChange={setPeriod}
+                segments={periods.map((entry) => ({
+                  value: entry.key,
+                  label: entry.key,
+                }))}
+                label="Chart period"
+              />
             </div>
             <NetWorthChart series={shownSeries} />
             <div className="flex flex-wrap items-center justify-between gap-3">

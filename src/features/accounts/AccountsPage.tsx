@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
-import { formatEur, isNegative, type Money, sum } from '@/core/money/money';
+import { isNegative, toNumber, type Money, sum } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
@@ -27,12 +28,12 @@ interface Group {
   total: Money;
 }
 
-const Amount = ({ value }: { value: Money }) => (
+const Balance = ({ value }: { value: Money }) => (
   <span
-    className="shrink-0 text-sm font-semibold tabular-nums"
+    className="shrink-0 text-sm font-semibold"
     style={{ color: isNegative(value) ? 'var(--negative)' : 'var(--text-strong)' }}
   >
-    {formatEur(value)}
+    <AmountInline value={toNumber(value)} />
   </span>
 );
 
@@ -104,7 +105,7 @@ export const AccountsPage = () => {
                       {institution.displayName}
                     </span>
                     <span className="text-xs font-semibold text-[var(--text-muted)]">
-                      Combined <Amount value={group.total} />
+                      Combined <Balance value={group.total} />
                     </span>
                   </div>
                 )}
@@ -124,7 +125,7 @@ export const AccountsPage = () => {
                             {institution.displayName} · {typeLabel[account.type]}
                           </p>
                         </div>
-                        <Amount value={balanceById(account.id)} />
+                        <Balance value={balanceById(account.id)} />
                       </Surface>
                     </Link>
                   ))}

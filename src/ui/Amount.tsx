@@ -3,9 +3,10 @@
 // parts are formatted separately so each can carry its own weight and colour.
 const grouped = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
-type Size = 'lg' | 'xl';
+type Size = 'md' | 'lg' | 'xl';
 
 const scale: Record<Size, { whole: string; cents: string; cur: string }> = {
+  md: { whole: 'text-[26px]', cents: 'text-[16px]', cur: 'text-[12px]' },
   lg: { whole: 'text-[34px]', cents: 'text-[21px]', cur: 'text-[15px]' },
   xl: { whole: 'text-[42px]', cents: 'text-[26px]', cur: 'text-[17px]' },
 };
@@ -46,7 +47,8 @@ const inline = new Intl.NumberFormat('en-GB', {
 });
 
 // Row-scale amount with a trailing euro sign, matching the hero treatment.
-// Inherits its colour so it works inside positive/negative rows.
+// Inherits its colour so it works inside positive/negative rows. A negative
+// value always shows its sign; `signed` additionally shows a + on positives.
 export const AmountInline = ({
   value,
   signed = false,
@@ -55,7 +57,7 @@ export const AmountInline = ({
   signed?: boolean;
 }) => (
   <span className="whitespace-nowrap tabular-nums">
-    {signed && (value < 0 ? '−' : '+')}
+    {value < 0 ? '−' : signed ? '+' : ''}
     {inline.format(Math.abs(value))} <span className="opacity-55">€</span>
   </span>
 );

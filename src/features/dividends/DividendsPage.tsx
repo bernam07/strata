@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { pct1 as percent } from '@/ui/format';
-import { formatEur, money, sum } from '@/core/money/money';
+import { money, sum, toNumber } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import {
   annualIncomeByInstrument,
   expectedByMonth,
@@ -8,6 +9,7 @@ import {
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/ui/PageHeader';
 import { SkeletonRows } from '@/ui/Skeleton';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
 import { DividendsBarChart } from './DividendsBarChart';
@@ -133,30 +135,17 @@ export const DividendsPage = () => {
         subtitle="Income received and what's on the way."
       />
 
-      <div className="flex gap-1 self-start rounded-[var(--radius-field)] neu-sunken p-1">
-        <button
-          type="button"
-          onClick={() => setTab('received')}
-          className={`tap rounded-[var(--radius-field)] px-4 py-1.5 text-sm font-semibold ${
-            tab === 'received'
-              ? 'neu-flat text-[var(--accent)]'
-              : 'text-[var(--text-muted)]'
-          }`}
-        >
-          Received
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('expected')}
-          className={`tap rounded-[var(--radius-field)] px-4 py-1.5 text-sm font-semibold ${
-            tab === 'expected'
-              ? 'neu-flat text-[var(--accent)]'
-              : 'text-[var(--text-muted)]'
-          }`}
-        >
-          Calendar
-        </button>
-      </div>
+      <SegmentedControl
+        value={tab}
+        onChange={setTab}
+        segments={[
+          { value: 'received', label: 'Received' },
+          { value: 'expected', label: 'Calendar' },
+        ]}
+        size="md"
+        className="self-start"
+        label="Dividend view"
+      />
 
       {isLoading ? (
         <SkeletonRows count={4} />
@@ -169,7 +158,7 @@ export const DividendsPage = () => {
                   Total received
                 </p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--positive)]">
-                  {formatEur(receivedTotal)}
+                  <AmountInline value={toNumber(receivedTotal)} />
                 </p>
               </div>
               <div>
@@ -177,7 +166,7 @@ export const DividendsPage = () => {
                   {thisYear}
                 </p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                  {formatEur(thisYearTotal)}
+                  <AmountInline value={toNumber(thisYearTotal)} />
                 </p>
               </div>
             </div>
@@ -209,7 +198,7 @@ export const DividendsPage = () => {
                       {nameOf(instruments, payer.instrumentId)}
                     </span>
                     <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
-                      {formatEur(money(payer.total))}
+                      <AmountInline value={payer.total} />
                     </span>
                   </div>
                 );
@@ -238,7 +227,7 @@ export const DividendsPage = () => {
                     </p>
                   </div>
                   <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
-                    {formatEur(money(item.amount))}
+                    <AmountInline value={Number(item.amount)} />
                   </span>
                 </Surface>
               ))}
@@ -254,7 +243,7 @@ export const DividendsPage = () => {
                   Estimated next 12 months
                 </p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--text-strong)]">
-                  {formatEur(expectedTotal)}
+                  <AmountInline value={toNumber(expectedTotal)} />
                 </p>
               </div>
               {overallYield !== null && (
@@ -304,7 +293,7 @@ export const DividendsPage = () => {
                       </span>
                     )}
                     <span className="w-20 text-right text-sm font-semibold tabular-nums text-[var(--positive)]">
-                      ~{formatEur(money(holding.income))}
+                      ~<AmountInline value={holding.income} />
                     </span>
                   </div>
                 );
@@ -341,7 +330,7 @@ export const DividendsPage = () => {
                       </p>
                     </div>
                     <span className="text-sm font-semibold tabular-nums text-[var(--text-muted)]">
-                      ~{formatEur(money(item.estimatedAmount))}
+                      ~<AmountInline value={Number(item.estimatedAmount)} />
                     </span>
                   </Surface>
                 ))}

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Account, TransactionKind } from '@/core/types';
 import { kindMeta, manualKinds } from '@/core/transactions/kinds';
-import { formatEur, money } from '@/core/money/money';
+import { money } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import type { Cadence } from '@/core/recurring/schedule';
 import { Button } from '@/ui/Button';
 import { Labelled, MoneyInput, Select, TextInput } from '@/ui/Field';
@@ -83,7 +84,7 @@ export const RecurringManager = ({ accounts }: { accounts: Account[] }) => {
                   }}
                 >
                   {outflow ? '−' : '+'}
-                  {formatEur(money(rule.amount).abs())}
+                  <AmountInline value={Math.abs(Number(rule.amount))} />
                 </span>
                 <button
                   type="button"

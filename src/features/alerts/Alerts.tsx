@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { alertMet, type AlertDirection } from '@/core/alerts/evaluate';
 import { Button } from '@/ui/Button';
 import { MoneyInput } from '@/ui/Field';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 import type { MiniQuote } from '@/features/search/api/useMarket';
 import {
   useCreateAlert,
@@ -72,22 +73,15 @@ export const AlertForm = ({
         Price alert
       </p>
       <div className="flex items-end gap-2">
-        <div className="flex gap-1 rounded-[var(--radius-field)] neu-sunken p-1">
-          {(['above', 'below'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setDirection(option)}
-              className={`tap rounded-[var(--radius-field)] px-3 py-1.5 text-xs font-semibold ${
-                direction === option
-                  ? 'neu-flat text-[var(--accent)]'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              {option === 'above' ? 'Above' : 'Below'}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={direction}
+          onChange={setDirection}
+          segments={[
+            { value: 'above', label: 'Above' },
+            { value: 'below', label: 'Below' },
+          ]}
+          label="Alert direction"
+        />
         <div className="w-28">
           <MoneyInput placeholder="Target" value={target} onChange={setTarget} />
         </div>

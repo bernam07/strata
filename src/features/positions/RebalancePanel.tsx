@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { pct0 as percent } from '@/ui/format';
-import { formatEur, money } from '@/core/money/money';
+import { AmountInline } from '@/ui/Amount';
 import { rebalanceRows } from '@/core/positions/rebalance';
 import type { InstrumentMeta } from './api/usePositions';
 import { useAllocationTargets, useSetTarget } from './api/useTargets';
@@ -77,7 +77,7 @@ const Row = ({
       >
         {drift === null
           ? '—'
-          : `${drift >= 0 ? 'Buy ' : 'Sell '}${formatEur(money(Math.abs(drift)))}`}
+          : <>{drift >= 0 ? 'Buy ' : 'Sell '}<AmountInline value={Math.abs(drift)} /></>}
       </span>
     </div>
   );
