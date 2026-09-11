@@ -616,6 +616,10 @@ export interface Database {
     };
     Views: Record<never, never>;
     Functions: {
+      set_instrument_yahoo_mine: {
+        Args: { p_id: string; p_symbol: string };
+        Returns: undefined;
+      };
       upsert_prices: {
         Args: { p_rows: Json };
         Returns: number;
