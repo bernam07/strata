@@ -133,7 +133,7 @@ export const useRefreshPrices = () => {
         body: { action: 'refresh' },
       });
       if (error) throw error;
-      return data as { updated?: number; errors?: string[] };
+      return data as { updated?: number; stale?: number; errors?: string[] };
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ['positions'] });

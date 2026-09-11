@@ -156,54 +156,56 @@ export const DashboardPage = () => {
           <Onboarding />
           <AlertBanner />
 
-          <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6">
-            <div
-              className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
-              style={{
-                background:
-                  'radial-gradient(circle, var(--accent-soft), transparent 70%)',
-              }}
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+            <section className="relative overflow-hidden rounded-[var(--radius-card)] neu-raised p-6 lg:col-span-2">
+              <div
+                className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full opacity-60 blur-3xl"
+                style={{
+                  background:
+                    'radial-gradient(circle, var(--accent-soft), transparent 70%)',
+                }}
+              />
+              <div className="relative">
+                <NetWorthDonut
+                  netWorth={model.netWorth}
+                  today={todayPl}
+                  extra={cryptoExtra}
+                  net={netWithCrypto}
+                />
+              </div>
+            </section>
+
+            <MonthlySummary snapshots={snapshots} className="lg:col-span-2" />
+
+            <GoalCard net={netWithCrypto} />
+
+            <InsightsStrip
+              cash={Math.max(0, toNumber(model.netWorth.totalAssets) - toNumber(investments))}
+              investments={toNumber(investments) + cryptoTotal}
             />
-            <div className="relative">
-              <NetWorthDonut
-                netWorth={model.netWorth}
-                today={todayPl}
-                extra={cryptoExtra}
-                net={netWithCrypto}
-              />
-            </div>
-          </section>
 
-          <GoalCard net={netWithCrypto} />
+            {rankablePositions >= 2 && (
+              <section className="flex flex-col gap-3">
+                <SectionTitle action={{ to: '/positions', label: 'All positions' }}>
+                  Movers
+                </SectionTitle>
+                <Movers positions={positions} instruments={positionInstruments} />
+              </section>
+            )}
 
-          <InsightsStrip
-            cash={Math.max(0, toNumber(model.netWorth.totalAssets) - toNumber(investments))}
-            investments={toNumber(investments) + cryptoTotal}
-          />
-
-          <MonthlySummary snapshots={snapshots} />
-
-          {rankablePositions >= 2 && (
-            <section className="flex flex-col gap-3">
-              <SectionTitle action={{ to: '/positions', label: 'All positions' }}>
-                Movers
-              </SectionTitle>
-              <Movers positions={positions} instruments={positionInstruments} />
-            </section>
-          )}
-
-          {model.recent.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <SectionTitle action={{ to: '/transactions', label: 'View all' }}>
-                Recent activity
-              </SectionTitle>
-              <TransactionList
-                transactions={model.recent}
-                accounts={accounts}
-                instruments={instruments}
-              />
-            </section>
-          )}
+            {model.recent.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <SectionTitle action={{ to: '/transactions', label: 'View all' }}>
+                  Recent activity
+                </SectionTitle>
+                <TransactionList
+                  transactions={model.recent}
+                  accounts={accounts}
+                  instruments={instruments}
+                />
+              </section>
+            )}
+          </div>
         </>
       )}
     </div>

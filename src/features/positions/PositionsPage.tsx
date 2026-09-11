@@ -124,6 +124,18 @@ export const PositionsPage = () => {
         </p>
       )}
 
+      {refresh.isSuccess && (refresh.data?.stale ?? 0) > 0 && (
+        <p className="text-sm text-[var(--text-muted)]">
+          {refresh.data!.stale} holding
+          {refresh.data!.stale === 1 ? '' : 's'} kept last-known prices — the
+          account total holds its last synced value.{' '}
+          <Link to="/integrations" className="font-semibold text-[var(--accent)]">
+            Sync Trading 212
+          </Link>{' '}
+          for exact figures.
+        </p>
+      )}
+
       {isLoading ? (
         <SkeletonRows count={4} />
       ) : positions.length === 0 ? (
