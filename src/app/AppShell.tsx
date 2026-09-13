@@ -200,7 +200,10 @@ const MoreSheet = ({ onClose }: { onClose: () => void }) => {
 };
 
 const BottomBar = ({ onMore }: { onMore: () => void }) => (
-  <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+  // Laid out in the flow at the bottom of the fixed shell rather than
+  // positioned fixed itself: on iOS a fixed bar drifts out of place after the
+  // keyboard opens and closes, exposing the canvas beneath it as a black strip.
+  <nav className="z-30 flex shrink-0 items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
     {primaryTabs.map((item) => (
       <NavLink
         key={item.to}
@@ -264,7 +267,10 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden">
+    /* Fixed to the viewport rather than sized with 100dvh: the document then
+       has nothing to scroll, so focusing an input can't shift the page and
+       leave an unpainted strip at the bottom. */
+    <div className="fixed inset-0 flex overflow-hidden bg-[var(--bg)]">
       <Sidebar onCommand={() => setPaletteOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
@@ -275,14 +281,14 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           ref={mainRef}
           className="flex-1 overflow-y-auto overscroll-contain overflow-x-clip"
         >
-          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-12">
             <div key={location.pathname} className="page-enter">
               {children}
             </div>
           </div>
         </main>
+        <BottomBar onMore={() => setMoreOpen(true)} />
       </div>
-      <BottomBar onMore={() => setMoreOpen(true)} />
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       {!moreOpen && <QuickAdd />}

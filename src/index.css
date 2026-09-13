@@ -74,6 +74,13 @@ body,
   height: 100%;
 }
 
+/* Paint the root element too, not just the body: anything the viewport exposes
+   outside the body box — a safe-area strip, a momentary gap while iOS resizes
+   around the keyboard — otherwise falls through to the system's black. */
+html {
+  background: var(--bg);
+}
+
 /* No page may scroll or drift horizontally. `clip` cuts the overflow without
    creating a scroll container, so sticky headers keep working. `hidden` is the
    fallback for browsers without `clip`. Genuinely wide content (e.g. tables)
