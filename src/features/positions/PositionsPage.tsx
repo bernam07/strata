@@ -6,7 +6,6 @@ import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { AmountInline } from '@/ui/Amount';
 import { PageHero } from '@/ui/PageHero';
-import { DeltaPill } from '@/ui/DeltaPill';
 import { Stat } from '@/ui/Stat';
 import { SectionTitle } from '@/ui/SectionTitle';
 import { Card } from '@/ui/Card';
@@ -163,15 +162,6 @@ export const PositionsPage = () => {
                   <AmountInline value={toNumber(totalMarket)} /> holdings ·{' '}
                   <AmountInline value={toNumber(freeCash)} /> cash
                 </>
-              ) : undefined
-            }
-            aside={
-              !totalGain.equals(zero()) ? (
-                <DeltaPill
-                  value={toNumber(totalGain)}
-                  tone={gainNegative ? 'negative' : 'positive'}
-                  note="unrealized"
-                />
               ) : undefined
             }
           >
