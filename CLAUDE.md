@@ -312,11 +312,23 @@ was moved into a new wrapper, then collapsed to nothing. Charts now compute
 **pixel** heights from a fixed plot height (`DividendsBarChart`, `SpendOverview`).
 Do not reintroduce a percentage-height chain.
 
-**iOS: `position: fixed` bars drift.** The tab bar used to be `fixed` inside a
-`100dvh` shell. After the keyboard opened and closed it drifted, exposing the
-canvas as a black strip. Now: `AppShell` is `fixed inset-0` (so the document has
-nothing to scroll), the tab bar is laid out **in flow** at the bottom of it, and
-`html` paints `--bg` so any exposed sliver is app-coloured. Keep all three.
+**iOS: the tab bar must stay `position: fixed`.** A fixed element's containing
+block is the viewport, which with `viewport-fit=cover` reaches the *physical*
+bottom of the screen. `bottom-0` plus `pb-[env(safe-area-inset-bottom)]` is what
+makes the bar's background cover the home indicator.
+
+An attempt to lay the bar out **in the flow** at the bottom of a `fixed inset-0`
+shell — to stop it drifting after the keyboard closes — made things strictly
+worse: the bar then ends where the *shell* ends, which does not reach under the
+home indicator, so the black strip became **permanent** instead of intermittent.
+That change is reverted. Do not try it again.
+
+Still open: an intermittent strip appears after typing or interacting, which is
+presumably the fixed bar drifting relative to the visual viewport. Unfixed — it
+needs a device to reproduce, and the layout must not be restructured blind.
+
+`html` paints `--bg` (not just `body`) so any sliver the viewport exposes is
+app-coloured rather than the system's black. That part is additive and stays.
 
 **PWA scroll.** Only `<main>` scrolls (`overflow-y-auto overscroll-contain`).
 `html, body` carry `overscroll-behavior: none`. The header sits outside the
@@ -384,6 +396,9 @@ The repository is public. Keep it clean: no secrets, no dumps, no scratch files.
   the coins are held on-chain, so automating this would mean tracking addresses
   per blockchain.
 - The service worker update prompt lives in `src/app/useAppUpdate.ts`.
+- An intermittent black strip below the tab bar on iOS after typing or
+  interacting is **unresolved** — see §8. One attempted fix regressed it to a
+  permanent strip and was reverted.
 
 ---
 
