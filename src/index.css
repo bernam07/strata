@@ -6,8 +6,7 @@
   --radius-pill: 999px;
 }
 
-:root,
-:root[data-theme='dark'] {
+:root {
   color-scheme: dark;
   /* A warm near-black rather than a neutral grey: the neutrals carry a slight
      bias toward the gold accent, so the dark surfaces read as chosen rather
@@ -27,45 +26,6 @@
   --negative: #ef6b78;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset,
     0 14px 34px -22px rgba(0, 0, 0, 0.95);
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-  --bg: #ecebe8;
-  --surface-raised: #f8f7f5;
-  --surface-flat: #ffffff;
-  --surface-sunken: #e6e5e1;
-  --line: #e0ded9;
-  --text-strong: #1b1a17;
-  --text-2: #4a4842;
-  --text-muted: #737069;
-  --accent: #a9741f;
-  --accent-ink: #fff8ec;
-  --accent-soft: rgba(169, 116, 31, 0.12);
-  --positive: #2f9068;
-  --negative: #cf5560;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset,
-    0 14px 30px -20px rgba(40, 35, 25, 0.28);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    --bg: #ecebe8;
-    --surface-raised: #f8f7f5;
-    --surface-flat: #ffffff;
-    --surface-sunken: #e6e5e1;
-    --line: #e0ded9;
-    --text-strong: #1b1a17;
-    --text-2: #4a4842;
-    --text-muted: #737069;
-    --accent: #a9741f;
-    --accent-ink: #fff8ec;
-    --accent-soft: rgba(169, 116, 31, 0.12);
-    --positive: #2f9068;
-    --negative: #cf5560;
-    --shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset,
-      0 14px 30px -20px rgba(40, 35, 25, 0.28);
-  }
 }
 
 html,
@@ -131,7 +91,7 @@ body {
 
 @utility neu-raised {
   background: var(--surface-raised);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
   box-shadow: var(--shadow);
 }
 
@@ -149,6 +109,17 @@ body {
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease,
     border-color 0.15s ease;
+}
+
+@utility skeleton-shimmer {
+  background: linear-gradient(
+    105deg,
+    var(--surface-flat) 25%,
+    color-mix(in srgb, var(--text-muted) 12%, var(--surface-flat)) 42%,
+    var(--surface-flat) 60%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
 }
 
 /* Privacy mode: blur every amount/percentage (they carry `tabular-nums`). */
@@ -170,6 +141,39 @@ body {
   }
 }
 
+@keyframes shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
 @utility page-enter {
   animation: fade-rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.page-enter > * {
+  animation: fade-rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.page-enter > *:nth-child(2) {
+  animation-delay: 35ms;
+}
+
+.page-enter > *:nth-child(3) {
+  animation-delay: 70ms;
+}
+
+.page-enter > *:nth-child(4) {
+  animation-delay: 105ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer,
+  .page-enter,
+  .page-enter > * {
+    animation: none !important;
+  }
 }

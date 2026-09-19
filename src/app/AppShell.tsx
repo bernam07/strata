@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
@@ -81,20 +80,6 @@ const navItemClass = (isActive: boolean): string =>
       : 'text-[var(--text-2)] hover:bg-[var(--surface-flat)] hover:text-[var(--text-strong)]'
   }`;
 
-const ThemeButton = () => {
-  const { theme, toggle } = useTheme();
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label="Toggle theme"
-      className="tap grid h-9 w-9 place-items-center rounded-[var(--radius-field)] neu-flat text-[var(--text-2)]"
-    >
-      {theme === 'dark' ? '☾' : '☀'}
-    </button>
-  );
-};
-
 const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   const { signOut } = useAuth();
   return (
@@ -147,7 +132,6 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
       </nav>
 
       <div className="mt-auto flex items-center gap-2 border-t border-[var(--line)] pt-3">
-        <ThemeButton />
         <button
           type="button"
           onClick={signOut}
@@ -200,8 +184,7 @@ const MoreSheet = ({ onClose }: { onClose: () => void }) => {
             </div>
           ))}
         </div>
-        <div className="mt-5 flex items-center justify-between border-t border-[var(--line)] pt-4">
-          <ThemeButton />
+        <div className="mt-5 flex items-center justify-end border-t border-[var(--line)] pt-4">
           <button
             type="button"
             onClick={() => {
@@ -224,7 +207,7 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
   // screen — so bottom-0 plus the safe-area padding is what makes the bar's
   // background cover the home indicator. Laying it out in the flow of the shell
   // instead leaves a permanent strip below it.
-  <nav className="fixed inset-x-0 bottom-0 z-30 flex min-h-[5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+  <nav className="fixed inset-x-0 bottom-0 z-30 isolate flex min-h-[5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/98 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-14px_32px_-28px_rgba(0,0,0,0.95)] backdrop-blur lg:hidden">
     {primaryTabs.map((item) => (
       <NavLink
         key={item.to}
@@ -233,7 +216,7 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
         className={({ isActive }) =>
           `tap relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold ${
             isActive
-              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-8 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)]'
+              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-8 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)] after:absolute after:bottom-1 after:h-1 after:w-1 after:rounded-full after:bg-[var(--accent)]'
               : 'text-[var(--text-muted)]'
           }`
         }

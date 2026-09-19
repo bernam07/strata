@@ -30,7 +30,7 @@ export const Amount = ({
   const s = scale[size];
 
   return (
-    <span className="inline-flex items-start font-extrabold leading-none tracking-[-0.02em] tabular-nums text-[var(--text-strong)]">
+    <span className="inline-flex items-start font-extrabold leading-none tabular-nums text-[var(--text-strong)]">
       {sign && (
         <span className={`${s.cents} mr-0.5 font-bold`}>{negative ? '−' : '+'}</span>
       )}

@@ -45,6 +45,11 @@ interface AdvisorContext {
   brokerAccounts: unknown[];
 }
 
+interface AdvisorSource {
+  label: string;
+  path: string;
+}
+
 const loadContext = async (
   db: SupabaseClient,
   userId: string,
@@ -100,6 +105,8 @@ const loadContext = async (
 
 const systemInstructions = `You are Strata Advisor, a read-only assistant inside a personal wealth-management app.
 Use only the supplied financial context. Never invent numbers, transactions, holdings, dates, or facts.
+When relevant, cite one or more of these exact source tags: [Overview], [Portfolio], [Transactions], [Dividends].
+Use tags only when the supplied context supports them; never invent other tags.
 State clearly when the context is missing, stale, or insufficient to answer.
 You may summarize, compare, calculate transparently from supplied values, and suggest questions to investigate.
 Do not execute actions or imply that you can change data. Avoid personalized regulated financial advice,
@@ -164,7 +171,14 @@ Deno.serve(async (request) => {
     }
 
     const context = await loadContext(db, userId);
-    return json({ answer: await askGemini(question, context) });
+    const answer = await askGemini(question, context);
+    const sources: AdvisorSource[] = [
+      { label: 'Overview', path: '/' },
+      { label: 'Portfolio', path: '/positions' },
+      { label: 'Transactions', path: '/transactions' },
+      { label: 'Dividends', path: '/dividends' },
+    ];
+    return json({ answer, sources });
   } catch {
     return json({ error: 'Unable to answer that question right now' }, 500);
   }

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { useAskAdvisor } from '@/features/advisor/api/useAdvisor';
 import { icons, type IconName } from '@/app/icons';
@@ -28,22 +27,26 @@ const suggestedQuestions = [
   'Summarize my recent activity.',
 ];
 
-const AdvisorPanel = ({
+export const AdvisorPanel = ({
   open,
   onClose,
+  initialQuestion = '',
 }: {
   open: boolean;
   onClose: () => void;
+  initialQuestion?: string;
 }) => {
   const advisor = useAskAdvisor();
   const [question, setQuestion] = useState('');
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setQuestion(initialQuestion);
+    } else {
       setQuestion('');
       advisor.reset();
     }
-  }, [open]);
+  }, [open, initialQuestion]);
 
   if (!open) return null;
 
@@ -121,8 +124,25 @@ const AdvisorPanel = ({
               Answer
             </p>
             <p className="max-h-[32vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-[var(--text-2)]">
-              {advisor.data}
+              {advisor.data.answer}
             </p>
+            {advisor.data.sources.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Sources
+                </span>
+                {advisor.data.sources.map((source) => (
+                  <a
+                    key={source.path}
+                    href={source.path}
+                    onClick={onClose}
+                    className="tap rounded-[var(--radius-pill)] border border-[var(--line)] px-2 py-1 text-[11px] font-semibold text-[var(--accent)]"
+                  >
+                    {source.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <p className="mt-4 text-[11px] leading-5 text-[var(--text-muted)]">
@@ -142,7 +162,6 @@ export const CommandPalette = ({
 }) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { theme, toggle } = useTheme();
   const refresh = useRefreshPrices();
   const privacy = usePrivacy();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -208,14 +227,6 @@ export const CommandPalette = ({
         },
       },
       {
-        id: 'action:theme',
-        label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-        group: 'Actions',
-        glyph: theme === 'dark' ? '☀' : '☾',
-        keywords: ['dark', 'light', 'appearance'],
-        run: toggle,
-      },
-      {
         id: 'action:signout',
         label: 'Sign out',
         group: 'Actions',
@@ -224,7 +235,7 @@ export const CommandPalette = ({
         run: () => void signOut(),
       },
     ];
-  }, [navigate, refresh, theme, toggle, signOut, privacy]);
+  }, [navigate, refresh, signOut, privacy]);
 
   const results = useMemo(() => filterCommands(commands, query), [commands, query]);
 

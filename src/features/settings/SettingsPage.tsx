@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useTheme } from '@/ui/theme/ThemeProvider';
 import { setPrivacy, usePrivacy } from '@/ui/privacy';
 import { toast } from '@/ui/toast';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
@@ -94,7 +93,6 @@ const restoreCount = (payload: BackupPayload): number =>
 
 export const SettingsPage = () => {
   const { session, signOut } = useAuth();
-  const { theme, toggle } = useTheme();
   const privacyOn = usePrivacy();
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -223,18 +221,6 @@ export const SettingsPage = () => {
         </div>
         <Button variant="ghost" onClick={() => void signOut()}>
           Sign out
-        </Button>
-      </Card>
-
-      <Card className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-[var(--text-strong)]">Theme</p>
-          <p className="text-xs text-[var(--text-muted)]">
-            Currently {theme === 'dark' ? 'dark' : 'light'}.
-          </p>
-        </div>
-        <Button variant="ghost" onClick={toggle}>
-          {theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
         </Button>
       </Card>
 

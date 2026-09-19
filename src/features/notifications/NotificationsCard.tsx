@@ -2,9 +2,15 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { usePushNotifications } from './usePush';
 import { CardTitle } from '@/ui/Heading';
+import {
+  useDailyBriefing,
+  useSetDailyBriefing,
+} from '@/features/dashboard/api/usePreferences';
 
 export const NotificationsCard = () => {
   const push = usePushNotifications();
+  const briefing = useDailyBriefing();
+  const setBriefing = useSetDailyBriefing();
   if (!push.supported) return null;
 
   return (
@@ -41,6 +47,17 @@ export const NotificationsCard = () => {
         <p className="text-xs text-[var(--positive)]">
           Notifications are on for this device.
         </p>
+      )}
+      {push.enabled && (
+        <label className="flex items-center gap-3 border-t border-[var(--line)] pt-3 text-xs text-[var(--text-muted)]">
+          <input
+            type="checkbox"
+            checked={briefing.data ?? false}
+            disabled={briefing.isLoading || setBriefing.isPending}
+            onChange={(event) => setBriefing.mutate(event.target.checked)}
+          />
+          Send me a short daily portfolio briefing
+        </label>
       )}
     </Card>
   );

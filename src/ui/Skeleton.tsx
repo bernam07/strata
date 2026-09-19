@@ -1,6 +1,6 @@
 export const Skeleton = ({ className = '' }: { className?: string }) => (
   <div
-    className={`animate-pulse rounded-[var(--radius-field)] bg-[var(--surface-flat)] ${className}`}
+    className={`skeleton-shimmer rounded-[var(--radius-field)] ${className}`}
   />
 );
 
@@ -9,7 +9,7 @@ export const SkeletonRows = ({ count = 4 }: { count?: number }) => (
     {Array.from({ length: count }).map((_, index) => (
       <div
         key={index}
-        className="flex items-center gap-4 rounded-[var(--radius-card)] neu-flat p-4"
+        className="flex items-center gap-4 rounded-[var(--radius-card)] border border-[var(--line)] p-4"
       >
         <Skeleton className="h-10 w-10 rounded-full" />
         <div className="flex-1 space-y-2">

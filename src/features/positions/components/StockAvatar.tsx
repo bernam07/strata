@@ -43,7 +43,7 @@ export const StockAvatar = ({
 
   return (
     <div
-      className="relative flex flex-none items-center justify-center overflow-hidden rounded-full font-bold text-white"
+      className="relative flex flex-none select-none items-center justify-center overflow-hidden rounded-full font-bold text-white ring-1 ring-white/10"
       style={{
         width: size,
         height: size,
@@ -57,7 +57,7 @@ export const StockAvatar = ({
         <img
           src={src}
           alt=""
-          className="absolute inset-0 h-full w-full bg-white object-contain"
+          className="absolute inset-0 h-full w-full bg-[var(--surface-flat)] object-contain p-0.5"
           loading="lazy"
           onError={() => setIndex((current) => current + 1)}
         />

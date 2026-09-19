@@ -393,14 +393,17 @@ export interface Database {
         Row: {
           user_id: string;
           net_worth_goal: number | null;
+          daily_briefing: boolean;
           updated_at: string;
         };
         Insert: {
           user_id?: string;
           net_worth_goal?: number | null;
+          daily_briefing?: boolean;
         };
         Update: {
           net_worth_goal?: number | null;
+          daily_briefing?: boolean;
         };
         Relationships: [];
       };

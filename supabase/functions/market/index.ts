@@ -730,6 +730,61 @@ const evaluateAlerts = async (
   }
 };
 
+const sendDailyBriefings = async (db: SupabaseClient): Promise<void> => {
+  const { data: preferences } = await db
+    .from('user_preferences')
+    .select('user_id')
+    .eq('daily_briefing', true);
+  for (const preference of preferences ?? []) {
+    const userId = preference.user_id;
+    const [{ data: holdings }, { data: instruments }, { data: subscriptions }] =
+      await Promise.all([
+        db
+          .from('holdings')
+          .select('instrument_id, quantity, current_price, previous_close, currency')
+          .eq('user_id', userId),
+        db.from('instruments').select('id, name, ticker').eq('user_id', userId),
+        db
+          .from('push_subscriptions')
+          .select('id, endpoint, p256dh, auth')
+          .eq('user_id', userId),
+      ]);
+    if (!subscriptions || subscriptions.length === 0) continue;
+
+    const names = new Map((instruments ?? []).map((item) => [item.id, item.name || item.ticker]));
+    let total = 0;
+    let dayChange = 0;
+    let leader: { name: string; change: number } | null = null;
+    for (const holding of holdings ?? []) {
+      const quantity = Number(holding.quantity);
+      const current = quantity * Number(holding.current_price);
+      const previous = quantity * Number(holding.previous_close ?? holding.current_price);
+      const change = current - previous;
+      total += current;
+      dayChange += change;
+      if (!leader || Math.abs(change) > Math.abs(leader.change)) {
+        leader = { name: names.get(holding.instrument_id) ?? 'A holding', change };
+      }
+    }
+    const direction = dayChange >= 0 ? 'up' : 'down';
+    const leadText = leader
+      ? ` ${leader.name} led with ${leader.change >= 0 ? '+' : '−'}€${Math.abs(leader.change).toFixed(2)}.`
+      : '';
+    await sendPush(
+      subscriptions,
+      {
+        title: 'Daily portfolio briefing',
+        body: `Portfolio €${total.toFixed(2)} · ${direction} €${Math.abs(dayChange).toFixed(2)} today.${leadText}`,
+        url: '/',
+        tag: `daily-briefing-${new Date().toISOString().slice(0, 10)}`,
+      },
+      async (id) => {
+        await db.from('push_subscriptions').delete().eq('id', id);
+      },
+    );
+  }
+};
+
 const backfill = async (
   db: SupabaseClient,
   userId: string,
@@ -944,6 +999,17 @@ Deno.serve(async (req) => {
       if (!scope.userId) return json({ ok: false, error: 'unauthorized' }, 401);
       const result = await backfill(admin(), scope.userId, params.range ?? '2y');
       return json({ ok: true, ...result });
+    } catch (error) {
+      return json({ ok: false, error: msg(error) }, 500);
+    }
+  }
+
+  if (action === 'daily-briefing') {
+    try {
+      const scope = await callerScope(req);
+      if (!scope.all) return json({ ok: false, error: 'unauthorized' }, 401);
+      await sendDailyBriefings(admin());
+      return json({ ok: true });
     } catch (error) {
       return json({ ok: false, error: msg(error) }, 500);
     }
