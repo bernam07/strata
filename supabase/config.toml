@@ -14,3 +14,6 @@ enable_confirmations = false
 
 [functions.widget]
 verify_jwt = false
+
+[functions.advisor]
+verify_jwt = true

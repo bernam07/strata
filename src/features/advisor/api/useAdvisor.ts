@@ -21,7 +21,12 @@ const askAdvisor = async (question: string): Promise<AdvisorAnswer> => {
   const { data, error } = await supabase.functions.invoke<AdvisorResponse>('advisor', {
     body: { question },
   });
-  if (error) throw error;
+  if (error) {
+    if (error.message.toLowerCase().includes('non-2xx')) {
+      throw new Error('Advisor is not deployed or is not configured yet.');
+    }
+    throw error;
+  }
   if (data?.error) throw new Error(data.error);
   if (!data?.answer) throw new Error('The advisor returned no answer.');
   return { answer: data.answer, sources: data.sources ?? [] };

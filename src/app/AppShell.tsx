@@ -184,16 +184,18 @@ const MoreSheet = ({
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 ))}
-                <button
-                  type="button"
-                  onClick={onAdvisor}
-                  className="tap flex items-center gap-2 rounded-[var(--radius-field)] neu-flat px-2.5 py-3 text-xs font-semibold text-[var(--text-2)]"
-                >
-                  <span className="h-4 w-4 shrink-0 text-[var(--accent)] [&>svg]:h-full [&>svg]:w-full">
-                    {icons.advisor}
-                  </span>
-                  <span className="truncate">Advisor</span>
-                </button>
+                {section.group === 'Manage' && (
+                  <button
+                    type="button"
+                    onClick={onAdvisor}
+                    className="tap flex items-center gap-2 rounded-[var(--radius-field)] neu-flat px-2.5 py-3 text-xs font-semibold text-[var(--text-2)]"
+                  >
+                    <span className="h-4 w-4 shrink-0 text-[var(--accent)] [&>svg]:h-full [&>svg]:w-full">
+                      {icons.advisor}
+                    </span>
+                    <span className="truncate">Advisor</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
