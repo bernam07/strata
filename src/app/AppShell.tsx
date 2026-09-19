@@ -6,6 +6,7 @@ import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
 import { Toaster } from '@/ui/Toaster';
+import { DataFreshness } from '@/ui/DataFreshness';
 import { icons, StrataMark, type IconName } from './icons';
 
 interface NavEntry {
@@ -323,6 +324,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           className="flex-1 overflow-y-auto overscroll-contain overflow-x-clip"
         >
           <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+            <DataFreshness />
             <div key={location.pathname} className="page-enter">
               {children}
             </div>

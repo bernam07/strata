@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -15,6 +15,14 @@ interface RestoreTable {
   table: string;
   conflict: string;
   parentsFirst?: boolean;
+}
+
+interface BackupPayload {
+  app: 'strata';
+  version: 1;
+  exportedAt: string;
+  email?: string;
+  tables: Record<string, Record<string, unknown>[]>;
 }
 
 // Only config the user authors and that doesn't depend on the synced ledger
@@ -51,6 +59,39 @@ const backupTables = [
   'net_worth_snapshots',
 ] as const;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const parseBackup = (value: unknown): BackupPayload | null => {
+  if (!isRecord(value)) return null;
+  if (value.app !== 'strata' || value.version !== 1 || !isRecord(value.tables)) {
+    return null;
+  }
+
+  const tables: Record<string, Record<string, unknown>[]> = {};
+  for (const [table, rows] of Object.entries(value.tables)) {
+    if (!Array.isArray(rows) || !rows.every(isRecord)) return null;
+    tables[table] = rows;
+  }
+
+  if (
+    typeof value.exportedAt !== 'string' ||
+    Number.isNaN(Date.parse(value.exportedAt))
+  ) {
+    return null;
+  }
+  return {
+    app: 'strata',
+    version: 1,
+    exportedAt: value.exportedAt,
+    email: typeof value.email === 'string' ? value.email : undefined,
+    tables,
+  };
+};
+
+const restoreCount = (payload: BackupPayload): number =>
+  restoreTables.reduce((total, { table }) => total + (payload.tables[table]?.length ?? 0), 0);
+
 export const SettingsPage = () => {
   const { session, signOut } = useAuth();
   const { theme, toggle } = useTheme();
@@ -58,15 +99,45 @@ export const SettingsPage = () => {
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [online, setOnline] = useState(
+    () => typeof navigator === 'undefined' || navigator.onLine,
+  );
+  const [pendingRestore, setPendingRestore] = useState<BackupPayload | null>(null);
   const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
   const email = session?.user?.email ?? '';
 
-  const restore = async (file: File) => {
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  const prepareRestore = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setRestoreStatus('That backup is too large. Choose a file under 10 MB.');
+      return;
+    }
+    try {
+      const parsed = parseBackup(JSON.parse(await file.text()));
+      if (!parsed) {
+        setRestoreStatus('That file is not a valid Strata backup.');
+        return;
+      }
+      setPendingRestore(parsed);
+      setRestoreStatus(null);
+    } catch {
+      setRestoreStatus('Could not read that file.');
+    }
+  };
+
+  const restore = async (payload: BackupPayload) => {
     setRestoreStatus('Restoring…');
     try {
-      const parsed = JSON.parse(await file.text());
-      const tables: Record<string, Record<string, unknown>[]> =
-        parsed.tables ?? parsed;
       const db = supabase as unknown as {
         from: (table: string) => {
           upsert: (
@@ -78,7 +149,7 @@ export const SettingsPage = () => {
       let restored = 0;
       const failed: string[] = [];
       for (const { table, conflict, parentsFirst } of restoreTables) {
-        let rows = (tables[table] ?? []).map(stripMeta);
+        let rows = (payload.tables[table] ?? []).map(stripMeta);
         if (rows.length === 0) continue;
         if (parentsFirst) {
           rows = rows.sort(
@@ -92,17 +163,22 @@ export const SettingsPage = () => {
         else restored += rows.length;
       }
       await client.invalidateQueries();
+      setPendingRestore(null);
       setRestoreStatus(
         failed.length > 0
           ? `Restored ${restored} rows. Skipped: ${failed.join(', ')}.`
           : `Restored ${restored} rows.`,
       );
     } catch {
-      setRestoreStatus('Could not read that file.');
+      setRestoreStatus('Could not restore that backup.');
     }
   };
 
   const exportAll = async () => {
+    if (!online) {
+      toast('Connect to the internet before exporting', 'error');
+      return;
+    }
     setExporting(true);
     try {
       const tables: Record<string, unknown[]> = {};
@@ -191,7 +267,7 @@ export const SettingsPage = () => {
           </p>
         </div>
         <div>
-          <Button onClick={exportAll} disabled={exporting}>
+          <Button onClick={exportAll} disabled={exporting || !online}>
             {exporting ? 'Exporting…' : 'Export data (JSON)'}
           </Button>
         </div>
@@ -216,14 +292,35 @@ export const SettingsPage = () => {
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) void restore(file);
+              if (file) void prepareRestore(file);
               event.target.value = '';
             }}
           />
-          <Button variant="ghost" onClick={() => fileRef.current?.click()}>
+          <Button
+            variant="ghost"
+            disabled={!online}
+            onClick={() => fileRef.current?.click()}
+          >
             Choose backup file
           </Button>
         </div>
+        {pendingRestore && (
+          <div className="flex flex-col gap-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] p-3">
+            <p className="text-xs text-[var(--text-2)]">
+              Ready to restore {restoreCount(pendingRestore)} rows from{' '}
+              {new Date(pendingRestore.exportedAt).toLocaleDateString()}.
+              Existing matching settings will be replaced.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void restore(pendingRestore)}>
+                Confirm restore
+              </Button>
+              <Button variant="ghost" onClick={() => setPendingRestore(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
         {restoreStatus && (
           <p className="text-xs text-[var(--text-muted)]">{restoreStatus}</p>
         )}
