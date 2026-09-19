@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
-import { CommandPalette } from '@/features/command/CommandPalette';
+import { AdvisorPanel, CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
 import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
@@ -41,7 +41,6 @@ const sections: NavSection[] = [
     group: 'Spend',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -144,7 +143,13 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   );
 };
 
-const MoreSheet = ({ onClose }: { onClose: () => void }) => {
+const MoreSheet = ({
+  onClose,
+  onAdvisor,
+}: {
+  onClose: () => void;
+  onAdvisor: () => void;
+}) => {
   const { signOut } = useAuth();
   return (
     <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
@@ -180,6 +185,16 @@ const MoreSheet = ({ onClose }: { onClose: () => void }) => {
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 ))}
+                <button
+                  type="button"
+                  onClick={onAdvisor}
+                  className="tap flex items-center gap-2 rounded-[var(--radius-field)] neu-flat px-2.5 py-3 text-xs font-semibold text-[var(--text-2)]"
+                >
+                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-[var(--accent)] text-[10px] text-[var(--accent)]">
+                    ?
+                  </span>
+                  <span className="truncate">Advisor</span>
+                </button>
               </div>
             </div>
           ))}
@@ -201,48 +216,67 @@ const MoreSheet = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-const BottomBar = ({ onMore }: { onMore: () => void }) => (
-  // Must stay position:fixed. A fixed element's containing block is the
-  // viewport, which with viewport-fit=cover reaches the physical bottom of the
-  // screen — so bottom-0 plus the safe-area padding is what makes the bar's
-  // background cover the home indicator. Laying it out in the flow of the shell
-  // instead leaves a permanent strip below it.
-  <nav className="fixed inset-x-0 bottom-0 z-30 isolate flex min-h-[5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/98 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-14px_32px_-28px_rgba(0,0,0,0.95)] backdrop-blur lg:hidden">
-    {primaryTabs.map((item) => (
-      <NavLink
-        key={item.to}
-        to={item.to}
-        end={item.end}
-        className={({ isActive }) =>
-          `tap relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold ${
-            isActive
-              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-8 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)] after:absolute after:bottom-1 after:h-1 after:w-1 after:rounded-full after:bg-[var(--accent)]'
-              : 'text-[var(--text-muted)]'
-          }`
-        }
+const BottomBar = ({ onMore }: { onMore: () => void }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-24 z-30 lg:hidden">
+      {open && (
+        <div className="page-enter absolute bottom-[calc(100%+0.75rem)] right-0 flex w-52 flex-col gap-1 rounded-[var(--radius-card)] neu-raised p-2">
+          {primaryTabs.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `tap flex items-center gap-3 rounded-[var(--radius-field)] px-3 py-3 text-sm font-semibold ${
+                  isActive
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                    : 'text-[var(--text-2)] hover:bg-[var(--surface-flat)]'
+                }`
+              }
+            >
+              <span className="h-5 w-5 [&>svg]:h-full [&>svg]:w-full">
+                {icons[item.icon]}
+              </span>
+              {item.label}
+            </NavLink>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onMore();
+            }}
+            className="tap flex items-center gap-3 rounded-[var(--radius-field)] px-3 py-3 text-left text-sm font-semibold text-[var(--text-2)] hover:bg-[var(--surface-flat)]"
+          >
+            <span className="h-5 w-5 [&>svg]:h-full [&>svg]:w-full">
+              {icons.more}
+            </span>
+            More
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={open}
+        className="tap grid h-14 w-14 place-items-center rounded-full neu-raised text-[var(--accent)] shadow-[0_12px_28px_-10px_rgba(0,0,0,0.95)]"
       >
-        <span className="h-[23px] w-[23px] [&>svg]:h-full [&>svg]:w-full">
-          {icons[item.icon]}
+        <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
+          {icons.more}
         </span>
-        {item.label}
-      </NavLink>
-    ))}
-    <button
-      type="button"
-      onClick={onMore}
-      className="tap flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold text-[var(--text-muted)]"
-    >
-      <span className="h-[23px] w-[23px] [&>svg]:h-full [&>svg]:w-full">
-        {icons.more}
-      </span>
-      More
-    </button>
-  </nav>
-);
+      </button>
+    </div>
+  );
+};
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [advisorOpen, setAdvisorOpen] = useState(false);
   const [offline, setOffline] = useState(
     () => typeof navigator !== 'undefined' && !navigator.onLine,
   );
@@ -309,8 +343,17 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         </main>
       </div>
       <BottomBar onMore={() => setMoreOpen(true)} />
-      {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
+      {moreOpen && (
+        <MoreSheet
+          onClose={() => setMoreOpen(false)}
+          onAdvisor={() => {
+            setMoreOpen(false);
+            setAdvisorOpen(true);
+          }}
+        />
+      )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <AdvisorPanel open={advisorOpen} onClose={() => setAdvisorOpen(false)} />
       {!moreOpen && <QuickAdd />}
       <Toaster />
     </div>

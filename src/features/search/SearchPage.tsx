@@ -11,7 +11,6 @@ import { RangeTabs } from '@/features/positions/RangeTabs';
 import { AlertForm, AlertsList } from '@/features/alerts/Alerts';
 import { usePriceAlerts } from '@/features/alerts/api/useAlerts';
 import { usePersistentState } from '@/app/usePersistentState';
-import { AdvisorPanel } from '@/features/command/CommandPalette';
 import { SectionTitle } from '@/ui/SectionTitle';
 import {
   useBatchQuotes,
@@ -58,7 +57,6 @@ const QuotePanel = ({
   name: string;
   onBack: () => void;
 }) => {
-  const [advisorOpen, setAdvisorOpen] = useState(false);
   const [range, setRange] = usePersistentState('chart-range', '1y');
   const { data, isLoading } = useQuote(symbol, range);
   const { data: watchlist = [] } = useWatchlist();
@@ -112,9 +110,6 @@ const QuotePanel = ({
           >
             {watched ? 'Watching ✓' : 'Watch'}
           </Button>
-          <Button variant="ghost" onClick={() => setAdvisorOpen(true)}>
-            Ask Advisor
-          </Button>
         </div>
 
         {isLoading ? (
@@ -149,11 +144,6 @@ const QuotePanel = ({
           </p>
         )}
       </Card>
-      <AdvisorPanel
-        open={advisorOpen}
-        initialQuestion={`Explain the recent performance and current risks of ${name} (${symbol}) using my Strata data.`}
-        onClose={() => setAdvisorOpen(false)}
-      />
     </div>
   );
 };
@@ -161,7 +151,6 @@ const QuotePanel = ({
 export const SearchPage = () => {
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
-  const [advisorOpen, setAdvisorOpen] = useState(false);
   const [selected, setSelected] = useState<{ symbol: string; name: string } | null>(
     null,
   );
@@ -204,11 +193,6 @@ export const SearchPage = () => {
       <PageHeader
         title="Search"
         subtitle="Look up any stock or ETF — even ones you don't own."
-        actions={
-          <Button variant="ghost" onClick={() => setAdvisorOpen(true)}>
-            Ask Advisor
-          </Button>
-        }
       />
 
       <TextInput
@@ -283,10 +267,6 @@ export const SearchPage = () => {
           ))}
         </ul>
       )}
-      <AdvisorPanel
-        open={advisorOpen}
-        onClose={() => setAdvisorOpen(false)}
-      />
     </div>
   );
 };

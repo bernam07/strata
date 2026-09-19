@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { setPrivacy, usePrivacy } from '@/ui/privacy';
@@ -240,6 +241,20 @@ export const SettingsPage = () => {
       </Card>
 
       <NotificationsCard />
+
+      <Card className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--text-strong)]">
+            Connected services
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            Trading 212, widget and notification integrations.
+          </p>
+        </div>
+        <Link to="/integrations">
+          <Button variant="ghost">Manage</Button>
+        </Link>
+      </Card>
 
       <Card className="flex flex-col gap-3">
         <div>

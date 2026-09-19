@@ -87,7 +87,7 @@ export const icons: Record<IconName, ReactNode> = {
 export const StrataMark = ({ size = 30 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
     <rect x="4" y="20" width="24" height="5" rx="2" fill="var(--accent)" />
-    <rect x="6" y="13" width="20" height="5" rx="2" fill="var(--accent)" opacity="0.78" />
-    <rect x="9" y="6" width="14" height="5" rx="2" fill="var(--accent)" opacity="0.55" />
+    <rect x="6" y="13" width="20" height="5" rx="2" fill="var(--accent)" opacity="0.9" />
+    <rect x="9" y="6" width="14" height="5" rx="2" fill="var(--accent)" opacity="0.75" />
   </svg>
 );

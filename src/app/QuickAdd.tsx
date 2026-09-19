@@ -66,7 +66,7 @@ export const QuickAdd = () => {
           </svg>
         </button>
         {open && (
-          <div className="page-enter absolute right-0 top-[calc(100%+0.75rem)] w-56 rounded-[var(--radius-card)] neu-raised p-2">
+          <div className="page-enter absolute bottom-[calc(100%+0.75rem)] right-0 w-56 rounded-[var(--radius-card)] neu-raised p-2">
             {actions.map((action) => (
               <button
                 key={action.to}
