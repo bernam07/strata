@@ -206,7 +206,7 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
   // screen — so bottom-0 plus the safe-area padding is what makes the bar's
   // background cover the home indicator. Laying it out in the flow of the shell
   // instead leaves a permanent strip below it.
-  <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+  <nav className="fixed inset-x-0 bottom-0 z-30 flex min-h-[4.5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
     {primaryTabs.map((item) => (
       <NavLink
         key={item.to}
