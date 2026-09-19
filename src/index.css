@@ -72,7 +72,6 @@ html,
 body,
 #root {
   height: 100%;
-  background: var(--bg);
 }
 
 /* Paint the root element too, not just the body: anything the viewport exposes

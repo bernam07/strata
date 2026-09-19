@@ -13,7 +13,7 @@ const actions: Action[] = [
   { label: 'Transfer', hint: 'Move between accounts', to: '/transactions?new=transfer' },
 ];
 
-export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
+export const QuickAdd = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -42,9 +42,7 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
 
       {/* Clears the bottom bar and the home indicator beneath it, so the
           button never sits in front of the tab strip. */}
-      <div
-        className={`fixed right-4 z-40 flex flex-col items-end gap-2 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:right-8 ${hidden ? 'invisible pointer-events-none' : ''}`}
-      >
+      <div className="fixed right-4 z-40 flex flex-col items-end gap-2 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:right-8">
         {open && (
           <div className="page-enter flex flex-col items-end gap-2">
             {actions.map((action) => (

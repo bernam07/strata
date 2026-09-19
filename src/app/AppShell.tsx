@@ -200,15 +200,13 @@ const MoreSheet = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-const BottomBar = ({ onMore, keyboardOpen }: { onMore: () => void; keyboardOpen: boolean }) => (
+const BottomBar = ({ onMore }: { onMore: () => void }) => (
   // Must stay position:fixed. A fixed element's containing block is the
   // viewport, which with viewport-fit=cover reaches the physical bottom of the
   // screen — so bottom-0 plus the safe-area padding is what makes the bar's
   // background cover the home indicator. Laying it out in the flow of the shell
   // instead leaves a permanent strip below it.
-  <nav
-    className={`fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden ${keyboardOpen ? 'invisible pointer-events-none' : ''}`}
-  >
+  <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
     {primaryTabs.map((item) => (
       <NavLink
         key={item.to}
@@ -247,7 +245,6 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const [offline, setOffline] = useState(
     () => typeof navigator !== 'undefined' && !navigator.onLine,
   );
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const location = useLocation();
   const recurring = useProcessRecurring();
   const ranRecurring = useRef(false);
@@ -262,17 +259,6 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     ranRecurring.current = true;
     recurring.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const updateKeyboard = () => {
-      setKeyboardOpen(viewport.height < window.innerHeight - 120);
-    };
-    updateKeyboard();
-    viewport.addEventListener('resize', updateKeyboard);
-    return () => viewport.removeEventListener('resize', updateKeyboard);
   }, []);
 
   useEffect(() => {
@@ -298,7 +284,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <div className="flex h-full min-h-[100dvh] overflow-hidden bg-[var(--bg)]">
+    <div className="flex h-[100svh] overflow-hidden">
       {offline && (
         <div className="fixed inset-x-0 top-0 z-[70] border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-xs font-semibold text-[var(--text-2)]">
           Sem ligação. Os dados podem estar desatualizados.
@@ -322,10 +308,10 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           </div>
         </main>
       </div>
-      <BottomBar onMore={() => setMoreOpen(true)} keyboardOpen={keyboardOpen} />
+      <BottomBar onMore={() => setMoreOpen(true)} />
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      {!moreOpen && <QuickAdd hidden={keyboardOpen} />}
+      {!moreOpen && <QuickAdd />}
       <Toaster />
     </div>
   );
