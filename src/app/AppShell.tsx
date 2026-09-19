@@ -206,21 +206,21 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
   // screen — so bottom-0 plus the safe-area padding is what makes the bar's
   // background cover the home indicator. Laying it out in the flow of the shell
   // instead leaves a permanent strip below it.
-  <nav className="fixed inset-x-0 bottom-0 z-30 flex min-h-[4.5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+  <nav className="fixed inset-x-0 bottom-0 z-30 flex min-h-[5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
     {primaryTabs.map((item) => (
       <NavLink
         key={item.to}
         to={item.to}
         end={item.end}
         className={({ isActive }) =>
-          `tap relative flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-semibold ${
+          `tap relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold ${
             isActive
               ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-8 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)]'
               : 'text-[var(--text-muted)]'
           }`
         }
       >
-        <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
+        <span className="h-[23px] w-[23px] [&>svg]:h-full [&>svg]:w-full">
           {icons[item.icon]}
         </span>
         {item.label}
@@ -229,9 +229,9 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
     <button
       type="button"
       onClick={onMore}
-      className="tap flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-semibold text-[var(--text-muted)]"
+      className="tap flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold text-[var(--text-muted)]"
     >
-      <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
+      <span className="h-[23px] w-[23px] [&>svg]:h-full [&>svg]:w-full">
         {icons.more}
       </span>
       More
