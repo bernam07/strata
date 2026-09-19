@@ -241,10 +241,33 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [offline, setOffline] = useState(
+    () => typeof navigator !== 'undefined' && !navigator.onLine,
+  );
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const location = useLocation();
   const recurring = useProcessRecurring();
   const ranRecurring = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    let frame = 0;
+    const updateViewportHeight = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        setViewportHeight(window.visualViewport?.height ?? window.innerHeight);
+      });
+    };
+
+    updateViewportHeight();
+    window.addEventListener('resize', updateViewportHeight);
+    window.visualViewport?.addEventListener('resize', updateViewportHeight);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', updateViewportHeight);
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+    };
+  }, []);
 
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0);
@@ -268,8 +291,27 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  useEffect(() => {
+    const onOffline = () => setOffline(true);
+    const onOnline = () => setOffline(false);
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('online', onOnline);
+    };
+  }, []);
+
   return (
-    <div className="flex h-[100dvh] overflow-hidden">
+    <div
+      className="flex overflow-hidden"
+      style={{ height: viewportHeight ? `${viewportHeight}px` : '100svh' }}
+    >
+      {offline && (
+        <div className="fixed inset-x-0 top-0 z-[70] border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-xs font-semibold text-[var(--text-2)]">
+          Sem ligação. Os dados podem estar desatualizados.
+        </div>
+      )}
       <Sidebar onCommand={() => setPaletteOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">

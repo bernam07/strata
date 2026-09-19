@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const entryPattern = /\/assets\/index-[\w-]+\.js/;
 
@@ -16,8 +16,9 @@ const latestEntry = async (): Promise<string | null> => {
   return match ? match[0] : null;
 };
 
-export const useAppUpdate = (): void => {
+export const useAppUpdate = (): { available: boolean; apply: () => void } => {
   const reloading = useRef(false);
+  const [available, setAvailable] = useState(false);
 
   useEffect(() => {
     const loaded = loadedEntry();
@@ -28,8 +29,7 @@ export const useAppUpdate = (): void => {
       try {
         const latest = await latestEntry();
         if (latest && latest !== loaded) {
-          reloading.current = true;
-          window.location.reload();
+          setAvailable(true);
         }
       } catch {
         // offline or blocked — try again next time
@@ -46,4 +46,12 @@ export const useAppUpdate = (): void => {
       window.clearInterval(interval);
     };
   }, []);
+
+  const apply = () => {
+    if (reloading.current) return;
+    reloading.current = true;
+    window.location.reload();
+  };
+
+  return { available, apply };
 };

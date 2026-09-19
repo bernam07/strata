@@ -54,7 +54,7 @@ const PageFallback = () => (
 
 export const AppRouter = () => {
   const { session, loading, recovery } = useAuth();
-  useAppUpdate();
+  const { available: updateAvailable, apply: applyUpdate } = useAppUpdate();
 
   if (loading) {
     return (
@@ -69,6 +69,18 @@ export const AppRouter = () => {
 
   return (
     <BrowserRouter>
+      {updateAvailable && (
+        <div className="fixed inset-x-0 top-0 z-[70] flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] text-sm shadow-[var(--shadow)]">
+          <span className="text-[var(--text-2)]">Nova versão disponível.</span>
+          <button
+            type="button"
+            onClick={applyUpdate}
+            className="tap shrink-0 rounded-[var(--radius-field)] bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-[var(--accent-ink)]"
+          >
+            Atualizar
+          </button>
+        </div>
+      )}
       <AppShell>
         <Suspense fallback={<PageFallback />}>
           <Routes>
