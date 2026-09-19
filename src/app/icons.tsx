@@ -24,7 +24,8 @@ export type IconName =
   | 'search'
   | 'settings'
   | 'crypto'
-  | 'more';
+  | 'more'
+  | 'advisor';
 
 export const icons: Record<IconName, ReactNode> = {
   overview: wrap(
@@ -67,6 +68,12 @@ export const icons: Record<IconName, ReactNode> = {
       <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3" />
       <path d="M15 4v4M9 10v4M15 16v4" />
     </>,
+  ),
+  advisor: wrap(
+    <>
+      <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" />
+      <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z" />
+    </>
   ),
   crypto: wrap(
     <>
