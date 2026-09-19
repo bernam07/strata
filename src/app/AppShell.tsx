@@ -298,7 +298,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-[var(--bg)]">
+    <div className="flex h-full min-h-[100dvh] overflow-hidden bg-[var(--bg)]">
       {offline && (
         <div className="fixed inset-x-0 top-0 z-[70] border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-xs font-semibold text-[var(--text-2)]">
           Sem ligação. Os dados podem estar desatualizados.
