@@ -14,7 +14,7 @@ import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
 import { PageHero } from '@/ui/PageHero';
 import { DeltaPill } from '@/ui/DeltaPill';
-import { SectionTitle } from '@/ui/SectionTitle';
+import { Collapsible } from '@/ui/Collapsible';
 import { AlertBanner } from '@/features/alerts/Alerts';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
@@ -22,7 +22,6 @@ import { GoalCard } from './GoalCard';
 import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
-import { DailyPulse } from './DailyPulse';
 import { FinancialTimeline } from './FinancialTimeline';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
 
@@ -136,11 +135,6 @@ export const DashboardPage = () => {
           <Onboarding />
           <AlertBanner />
 
-          <DailyPulse
-            transactions={transactionsQuery.data ?? []}
-            todayPl={todayPl === null ? null : toNumber(todayPl)}
-          />
-
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
             <div className="lg:col-span-2">
               <PageHero
@@ -175,10 +169,9 @@ export const DashboardPage = () => {
 
             {rankablePositions >= 2 && (
               <section className="flex flex-col gap-3">
-                <SectionTitle action={{ to: '/positions', label: 'All positions' }}>
-                  Movers
-                </SectionTitle>
+                <Collapsible title="Movers" badge={`${rankablePositions} positions`}>
                 <Movers positions={positions} instruments={positionInstruments} />
+                </Collapsible>
               </section>
             )}
 

@@ -16,8 +16,22 @@ import {
   useT212Connection,
 } from './api/useT212';
 import { SyncRunList } from './SyncRunList';
+import type { SyncRun } from './api/useT212';
 import { WidgetCard } from './WidgetCard';
 import { CardTitle } from '@/ui/Heading';
+
+const relativeTime = (date: string): string => {
+  const minutes = Math.round((new Date(date).getTime() - Date.now()) / 60000);
+  if (Math.abs(minutes) < 1) return 'just now';
+  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  if (Math.abs(minutes) < 60) return formatter.format(minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return formatter.format(hours, 'hour');
+  return formatter.format(Math.round(hours / 24), 'day');
+};
+
+const latestSuccessful = (runs: SyncRun[] | undefined) =>
+  runs?.find((run) => run.status === 'success' && run.finishedAt) ?? null;
 
 export const IntegrationsPage = () => {
   const connection = useT212Connection();
@@ -47,6 +61,8 @@ export const IntegrationsPage = () => {
   };
 
   const connected = connection.data !== null && connection.data !== undefined;
+  const latest = latestSuccessful(runs.data);
+  const running = runs.data?.some((run) => run.status === 'running') ?? false;
 
   return (
     <div className="flex flex-col gap-8">
@@ -155,6 +171,21 @@ export const IntegrationsPage = () => {
             </p>
           </Surface>
         )}
+
+        <Surface elevation="sunken" className="flex flex-wrap items-center justify-between gap-2 p-3">
+          <span className="text-sm font-semibold text-[var(--text-2)]">
+            {running
+              ? 'Sync in progress'
+              : latest
+                ? `Last synced ${relativeTime(latest.finishedAt!)}`
+                : 'No successful sync yet'}
+          </span>
+          {latest && (
+            <span className="text-xs text-[var(--text-muted)]">
+              {latest.insertedRows} new {latest.insertedRows === 1 ? 'row' : 'rows'}
+            </span>
+          )}
+        </Surface>
 
         <SyncRunList runs={runs.data ?? []} loading={runs.isLoading} />
 

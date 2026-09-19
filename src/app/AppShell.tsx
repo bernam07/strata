@@ -6,7 +6,6 @@ import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
 import { Toaster } from '@/ui/Toaster';
-import { DataFreshness } from '@/ui/DataFreshness';
 import { icons, StrataMark, type IconName } from './icons';
 
 interface NavEntry {
@@ -56,13 +55,23 @@ const primaryTabs: NavEntry[] = [
   { to: '/positions', label: 'Portfolio', icon: 'positions' },
 ];
 
-const secondaryLinks: NavEntry[] = [
-  { to: '/search', label: 'Search', icon: 'search' },
-  { to: '/crypto', label: 'Crypto', icon: 'crypto' },
-  { to: '/dividends', label: 'Dividends', icon: 'dividends' },
-  { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-  { to: '/integrations', label: 'Integrations', icon: 'integrations' },
-  { to: '/settings', label: 'Settings', icon: 'settings' },
+const secondarySections: NavSection[] = [
+  {
+    group: 'Explore',
+    items: [
+      { to: '/search', label: 'Search', icon: 'search' },
+      { to: '/crypto', label: 'Crypto', icon: 'crypto' },
+      { to: '/dividends', label: 'Dividends', icon: 'dividends' },
+    ],
+  },
+  {
+    group: 'Manage',
+    items: [
+      { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
+      { to: '/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
 ];
 
 const navItemClass = (isActive: boolean): string =>
@@ -161,25 +170,34 @@ const MoreSheet = ({ onClose }: { onClose: () => void }) => {
       />
       <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-[var(--line)] bg-[var(--surface-raised)] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--line)]" />
-        <div className="grid grid-cols-3 gap-3">
-          {secondaryLinks.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `tap flex flex-col items-center gap-2 rounded-[var(--radius-card)] px-2 py-4 text-xs font-semibold ${
-                  isActive
-                    ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-                    : 'neu-flat text-[var(--text-2)]'
-                }`
-              }
-            >
-              <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
-                {icons[item.icon]}
-              </span>
-              {item.label}
-            </NavLink>
+        <div className="flex flex-col gap-4">
+          {secondarySections.map((section) => (
+            <div key={section.group}>
+              <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
+                {section.group}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      `tap flex items-center gap-2 rounded-[var(--radius-field)] px-2.5 py-3 text-xs font-semibold ${
+                        isActive
+                          ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                          : 'neu-flat text-[var(--text-2)]'
+                      }`
+                    }
+                  >
+                    <span className="h-4 w-4 shrink-0 [&>svg]:h-full [&>svg]:w-full">
+                      {icons[item.icon]}
+                    </span>
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <div className="mt-5 flex items-center justify-between border-t border-[var(--line)] pt-4">
@@ -301,7 +319,6 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           className="flex-1 overflow-y-auto overscroll-contain overflow-x-clip"
         >
           <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
-            <DataFreshness />
             <div key={location.pathname} className="page-enter">
               {children}
             </div>

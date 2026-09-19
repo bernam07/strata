@@ -10,9 +10,11 @@ import { pct1 as percent, qty4 as quantityFormat } from '@/ui/format';
 export const PositionRow = ({
   position,
   instrument,
+  weight,
 }: {
   position: Position;
   instrument: InstrumentMeta | undefined;
+  weight?: number;
 }) => {
   const gain = position.unrealized;
   const negative = gain ? isNegative(gain) : false;
@@ -41,6 +43,11 @@ export const PositionRow = ({
             {quantityFormat.format(position.quantity.toNumber())} sh ·{' '}
             <AmountInline value={toNumber(position.averageCost)} /> avg
           </p>
+          {weight !== undefined && (
+            <p className="text-[11px] font-semibold text-[var(--accent)]">
+              {percent.format(weight)} of portfolio
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-[var(--text-strong)]">

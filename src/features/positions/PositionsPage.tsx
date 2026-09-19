@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { isNegative, money, sum, toNumber, zero } from '@/core/money/money';
 import { weightBy } from '@/core/analytics/series';
@@ -17,6 +17,7 @@ import { useBrokerAccounts } from '@/features/accounts/api/useBrokerAccounts';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
 import { PositionRow } from './components/PositionRow';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 
 const AnalyticsView = lazy(() =>
   import('@/features/analytics/AnalyticsView').then((module) => ({
@@ -55,6 +56,7 @@ const Bars = ({
 );
 
 export const PositionsPage = () => {
+  const [sort, setSort] = useState<'value' | 'gain' | 'name'>('value');
   const { data, isLoading } = usePositions();
   const { data: brokers } = useBrokerAccounts();
   const refresh = useRefreshPrices();
@@ -98,11 +100,17 @@ export const PositionsPage = () => {
 
   const sortedPositions = positions
     .slice()
-    .sort((a, b) =>
-      money(b.marketValue ?? b.costBasis)
+    .sort((a, b) => {
+      if (sort === 'name') {
+        const nameA = data?.instruments.get(a.instrumentId)?.name ?? '';
+        const nameB = data?.instruments.get(b.instrumentId)?.name ?? '';
+        return nameA.localeCompare(nameB);
+      }
+      if (sort === 'gain') return (b.unrealized?.toNumber() ?? 0) - (a.unrealized?.toNumber() ?? 0);
+      return money(b.marketValue ?? b.costBasis)
         .minus(a.marketValue ?? a.costBasis)
-        .toNumber(),
-    );
+        .toNumber();
+    });
 
   return (
     <div className="flex flex-col gap-4">
@@ -185,12 +193,25 @@ export const PositionsPage = () => {
           </PageHero>
 
           <div className="flex flex-col gap-2">
-            <SectionTitle note={`${positions.length} held`}>Stocks</SectionTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <SectionTitle note={`${positions.length} held`}>Stocks</SectionTitle>
+              <SegmentedControl
+                value={sort}
+                onChange={setSort}
+                label="Sort positions"
+                segments={[
+                  { value: 'value', label: 'Value' },
+                  { value: 'gain', label: 'Gain' },
+                  { value: 'name', label: 'Name' },
+                ]}
+              />
+            </div>
             {sortedPositions.map((position) => (
               <PositionRow
                 key={position.instrumentId}
                 position={position}
                 instrument={data?.instruments.get(position.instrumentId)}
+                weight={totalMarketNumber > 0 ? toNumber(position.marketValue ?? position.costBasis) / totalMarketNumber : undefined}
               />
             ))}
           </div>

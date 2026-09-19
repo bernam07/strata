@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTheme } from '@/ui/theme/ThemeProvider';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
+import { useAskAdvisor } from '@/features/advisor/api/useAdvisor';
 import { icons, type IconName } from '@/app/icons';
 import { toast } from '@/ui/toast';
 import { isPrivacyOn, togglePrivacy, usePrivacy } from '@/ui/privacy';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
+import { Labelled, TextInput } from '@/ui/Field';
 import { filterCommands } from './commands';
 
 interface Command {
@@ -17,6 +21,117 @@ interface Command {
   glyph?: string;
   run: () => void;
 }
+
+const suggestedQuestions = [
+  'What changed in my net worth recently?',
+  'What are my largest holdings?',
+  'Summarize my recent activity.',
+];
+
+const AdvisorPanel = ({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) => {
+  const advisor = useAskAdvisor();
+  const [question, setQuestion] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      setQuestion('');
+      advisor.reset();
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmed = question.trim();
+    if (trimmed) advisor.mutate(trimmed);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center px-3 pb-3 sm:items-start sm:px-4 sm:pt-[12vh]"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ask Strata Advisor"
+    >
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <Card className="relative w-full max-w-lg p-5 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--accent)]">
+              Strata Advisor
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-[var(--text-strong)]">
+              Ask about your finances
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close advisor"
+            className="tap grid h-9 w-9 place-items-center rounded-[var(--radius-field)] neu-flat text-lg text-[var(--text-muted)]"
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <Labelled label="Question">
+            <TextInput
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="What would you like to understand?"
+              maxLength={2000}
+              autoFocus
+            />
+          </Labelled>
+          <div className="flex flex-wrap gap-2">
+            {suggestedQuestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => setQuestion(suggestion)}
+                className="tap rounded-[var(--radius-pill)] border border-[var(--line)] px-2.5 py-1.5 text-left text-xs text-[var(--text-2)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+          <Button type="submit" disabled={!question.trim() || advisor.isPending}>
+            {advisor.isPending ? 'Thinking…' : 'Ask Strata Advisor'}
+          </Button>
+        </form>
+
+        {advisor.isError && (
+          <p className="mt-4 text-sm text-[var(--negative)]" role="alert">
+            {advisor.error instanceof Error
+              ? advisor.error.message
+              : 'Unable to answer that question right now.'}
+          </p>
+        )}
+        {advisor.data && (
+          <div className="mt-5 border-t border-[var(--line)] pt-4">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
+              Answer
+            </p>
+            <p className="max-h-[32vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-[var(--text-2)]">
+              {advisor.data}
+            </p>
+          </div>
+        )}
+        <p className="mt-4 text-[11px] leading-5 text-[var(--text-muted)]">
+          Read-only context from your Strata data. Answers may be incomplete and are not financial advice.
+        </p>
+      </Card>
+    </div>
+  );
+};
 
 export const CommandPalette = ({
   open,
@@ -33,6 +148,7 @@ export const CommandPalette = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const [advisorOpen, setAdvisorOpen] = useState(false);
 
   const commands = useMemo<Command[]>(() => {
     const go = (to: string, label: string, icon: IconName, keywords?: string[]): Command => ({
@@ -54,6 +170,14 @@ export const CommandPalette = ({
       go('/expenses', 'Expenses', 'expenses', ['spending', 'budget']),
       go('/integrations', 'Integrations', 'integrations', ['trading 212', 't212', 'widget']),
       go('/settings', 'Settings', 'settings', ['theme', 'backup', 'notifications']),
+      {
+        id: 'action:advisor',
+        label: 'Ask Strata Advisor',
+        group: 'Actions',
+        glyph: '?',
+        keywords: ['gemini', 'finance', 'question', 'help'],
+        run: () => setAdvisorOpen(true),
+      },
       {
         id: 'action:refresh',
         label: 'Refresh prices',
@@ -116,8 +240,6 @@ export const CommandPalette = ({
     setActive(0);
   }, [query]);
 
-  if (!open) return null;
-
   const run = (command: Command) => {
     command.run();
     onClose();
@@ -143,20 +265,22 @@ export const CommandPalette = ({
   let lastGroup: Command['group'] | null = null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[14vh]"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Command palette"
-    >
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div
-        className="relative w-full max-w-lg overflow-hidden rounded-[var(--radius-card)] neu-raised"
-        onKeyDown={onKeyDown}
-      >
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[14vh]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Command palette"
+        >
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <div
+            className="relative w-full max-w-lg overflow-hidden rounded-[var(--radius-card)] neu-raised"
+            onKeyDown={onKeyDown}
+          >
         <div className="flex items-center gap-3 border-b border-[var(--line)] px-4">
           <span className="text-[var(--text-muted)]">
             <span className="block h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
@@ -216,7 +340,10 @@ export const CommandPalette = ({
             );
           })}
         </ul>
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+      <AdvisorPanel open={advisorOpen} onClose={() => setAdvisorOpen(false)} />
+    </>
   );
 };

@@ -19,6 +19,7 @@ export const TransactionList = ({
   onReverse,
   onDelete,
   onEdit,
+  emptyMessage = 'No transactions for this filter.',
 }: {
   transactions: Transaction[];
   accounts: Account[];
@@ -28,6 +29,7 @@ export const TransactionList = ({
   onReverse?: (transaction: Transaction) => void;
   onDelete?: (transaction: Transaction) => void;
   onEdit?: (transaction: Transaction) => void;
+  emptyMessage?: string;
 }) => {
   const accountsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -37,7 +39,7 @@ export const TransactionList = ({
   if (transactions.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-[var(--text-muted)]">
-        No transactions for this filter.
+        {emptyMessage}
       </p>
     );
   }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { transactionsToCsv } from '@/core/transactions/exportCsv';
@@ -33,6 +33,7 @@ export const TransactionsPage = () => {
   const reverse = useReverseTransaction();
   const del = useDeleteTransaction();
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -77,10 +78,45 @@ export const TransactionsPage = () => {
 
   const noAccounts = accounts.length === 0;
 
+  const visibleTransactions = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return transactions;
+    return transactions.filter((transaction) => {
+      const account = accounts.find((item) => item.id === transaction.accountId);
+      const instrument = transaction.instrumentId
+        ? instruments?.get(transaction.instrumentId)
+        : undefined;
+      return [
+        transaction.note,
+        transaction.kind,
+        account?.name,
+        instrument?.name,
+        instrument?.ticker,
+      ]
+        .filter(Boolean)
+        .some((value) => value!.toLocaleLowerCase().includes(query));
+    });
+  }, [accounts, instruments, search, transactions]);
+
+  const setDatePreset = (preset: 'month' | '30days' | 'all') => {
+    if (preset === 'all') {
+      patchFilter({ from: undefined, to: undefined });
+      return;
+    }
+    const now = new Date();
+    const from = new Date(now);
+    if (preset === 'month') from.setDate(1);
+    else from.setDate(now.getDate() - 29);
+    patchFilter({
+      from: new Date(from.getFullYear(), from.getMonth(), from.getDate()).toISOString(),
+      to: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString(),
+    });
+  };
+
   const exportCsv = () => {
     const accountName = new Map(accounts.map((account) => [account.id, account.name]));
     const csv = transactionsToCsv(
-      transactions,
+      visibleTransactions,
       (id) => (id ? accountName.get(id) ?? '' : ''),
       (id) => (id ? instruments?.get(id)?.name ?? instruments?.get(id)?.ticker ?? '' : ''),
     );
@@ -101,7 +137,7 @@ export const TransactionsPage = () => {
         actions={
           mode === 'none' && (
             <>
-              {transactions.length > 0 && (
+              {visibleTransactions.length > 0 && (
                 <Button variant="ghost" onClick={exportCsv}>
                   Export
                 </Button>
@@ -148,6 +184,24 @@ export const TransactionsPage = () => {
       )}
 
       <Card>
+        <div className="flex flex-col gap-4">
+          <TextInput
+            value={search}
+            placeholder="Search notes, accounts or instruments"
+            aria-label="Search transactions"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setDatePreset('month')}>
+              This month
+            </Button>
+            <Button variant="ghost" onClick={() => setDatePreset('30days')}>
+              Last 30 days
+            </Button>
+            <Button variant="ghost" onClick={() => setDatePreset('all')}>
+              All time
+            </Button>
+          </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <Labelled label="Account">
             <Select
@@ -191,13 +245,14 @@ export const TransactionsPage = () => {
             />
           </Labelled>
         </div>
+        </div>
       </Card>
 
       {isLoading ? (
         <SkeletonRows count={5} />
       ) : (
         <TransactionList
-          transactions={transactions}
+          transactions={visibleTransactions}
           accounts={accounts}
           instruments={instruments}
           onReverse={onReverse}
@@ -206,6 +261,13 @@ export const TransactionsPage = () => {
             setMode('none');
             setEditing(transaction);
           }}
+          emptyMessage={
+            search.trim()
+              ? 'No transactions match your search.'
+              : transactions.length === 0 && noAccounts
+                ? 'No accounts yet. Create an account to start tracking activity.'
+                : 'No transactions for this filter.'
+          }
         />
       )}
     </div>
