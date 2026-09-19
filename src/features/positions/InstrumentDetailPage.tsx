@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { pct1 as percent, qty4 as quantity } from '@/ui/format';
 import { Link, useParams } from 'react-router-dom';
 import { usePersistentState } from '@/app/usePersistentState';
@@ -7,12 +7,8 @@ import { AmountInline } from '@/ui/Amount';
 import { Stat } from '@/ui/Stat';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
-import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Collapsible } from '@/ui/Collapsible';
-import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
-import { toast } from '@/ui/toast';
 import {
   useInstrumentProfile,
   useInstrumentQuote,
@@ -21,12 +17,10 @@ import {
   usePositions,
   useInstrumentPrices,
   useHolding,
-  useSetInstrumentYahoo,
 } from './api/usePositions';
 import { PriceChart } from './PriceChart';
 import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
-import { InstrumentNote } from './components/InstrumentNote';
 import { InstrumentFacts } from './components/InstrumentFacts';
 
 const nativeMoney = (value: number, currency: string): string =>
@@ -35,52 +29,6 @@ const nativeMoney = (value: number, currency: string): string =>
     currency,
     maximumFractionDigits: 2,
   }).format(value);
-
-const PriceSource = ({
-  instrumentId,
-  current,
-  currency,
-}: {
-  instrumentId: string;
-  current: string | null | undefined;
-  currency: string;
-}) => {
-  const setYahoo = useSetInstrumentYahoo();
-  const [draft, setDraft] = useState(current ?? '');
-  const save = () => {
-    setYahoo.mutate(
-      { instrumentId, symbol: draft },
-      {
-        onSuccess: () => toast('Price source updated — refreshed', 'success'),
-        onError: () => toast("Couldn't update price source", 'error'),
-      },
-    );
-  };
-  return (
-    <Collapsible title="Price source">
-      <p className="text-xs text-[var(--text-muted)]">
-        Priced from Yahoo symbol{' '}
-        <b className="text-[var(--text-2)]">{current || 'auto (ISIN / ticker)'}</b>,
-        quoted in {currency}. If the value looks off, the auto-match may be the
-        wrong listing — set the correct Yahoo symbol (e.g. <b>ORCL</b> for Oracle)
-        and it re-fetches. Leave blank to auto-resolve again.
-      </p>
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <TextInput
-            value={draft}
-            placeholder="e.g. ORCL"
-            autoCapitalize="characters"
-            onChange={(event) => setDraft(event.target.value)}
-          />
-        </div>
-        <Button onClick={save} disabled={setYahoo.isPending}>
-          {setYahoo.isPending ? 'Saving…' : 'Save & refresh'}
-        </Button>
-      </div>
-    </Collapsible>
-  );
-};
 
 export const InstrumentDetailPage = () => {
   const { id = '' } = useParams();
@@ -288,16 +236,6 @@ export const InstrumentDetailPage = () => {
           price={liveQuote.data?.quote?.price ?? null}
         />
       )}
-
-      {instrument && (
-        <PriceSource
-          instrumentId={id}
-          current={instrument.yahoo_symbol}
-          currency={chartCurrency}
-        />
-      )}
-
-      {instrument && <InstrumentNote instrumentId={id} />}
 
       {dividends.length > 0 && (
         <Card className="flex items-center justify-between">

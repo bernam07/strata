@@ -64,7 +64,7 @@ export const AdvisorPanel = ({
       aria-label="Ask Strata Advisor"
     >
       <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
-      <Card className="relative w-full max-w-lg p-5 sm:p-6">
+      <Card className="relative max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto p-5 sm:max-h-none sm:overflow-visible sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--accent)]">

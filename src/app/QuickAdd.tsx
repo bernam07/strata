@@ -42,33 +42,13 @@ export const QuickAdd = () => {
 
       {/* Clears the bottom bar and the home indicator beneath it, so the
           button never sits in front of the tab strip. */}
-      <div className="fixed right-4 z-40 flex flex-col items-end gap-2 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:right-8">
-        {open && (
-          <div className="page-enter flex flex-col items-end gap-2">
-            {actions.map((action) => (
-              <button
-                key={action.to}
-                type="button"
-                onClick={() => go(action.to)}
-                className="tap flex flex-col items-end rounded-[var(--radius-field)] neu-raised px-4 py-2.5 text-right shadow-[var(--shadow)]"
-              >
-                <span className="text-sm font-semibold text-[var(--text-strong)]">
-                  {action.label}
-                </span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {action.hint}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
+      <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 z-40 lg:bottom-8 lg:right-8">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-label={open ? 'Close quick add' : 'Quick add'}
           aria-expanded={open}
-          className="tap grid h-14 w-14 place-items-center rounded-full shadow-[0_12px_28px_-10px_var(--accent)]"
+          className="tap relative z-10 grid h-14 w-14 place-items-center rounded-full shadow-[0_12px_28px_-10px_var(--accent)]"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
         >
           <svg
@@ -85,6 +65,25 @@ export const QuickAdd = () => {
             <path d="M12 5v14M5 12h14" />
           </svg>
         </button>
+        {open && (
+          <div className="page-enter absolute right-0 top-[calc(100%+0.75rem)] w-56 rounded-[var(--radius-card)] neu-raised p-2">
+            {actions.map((action) => (
+              <button
+                key={action.to}
+                type="button"
+                onClick={() => go(action.to)}
+                className="tap flex w-full flex-col items-start rounded-[var(--radius-field)] px-3 py-2.5 text-left hover:bg-[var(--accent-soft)]"
+              >
+                <span className="text-sm font-semibold text-[var(--text-strong)]">
+                  {action.label}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  {action.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
