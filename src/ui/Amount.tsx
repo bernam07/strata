@@ -55,9 +55,20 @@ export const AmountInline = ({
 }: {
   value: number;
   signed?: boolean;
-}) => (
-  <span className="whitespace-nowrap tabular-nums">
-    {value < 0 ? '−' : signed ? '+' : ''}
-    {inline.format(Math.abs(value))} <span className="opacity-55">€</span>
-  </span>
-);
+}) => {
+  const formatted = inline.format(Math.abs(value));
+  const sign = value < 0 ? '−' : signed ? '+' : '';
+  const length = sign.length + formatted.length + 2;
+  const fontSize =
+    length > 18 ? '0.64em' : length > 15 ? '0.72em' : length > 10 ? '0.84em' : undefined;
+
+  return (
+    <span
+      className="inline-block max-w-full whitespace-nowrap tabular-nums"
+      style={{ fontSize }}
+    >
+      {sign}
+      {formatted} <span className="opacity-55">€</span>
+    </span>
+  );
+};

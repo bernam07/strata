@@ -74,7 +74,7 @@ export const dividendToTransactionRow = (
     currency: 'EUR',
     fx_rate: gross > 0 ? round8(inEuro / gross) : 1,
     occurred_at: dividend.paidOn,
-    note: 'Dividendo',
+    note: 'Dividend',
     source: 't212_sync',
     external_id: `dividend:${dividend.reference}`,
     transfer_group_id: null,

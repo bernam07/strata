@@ -10,7 +10,6 @@ import {
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
 import { useCrypto } from '@/features/crypto/api/useCrypto';
-import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
 import { PageHero } from '@/ui/PageHero';
@@ -23,6 +22,8 @@ import { GoalCard } from './GoalCard';
 import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
+import { DailyPulse } from './DailyPulse';
+import { FinancialTimeline } from './FinancialTimeline';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
 
 export const DashboardPage = () => {
@@ -58,7 +59,6 @@ export const DashboardPage = () => {
       netWorth,
       assets,
       liabilities,
-      recent: transactions.slice(0, 5),
     };
   }, [accountsQuery.data, transactionsQuery.data, brokersQuery.data]);
 
@@ -136,6 +136,11 @@ export const DashboardPage = () => {
           <Onboarding />
           <AlertBanner />
 
+          <DailyPulse
+            transactions={transactionsQuery.data ?? []}
+            todayPl={todayPl === null ? null : toNumber(todayPl)}
+          />
+
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
             <div className="lg:col-span-2">
               <PageHero
@@ -177,18 +182,11 @@ export const DashboardPage = () => {
               </section>
             )}
 
-            {model.recent.length > 0 && (
-              <section className="flex flex-col gap-3">
-                <SectionTitle action={{ to: '/transactions', label: 'View all' }}>
-                  Recent activity
-                </SectionTitle>
-                <TransactionList
-                  transactions={model.recent}
-                  accounts={accounts}
-                  instruments={instruments}
-                />
-              </section>
-            )}
+            <FinancialTimeline
+              transactions={transactionsQuery.data ?? []}
+              accounts={accounts}
+              instruments={instruments}
+            />
           </div>
         </>
       )}

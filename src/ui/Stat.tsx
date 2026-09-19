@@ -23,11 +23,11 @@ export const Stat = ({
   hint?: ReactNode;
   tone?: Tone;
 }) => (
-  <div className="flex min-h-[92px] flex-col justify-between gap-2 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface-flat)] p-4">
+  <div className="flex min-h-[92px] min-w-0 flex-col justify-between gap-2 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface-flat)] p-4">
     <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
       {label}
     </span>
-    <span className="flex flex-col gap-0.5">
+    <span className="flex min-w-0 flex-col gap-0.5">
       <span
         className="text-[22px] font-extrabold leading-none tracking-[-0.01em] tabular-nums"
         style={{ color: toneColor[tone] }}

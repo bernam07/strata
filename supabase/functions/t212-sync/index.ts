@@ -104,7 +104,7 @@ const findAccount = async (
     .limit(1)
     .maybeSingle<{ id: string }>();
   if (error) throw error;
-  if (!data) throw new Error('Nenhuma conta Trading 212. Cria uma primeiro.');
+  if (!data) throw new Error('No Trading 212 account found. Create one first.');
   return data.id;
 };
 
