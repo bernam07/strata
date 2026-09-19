@@ -72,13 +72,15 @@ html,
 body,
 #root {
   height: 100%;
+  min-height: 100%;
+  background-color: #0a0908;
 }
 
 /* Paint the root element too, not just the body: anything the viewport exposes
    outside the body box — a safe-area strip, a momentary gap while iOS resizes
    around the keyboard — otherwise falls through to the system's black. */
 html {
-  background: var(--bg);
+  background-color: var(--bg);
 }
 
 /* No page may scroll or drift horizontally. `clip` cuts the overflow without
@@ -96,7 +98,7 @@ body {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text-strong);
   font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   font-variant-numeric: tabular-nums;
