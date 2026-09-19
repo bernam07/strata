@@ -213,14 +213,14 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
         to={item.to}
         end={item.end}
         className={({ isActive }) =>
-          `tap relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold ${
+          `tap relative flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-semibold ${
             isActive
-              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-7 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)]'
+              ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-8 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)]'
               : 'text-[var(--text-muted)]'
           }`
         }
       >
-        <span className="h-[22px] w-[22px] [&>svg]:h-full [&>svg]:w-full">
+        <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
           {icons[item.icon]}
         </span>
         {item.label}
@@ -229,9 +229,9 @@ const BottomBar = ({ onMore }: { onMore: () => void }) => (
     <button
       type="button"
       onClick={onMore}
-      className="tap flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold text-[var(--text-muted)]"
+      className="tap flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-semibold text-[var(--text-muted)]"
     >
-      <span className="h-[22px] w-[22px] [&>svg]:h-full [&>svg]:w-full">
+      <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
         {icons.more}
       </span>
       More
