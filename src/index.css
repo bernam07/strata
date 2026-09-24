@@ -28,6 +28,15 @@
     0 14px 34px -22px rgba(0, 0, 0, 0.95);
 }
 
+/* Android aesthetic customizations (e.g. Xiaomi 15T)
+   Override tokens here to adjust styling specifically for Android without affecting iOS/PWA */
+.platform-android {
+  /* Examples:
+  --radius-card: 18px;
+  --radius-field: 12px;
+  */
+}
+
 html,
 body,
 #root {

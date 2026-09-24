@@ -20,14 +20,17 @@ must not be broken, and the traps that have already cost debugging time.
 | Money | `decimal.js` (never floats — see §6) |
 | Backend | Supabase: Postgres + Auth + RLS + Deno edge functions |
 | Hosting | Vercel (SPA rewrite in `vercel.json`) |
+| Mobile / Android | Capacitor 8 (native Android project in `android/`) |
 | Tests | Vitest + Testing Library + jsdom |
 
 ```bash
-npm run dev        # Vite dev server
-npm run build      # tsc -b && vite build   ← the real gate; TS is strict
-npm run typecheck  # tsc -b --noEmit
-npm test           # vitest run
-npx vitest run     # same, used throughout CI
+npm run dev         # Vite dev server
+npm run build       # tsc -b && vite build   ← the real gate; TS is strict
+npm run typecheck   # tsc -b --noEmit
+npm test            # vitest run
+npx vitest run      # same, used throughout CI
+npm run cap:sync    # build web assets and sync with native Android project
+npm run cap:open    # open the android/ project in Android Studio
 ```
 
 `npm run build` runs `tsc -b` first and the project has `noUnusedLocals`
