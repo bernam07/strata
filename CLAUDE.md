@@ -37,7 +37,7 @@ before committing.
 ### Type-checking the edge functions
 
 The functions are Deno, not Node, and are **not** covered by `npm run build`.
-CI runs `deno check` on all three. Locally, Deno needs an import map because the
+CI runs `deno check` on all four. Locally, Deno needs an import map because the
 functions import Supabase from `esm.sh` while the local cache resolves npm:
 
 ```bash
@@ -195,12 +195,21 @@ stream restarts — ingestion is idempotent, so that is safe.
 Serves a token-authenticated JSON snapshot for the iOS Scriptable widget.
 Tokens come from `create_widget_token`.
 
+### `advisor`
+
+Answers questions about user finances using Google Gemini (`gemini-3.8-flash`).
+Loads consolidated context (accounts, enriched holdings with tickers/names, crypto holdings,
+budgets, categorized transactions, net-worth snapshots, and broker totals).
+Caller is authenticated via user JWT. Requires `GEMINI_API_KEY` in Supabase function secrets
+(optional `GEMINI_MODEL`).
+
 ---
 
 ## 5. External integrations
 
 | Service | Used for | Notes |
 |---|---|---|
+| Google Gemini | Financial Advisor (`advisor` edge function) | Key in function secrets (`GEMINI_API_KEY`), model `gemini-3.8-flash` |
 | Trading 212 | Holdings, cash, transaction history | User's API key, stored via `set_t212_api_key` |
 | Yahoo Finance | Stock/ETF prices, search, history, profile | Unofficial; cookie+crumb; flaky |
 | CoinGecko | Crypto search and prices | Free tier, no key, rate-limited per minute |

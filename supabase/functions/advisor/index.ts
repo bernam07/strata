@@ -1,7 +1,14 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  detectSources,
+  enrichAdvisorContext,
+  type AdvisorSource,
+  type EnrichedAdvisorContext,
+  type RawAdvisorData,
+} from '../_shared/advisor/context.ts';
 
 const MAX_QUESTION_LENGTH = 2000;
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 const cors: HeadersInit = {
   'Access-Control-Allow-Origin': '*',
@@ -36,94 +43,135 @@ const readUserId = async (
   return data.user?.id ?? null;
 };
 
-interface AdvisorContext {
-  accounts: unknown[];
-  recentTransactions: unknown[];
-  holdings: unknown[];
-  instruments: unknown[];
-  netWorthSnapshots: unknown[];
-  brokerAccounts: unknown[];
-}
-
-interface AdvisorSource {
-  label: string;
-  path: string;
-}
-
 const loadContext = async (
   db: SupabaseClient,
   userId: string,
-): Promise<AdvisorContext> => {
-  const [accounts, transactions, holdings, instruments, snapshots, brokers] =
-    await Promise.all([
-      db
-        .from('accounts')
-        .select('name, type, currency, institution_id')
-        .eq('user_id', userId)
-        .is('archived_at', null),
-      db
-        .from('transactions')
-        .select('kind, amount, currency, occurred_at, note, source')
-        .eq('user_id', userId)
-        .order('occurred_at', { ascending: false })
-        .limit(30),
-      db
-        .from('holdings')
-        .select(
-          'instrument_id, quantity, average_price, current_price, previous_close, currency, updated_at',
-        )
-        .eq('user_id', userId),
-      db
-        .from('instruments')
-        .select('id, ticker, name, currency, sector')
-        .eq('user_id', userId),
-      db
-        .from('net_worth_snapshots')
-        .select('as_of, net, assets, liabilities, investments')
-        .eq('user_id', userId)
-        .order('as_of', { ascending: false })
-        .limit(12),
-      db
-        .from('broker_accounts')
-        .select('provider, free, invested, ppl, total, currency, updated_at')
-        .eq('user_id', userId),
-    ]);
+): Promise<EnrichedAdvisorContext> => {
+  const [
+    accounts,
+    transactions,
+    holdings,
+    instruments,
+    snapshots,
+    brokers,
+    crypto,
+    categories,
+    txCategories,
+    budgets,
+  ] = await Promise.all([
+    db
+      .from('accounts')
+      .select('name, type, currency, institution_id')
+      .eq('user_id', userId)
+      .is('archived_at', null),
+    db
+      .from('transactions')
+      .select('id, kind, amount, currency, occurred_at, note, source, instrument_id')
+      .eq('user_id', userId)
+      .order('occurred_at', { ascending: false })
+      .limit(40),
+    db
+      .from('holdings')
+      .select(
+        'instrument_id, quantity, average_price, current_price, previous_close, currency, updated_at',
+      )
+      .eq('user_id', userId),
+    db
+      .from('instruments')
+      .select('id, ticker, name, currency, sector')
+      .eq('user_id', userId),
+    db
+      .from('net_worth_snapshots')
+      .select('as_of, net, assets, liabilities, investments')
+      .eq('user_id', userId)
+      .order('as_of', { ascending: false })
+      .limit(12),
+    db
+      .from('broker_accounts')
+      .select('provider, free, invested, ppl, total, currency, updated_at')
+      .eq('user_id', userId),
+    db
+      .from('crypto_holdings')
+      .select('symbol, name, quantity, current_price, currency, coin_id')
+      .eq('user_id', userId),
+    db
+      .from('categories')
+      .select('id, name, type')
+      .eq('user_id', userId),
+    db
+      .from('transaction_categories')
+      .select('transaction_id, category_id')
+      .eq('user_id', userId),
+    db
+      .from('budgets')
+      .select('category_id, amount_limit, currency, period')
+      .eq('user_id', userId),
+  ]);
 
-  const results = [accounts, transactions, holdings, instruments, snapshots, brokers];
-  const failed = results.find((result) => result.error);
-  if (failed?.error) throw failed.error;
-
-  return {
+  const raw: RawAdvisorData = {
     accounts: accounts.data ?? [],
-    recentTransactions: transactions.data ?? [],
+    transactions: transactions.data ?? [],
     holdings: holdings.data ?? [],
     instruments: instruments.data ?? [],
-    netWorthSnapshots: snapshots.data ?? [],
-    brokerAccounts: brokers.data ?? [],
+    snapshots: snapshots.data ?? [],
+    brokers: brokers.data ?? [],
+    crypto: crypto.data ?? [],
+    categories: categories.data ?? [],
+    txCategories: txCategories.data ?? [],
+    budgets: budgets.data ?? [],
   };
+
+  return enrichAdvisorContext(raw);
 };
 
-const systemInstructions = `You are Strata Advisor, a read-only assistant inside a personal wealth-management app.
-Use only the supplied financial context. Never invent numbers, transactions, holdings, dates, or facts.
-When relevant, cite one or more of these exact source tags: [Overview], [Portfolio], [Transactions], [Dividends].
-Use tags only when the supplied context supports them; never invent other tags.
-State clearly when the context is missing, stale, or insufficient to answer.
-You may summarize, compare, calculate transparently from supplied values, and suggest questions to investigate.
-Do not execute actions or imply that you can change data. Avoid personalized regulated financial advice,
-recommendations to buy or sell, guarantees, or tax/legal advice. Use careful, plain English and keep answers concise.
-The currency is shown on each value when available; do not silently convert currencies.`;
+const systemInstructions = `You are Strata Advisor, an intelligent read-only personal finance advisor integrated into Strata wealth-management app.
+You have direct read access to the user's financial context JSON: bank/cash accounts, stock/ETF holdings, crypto holdings, budgets, recent transactions with categories, and net worth history.
+
+Guidelines:
+1. Always base answers strictly on the supplied financial context JSON. Never invent numbers, tickers, transactions, or dates.
+2. If data is missing or incomplete to answer a specific question, state so plainly.
+3. Language: ALWAYS reply in the language the user writes in (European Portuguese if the user asks in Portuguese, English if asked in English, etc.).
+4. Format: Use clean, concise Markdown formatting (bullet points, bold figures, small tables when appropriate).
+5. When relevant, you may reference or suggest checking these app sections using exact tags: [Overview], [Portfolio], [Transactions], [Dividends], [Crypto], [Expenses].
+6. Financial disclaimer: You provide factual analysis, summaries, calculations, and insights from the user's data; avoid making regulated financial advice, buy/sell directives, or tax guarantees.`;
+
+const resolveModel = (): string => {
+  const envModel = Deno.env.get('GEMINI_MODEL')?.trim();
+  if (!envModel) return DEFAULT_MODEL;
+  // If user had set a deprecated 2.5, 2.0 or 1.5 model in their env secrets, safely upgrade:
+  if (
+    envModel.includes('2.5') ||
+    envModel.includes('2.0') ||
+    envModel.includes('1.5')
+  ) {
+    console.warn(
+      `Configured GEMINI_MODEL "${envModel}" is deprecated. Falling back to "${DEFAULT_MODEL}".`,
+    );
+    return DEFAULT_MODEL;
+  }
+  return envModel;
+};
 
 const askGemini = async (
   question: string,
-  context: AdvisorContext,
+  context: EnrichedAdvisorContext,
 ): Promise<string> => {
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('Advisor is not configured');
-  const model = Deno.env.get('GEMINI_MODEL')?.trim() || DEFAULT_MODEL;
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const apiKey = Deno.env.get('GEMINI_API_KEY')?.trim();
+  if (!apiKey) {
+    throw new Error(
+      'Advisor is not configured: GEMINI_API_KEY secret is missing in Supabase Edge Functions.',
+    );
+  }
+
+  const model = resolveModel();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemInstructions }] },
       contents: [
@@ -131,26 +179,72 @@ const askGemini = async (
           role: 'user',
           parts: [
             {
-              text: `Question:\n${question}\n\nFinancial context (JSON):\n${JSON.stringify(context)}`,
+              text: `Question:\n${question}\n\nFinancial context (JSON):\n${JSON.stringify(context, null, 2)}`,
             },
           ],
         },
       ],
-      generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.2,
+      },
     }),
   });
 
   if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error('Advisor request failed');
+    const errorText = await response.text().catch(() => '');
+    console.error(`Gemini API error (${response.status}):`, errorText);
+    let detail = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed.error?.message) {
+        detail = parsed.error.message;
+      }
+    } catch {
+      // keep raw detail
+    }
+    throw new Error(
+      `Gemini API request failed (${response.status}): ${detail.slice(0, 200)}`,
+    );
   }
+
   const body = await response.json();
-  const answer = body?.candidates?.[0]?.content?.parts
-    ?.map((part: { text?: unknown }) => part.text)
-    .filter((text: unknown): text is string => typeof text === 'string')
-    .join('')
-    .trim();
-  if (!answer) throw new Error('Advisor returned no answer');
+  const candidate = body?.candidates?.[0];
+  if (!candidate) {
+    console.error('Gemini returned no candidates:', JSON.stringify(body));
+    const blockReason = body?.promptFeedback?.blockReason;
+    if (blockReason) {
+      throw new Error(`Gemini blocked the request: ${blockReason}`);
+    }
+    throw new Error('Gemini returned no response candidates.');
+  }
+
+  const parts = candidate.content?.parts;
+  let answer = '';
+  if (Array.isArray(parts)) {
+    const textParts = parts
+      .filter(
+        (part: { text?: string; thought?: boolean }) =>
+          typeof part.text === 'string' && !part.thought,
+      )
+      .map((part: { text: string }) => part.text);
+
+    answer =
+      textParts.length > 0
+        ? textParts.join('').trim()
+        : parts
+            .map((p: { text?: string }) => p.text ?? '')
+            .join('')
+            .trim();
+  }
+
+  if (!answer) {
+    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+      throw new Error(`Gemini finished with reason: ${candidate.finishReason}`);
+    }
+    throw new Error('Advisor returned an empty answer.');
+  }
+
   return answer;
 };
 
@@ -163,23 +257,30 @@ Deno.serve(async (request) => {
     const userId = await readUserId(request, db);
     if (!userId) return json({ error: 'unauthorized' }, 401);
 
-    const body = await request.json().catch(() => null) as { question?: unknown } | null;
-    const question = typeof body?.question === 'string' ? body.question.trim() : '';
+    const body = (await request.json().catch(() => null)) as {
+      question?: unknown;
+    } | null;
+    const question =
+      typeof body?.question === 'string' ? body.question.trim() : '';
     if (!question) return json({ error: 'question is required' }, 400);
     if (question.length > MAX_QUESTION_LENGTH) {
-      return json({ error: `question must be ${MAX_QUESTION_LENGTH} characters or fewer` }, 400);
+      return json(
+        { error: `question must be ${MAX_QUESTION_LENGTH} characters or fewer` },
+        400,
+      );
     }
 
     const context = await loadContext(db, userId);
     const answer = await askGemini(question, context);
-    const sources: AdvisorSource[] = [
-      { label: 'Overview', path: '/' },
-      { label: 'Portfolio', path: '/positions' },
-      { label: 'Transactions', path: '/transactions' },
-      { label: 'Dividends', path: '/dividends' },
-    ];
+    const sources: AdvisorSource[] = detectSources(answer, question);
+
     return json({ answer, sources });
-  } catch {
-    return json({ error: 'Unable to answer that question right now' }, 500);
+  } catch (error) {
+    console.error('Advisor error:', error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to answer that question right now.';
+    return json({ error: message }, 500);
   }
 });

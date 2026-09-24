@@ -22,10 +22,60 @@ interface Command {
 }
 
 const suggestedQuestions = [
-  'What changed in my net worth recently?',
+  'Qual é o meu património líquido atual?',
+  'Quais são as minhas maiores posições?',
+  'Resumo dos meus gastos recentes.',
   'What are my largest holdings?',
-  'Summarize my recent activity.',
 ];
+
+const FormattedAdvisorAnswer = ({ text }: { text: string }) => {
+  const lines = text.split('\n');
+
+  return (
+    <div className="space-y-2 text-sm leading-relaxed text-[var(--text-2)]">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ');
+        const content = isBullet ? trimmed.slice(2) : line;
+
+        const parts = content.split(/(\*\*.*?\*\*|\[[A-Za-z]+\])/g);
+        const rendered = parts.map((part, pIdx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return (
+              <strong key={pIdx} className="font-semibold text-[var(--text-strong)]">
+                {part.slice(2, -2)}
+              </strong>
+            );
+          }
+          if (part.startsWith('[') && part.endsWith(']')) {
+            return (
+              <span
+                key={pIdx}
+                className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]"
+              >
+                {part}
+              </span>
+            );
+          }
+          return part;
+        });
+
+        if (isBullet) {
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1">
+              <span className="text-[var(--accent)] select-none">•</span>
+              <span className="flex-1">{rendered}</span>
+            </div>
+          );
+        }
+
+        return <p key={idx}>{rendered}</p>;
+      })}
+    </div>
+  );
+};
 
 export const AdvisorPanel = ({
   open,
@@ -112,22 +162,25 @@ export const AdvisorPanel = ({
         </form>
 
         {advisor.isError && (
-          <p className="mt-4 text-sm text-[var(--negative)]" role="alert">
+          <div
+            className="mt-4 rounded-[var(--radius-field)] border border-[color-mix(in_srgb,var(--negative)_30%,transparent)] bg-[color-mix(in_srgb,var(--negative)_10%,transparent)] p-3 text-xs leading-5 text-[var(--negative)]"
+            role="alert"
+          >
             {advisor.error instanceof Error
               ? advisor.error.message
               : 'Unable to answer that question right now.'}
-          </p>
+          </div>
         )}
         {advisor.data && (
           <div className="mt-5 border-t border-[var(--line)] pt-4">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
               Answer
             </p>
-            <p className="max-h-[32vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-[var(--text-2)]">
-              {advisor.data.answer}
-            </p>
+            <div className="max-h-[38vh] overflow-y-auto pr-1">
+              <FormattedAdvisorAnswer text={advisor.data.answer} />
+            </div>
             {advisor.data.sources.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--line)]/50 pt-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                   Sources
                 </span>
@@ -136,7 +189,7 @@ export const AdvisorPanel = ({
                     key={source.path}
                     href={source.path}
                     onClick={onClose}
-                    className="tap rounded-[var(--radius-pill)] border border-[var(--line)] px-2 py-1 text-[11px] font-semibold text-[var(--accent)]"
+                    className="tap rounded-[var(--radius-pill)] border border-[var(--line)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
                   >
                     {source.label}
                   </a>

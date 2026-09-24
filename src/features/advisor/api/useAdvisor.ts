@@ -22,10 +22,24 @@ const askAdvisor = async (question: string): Promise<AdvisorAnswer> => {
     body: { question },
   });
   if (error) {
-    if (error.message.toLowerCase().includes('non-2xx')) {
+    let message = error.message;
+    if (error && typeof error === 'object' && 'context' in error) {
+      try {
+        const res = (error as { context: Response }).context;
+        if (res && typeof res.json === 'function') {
+          const body = await res.json();
+          if (body?.error && typeof body.error === 'string') {
+            message = body.error;
+          }
+        }
+      } catch {
+        // Fall back to original error message
+      }
+    }
+    if (message.toLowerCase().includes('non-2xx')) {
       throw new Error('Advisor is not deployed or is not configured yet.');
     }
-    throw error;
+    throw new Error(message);
   }
   if (data?.error) throw new Error(data.error);
   if (!data?.answer) throw new Error('The advisor returned no answer.');
