@@ -42,7 +42,7 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
 
       {/* Sits comfortably above the bottom navigation bar and home indicator */}
       <div
-        className={`fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-40 transition-all duration-200 ease-out lg:bottom-8 lg:right-8 ${
+        className={`fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] right-4 z-40 transition-all duration-200 ease-out lg:bottom-8 lg:right-8 ${
           hidden ? 'translate-y-20 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}
       >
