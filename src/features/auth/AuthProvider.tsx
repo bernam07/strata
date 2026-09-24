@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/db/supabase';
+import { isSupabaseConfigured, supabase } from '@/db/supabase';
 
 interface AuthContextValue {
   session: Session | null;
@@ -25,6 +25,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);

@@ -13,7 +13,7 @@ const actions: Action[] = [
   { label: 'Transfer', hint: 'Move between accounts', to: '/transactions?new=transfer' },
 ];
 
-export const QuickAdd = () => {
+export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -40,9 +40,12 @@ export const QuickAdd = () => {
         />
       )}
 
-      {/* Clears the bottom bar and the home indicator beneath it, so the
-          button never sits in front of the tab strip. */}
-      <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 z-40 lg:bottom-8 lg:right-8">
+      {/* Sits comfortably above the bottom navigation bar and home indicator */}
+      <div
+        className={`fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-40 transition-all duration-200 ease-out lg:bottom-8 lg:right-8 ${
+          hidden ? 'translate-y-20 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
+      >
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}

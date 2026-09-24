@@ -217,37 +217,54 @@ const MoreSheet = ({
   );
 };
 
-const BottomBar = ({ onMore }: { onMore: () => void }) => {
+const BottomBar = ({
+  onMore,
+  hidden = false,
+}: {
+  onMore: () => void;
+  hidden?: boolean;
+}) => {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 isolate flex min-h-[5rem] items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/98 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-14px_32px_-28px_rgba(0,0,0,0.95)] backdrop-blur lg:hidden">
+    <nav
+      className={`fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-start justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pt-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md transition-transform duration-200 ease-out lg:hidden ${
+        hidden ? 'translate-y-full pointer-events-none' : 'translate-y-0'
+      }`}
+    >
       {primaryTabs.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           end={item.end}
           className={({ isActive }) =>
-            `tap relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold ${
+            `tap relative flex h-12 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${
               isActive
-                ? 'text-[var(--accent)] before:absolute before:left-1/2 before:top-0 before:h-0.5 before:w-8 before:-translate-x-1/2 before:rounded-full before:bg-[var(--accent)] after:absolute after:bottom-1 after:h-1 after:w-1 after:rounded-full after:bg-[var(--accent)]'
-                : 'text-[var(--text-muted)]'
+                ? 'text-[var(--accent)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
             }`
           }
         >
-          <span className="h-[23px] w-[23px] [&>svg]:h-full [&>svg]:w-full">
-            {icons[item.icon]}
-          </span>
-          {item.label}
+          {({ isActive }) => (
+            <>
+              {isActive && (
+                <span className="absolute top-0 h-[2.5px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+              )}
+              <span className="h-[22px] w-[22px] [&>svg]:h-full [&>svg]:w-full">
+                {icons[item.icon]}
+              </span>
+              <span className="leading-none">{item.label}</span>
+            </>
+          )}
         </NavLink>
       ))}
       <button
         type="button"
         onClick={onMore}
-        className="tap flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold text-[var(--text-muted)]"
+        className="tap relative flex h-12 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-2)] transition-colors"
       >
-        <span className="h-[23px] w-[23px] [&>svg]:h-full [&>svg]:w-full">
+        <span className="h-[22px] w-[22px] [&>svg]:h-full [&>svg]:w-full">
           {icons.more}
         </span>
-        More
+        <span className="leading-none">More</span>
       </button>
     </nav>
   );
@@ -257,6 +274,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [advisorOpen, setAdvisorOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [offline, setOffline] = useState(
     () => typeof navigator !== 'undefined' && !navigator.onLine,
   );
@@ -274,6 +292,16 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     ranRecurring.current = true;
     recurring.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const updateKeyboard = () => {
+      setKeyboardOpen(vv.height < window.innerHeight - 120);
+    };
+    vv.addEventListener('resize', updateKeyboard);
+    return () => vv.removeEventListener('resize', updateKeyboard);
   }, []);
 
   useEffect(() => {
@@ -315,14 +343,14 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           ref={mainRef}
           className="flex-1 overflow-y-auto overscroll-contain overflow-x-clip"
         >
-          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:px-10 lg:pb-12">
             <div key={location.pathname} className="page-enter">
               {children}
             </div>
           </div>
         </main>
       </div>
-      <BottomBar onMore={() => setMoreOpen(true)} />
+      <BottomBar onMore={() => setMoreOpen(true)} hidden={keyboardOpen} />
       {moreOpen && (
         <MoreSheet
           onClose={() => setMoreOpen(false)}
@@ -334,7 +362,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <AdvisorPanel open={advisorOpen} onClose={() => setAdvisorOpen(false)} />
-      {!moreOpen && <QuickAdd />}
+      {!moreOpen && <QuickAdd hidden={keyboardOpen} />}
       <Toaster />
     </div>
   );

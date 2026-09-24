@@ -17,17 +17,23 @@ const guardedFetch: typeof fetch = async (input, init) => {
   return fetch(input, init);
 };
 
-if (!url || !anonKey) {
-  throw new Error(
-    'Missing VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Copy .env.example to .env.',
+export const isSupabaseConfigured = Boolean(url && anonKey);
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    'Missing VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Copy .env.example to .env and rebuild.',
   );
 }
 
-export const supabase = createClient<Database>(url, anonKey, {
-  global: { fetch: guardedFetch },
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+export const supabase = createClient<Database>(
+  url || 'https://placeholder.supabase.co',
+  anonKey || 'placeholder-anon-key',
+  {
+    global: { fetch: guardedFetch },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
   },
-});
+);

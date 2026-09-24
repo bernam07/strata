@@ -5,7 +5,7 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0a0908" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -15,6 +15,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.addEventListener('error', function (event) {
+        var root = document.getElementById('root');
+        if (root && (!root.innerHTML || root.innerHTML.trim() === '')) {
+          root.innerHTML = '<div style="display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;color:#f4f1ea;font-family:sans-serif;text-align:center;background:#0a0908;">' +
+            '<div style="max-width:360px;background:#151311;border:1px solid #ef6b78;padding:20px;border-radius:16px;">' +
+            '<h3 style="color:#ef6b78;margin:0 0 8px 0;font-size:16px;">Erro de Inicialização</h3>' +
+            '<p style="color:#b6b2aa;font-size:13px;line-height:1.5;margin:0 0 12px 0;">' + (event.message || 'Ocorreu um erro ao inicializar a app.') + '</p>' +
+            '</div></div>';
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

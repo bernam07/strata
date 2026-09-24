@@ -48,6 +48,8 @@ const SettingsPage = lazyPage(
 );
 const CryptoPage = lazyPage(() => import('@/features/crypto/CryptoPage'), 'CryptoPage');
 
+import { isSupabaseConfigured } from '@/db/supabase';
+
 const PageFallback = () => (
   <p className="text-sm text-[var(--text-muted)]">Loading…</p>
 );
@@ -55,6 +57,30 @@ const PageFallback = () => (
 export const AppRouter = () => {
   const { session, loading, recovery } = useAuth();
   const { available: updateAvailable, apply: applyUpdate } = useAppUpdate();
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6 text-center bg-[var(--bg)] text-[var(--text-strong)]">
+        <div className="max-w-sm rounded-[var(--radius-card)] border border-[var(--negative)]/40 bg-[var(--surface-raised)] p-6 shadow-2xl">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--negative)_16%,transparent)] text-xl text-[var(--negative)]">
+            ⚠️
+          </div>
+          <h2 className="text-base font-bold text-[var(--text-strong)]">Configuração em falta</h2>
+          <p className="mt-3 text-xs leading-relaxed text-[var(--text-2)]">
+            As variáveis <code className="text-[var(--accent)] font-semibold">VITE_SUPABASE_URL</code> e{' '}
+            <code className="text-[var(--accent)] font-semibold">VITE_SUPABASE_ANON_KEY</code> não estavam no ficheiro{' '}
+            <code className="text-[var(--accent)] font-semibold">.env</code> quando este APK foi gerado.
+          </p>
+          <div className="mt-4 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] p-3 text-left text-[11px] text-[var(--text-muted)] font-mono leading-5">
+            1. Cria o ficheiro .env no PC<br />
+            2. Adiciona as chaves do Supabase<br />
+            3. Corre <strong>npm run cap:sync</strong><br />
+            4. Reinstala o APK no Xiaomi
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -96,6 +122,7 @@ export const AppRouter = () => {
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/index.html" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
