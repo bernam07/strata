@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { AdvisorPanel, CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
+import { useViewportHeal } from './useViewportHeal';
 import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
 
@@ -281,11 +282,24 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const recurring = useProcessRecurring();
   const ranRecurring = useRef(false);
+  const shellRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const { healViewport } = useViewportHeal(shellRef, mainRef, keyboardOpen);
 
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0);
-  }, [location.pathname]);
+    const t = setTimeout(healViewport, 80);
+    return () => clearTimeout(t);
+  }, [location.pathname, healViewport]);
+
+  const prevOverlay = useRef(false);
+  useEffect(() => {
+    const anyOpen = moreOpen || paletteOpen || advisorOpen;
+    if (prevOverlay.current && !anyOpen) {
+      setTimeout(healViewport, 140);
+    }
+    prevOverlay.current = anyOpen;
+  }, [moreOpen, paletteOpen, advisorOpen, healViewport]);
 
   useEffect(() => {
     if (ranRecurring.current) return;
@@ -327,7 +341,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] overflow-hidden">
+    <div id="app-shell" ref={shellRef} className="flex h-[100dvh] min-h-[100dvh] overflow-hidden">
       {offline && (
         <div className="fixed inset-x-0 top-0 z-[70] border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-xs font-semibold text-[var(--text-2)]">
           Offline. Data may be out of date.

@@ -335,9 +335,13 @@ worse: the bar then ends where the *shell* ends, which does not reach under the
 home indicator, so the black strip became **permanent** instead of intermittent.
 That change is reverted. Do not try it again.
 
-Still open: an intermittent strip appears after typing or interacting, which is
-presumably the fixed bar drifting relative to the visual viewport. Unfixed — it
-needs a device to reproduce, and the layout must not be restructured blind.
+Resolved via `src/app/useViewportHeal.ts`: in iOS standalone PWAs, opening the
+software keyboard shrinks `window.innerHeight` / `100dvh` and WebKit fails to
+restore the viewport height after keyboard dismissal, leaving a ~59px black strip
+until force-quit. Toggling `display: none -> ''` with a synchronous reflow
+(`void shell.offsetHeight`) on the `100dvh` `#app-shell` after input blur /
+keyboard dismissal forces WebKit to re-measure the UIWindow and snap back to full
+height.
 
 `html` paints `--bg` (not just `body`) so any sliver the viewport exposes is
 app-coloured rather than the system's black. That part is additive and stays.
