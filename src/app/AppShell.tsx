@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { BiometricGate } from '@/features/auth/BiometricGate';
+import { lockApp, useBiometricLock } from '@/features/auth/biometricLock';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { AdvisorPanel, CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
+import { useGlobalSync } from './useGlobalSync';
 import { useViewportHeal } from './useViewportHeal';
 import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
@@ -131,6 +134,7 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
       </nav>
 
       <div className="mt-auto flex items-center gap-2 border-t border-[var(--line)] pt-3">
+        <SidebarSyncButton />
         <button
           type="button"
           onClick={signOut}
@@ -140,6 +144,44 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
         </button>
       </div>
     </aside>
+  );
+};
+
+const SidebarSyncButton = () => {
+  const globalSync = useGlobalSync();
+  const biometric = useBiometricLock();
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => globalSync.mutate()}
+        disabled={globalSync.isPending}
+        title="Sync Trading 212 & market prices"
+        className="tap flex items-center gap-1.5 rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-raised)] px-2 py-1 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text-strong)] disabled:opacity-45"
+      >
+        <span
+          className={`h-3.5 w-3.5 text-[var(--accent)] [&>svg]:h-full [&>svg]:w-full ${
+            globalSync.isPending ? 'animate-spin' : ''
+          }`}
+        >
+          {icons.sync}
+        </span>
+        <span>{globalSync.isPending ? 'Syncing…' : 'Sync'}</span>
+      </button>
+      {biometric.enabled && (
+        <button
+          type="button"
+          onClick={lockApp}
+          title="Lock app"
+          aria-label="Lock app"
+          className="tap flex h-7 w-7 items-center justify-center rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-strong)]"
+        >
+          <span className="h-3.5 w-3.5 [&>svg]:h-full [&>svg]:w-full">
+            {icons.lock}
+          </span>
+        </button>
+      )}
+    </div>
   );
 };
 
@@ -284,6 +326,8 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const ranRecurring = useRef(false);
   const shellRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const globalSync = useGlobalSync();
+  const biometric = useBiometricLock();
   const { healViewport } = useViewportHeal(shellRef, mainRef, keyboardOpen);
 
   useEffect(() => {
@@ -352,6 +396,38 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         <header className="flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
+          <div className="ml-auto flex items-center gap-2">
+            {biometric.enabled && (
+              <button
+                type="button"
+                onClick={lockApp}
+                aria-label="Lock app"
+                title="Lock app"
+                className="tap flex h-8 w-8 items-center justify-center rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-strong)]"
+              >
+                <span className="h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                  {icons.lock}
+                </span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => globalSync.mutate()}
+              disabled={globalSync.isPending || offline}
+              aria-label="Sync portfolio and prices"
+              title="Sync portfolio and prices"
+              className="tap flex h-8 items-center gap-1.5 rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text-strong)] disabled:opacity-45"
+            >
+              <span
+                className={`h-3.5 w-3.5 text-[var(--accent)] [&>svg]:h-full [&>svg]:w-full ${
+                  globalSync.isPending ? 'animate-spin' : ''
+                }`}
+              >
+                {icons.sync}
+              </span>
+              <span>{globalSync.isPending ? 'Syncing…' : 'Sync'}</span>
+            </button>
+          </div>
         </header>
         <main
           ref={mainRef}
@@ -377,6 +453,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <AdvisorPanel open={advisorOpen} onClose={() => setAdvisorOpen(false)} />
       {!moreOpen && <QuickAdd hidden={keyboardOpen} />}
+      <BiometricGate />
       <Toaster />
     </div>
   );

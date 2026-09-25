@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { lockApp, useBiometricLock } from '@/features/auth/biometricLock';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { useAskAdvisor } from '@/features/advisor/api/useAdvisor';
+import { useGlobalSync } from '@/app/useGlobalSync';
 import { icons, type IconName } from '@/app/icons';
 import { toast } from '@/ui/toast';
 import { isPrivacyOn, togglePrivacy, usePrivacy } from '@/ui/privacy';
@@ -216,6 +218,8 @@ export const CommandPalette = ({
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const refresh = useRefreshPrices();
+  const globalSync = useGlobalSync();
+  const biometric = useBiometricLock();
   const privacy = usePrivacy();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
@@ -231,7 +235,7 @@ export const CommandPalette = ({
       keywords,
       run: () => navigate(to),
     });
-    return [
+    const list: Command[] = [
       go('/', 'Overview', 'overview', ['dashboard', 'home', 'net worth']),
       go('/accounts', 'Accounts', 'accounts', ['banks', 'cash']),
       go('/transactions', 'Transactions', 'transactions', ['activity', 'ledger']),
@@ -241,7 +245,7 @@ export const CommandPalette = ({
       go('/dividends', 'Dividends', 'dividends', ['income', 'forecast']),
       go('/expenses', 'Expenses', 'expenses', ['spending', 'budget']),
       go('/integrations', 'Integrations', 'integrations', ['trading 212', 't212', 'widget']),
-      go('/settings', 'Settings', 'settings', ['theme', 'backup', 'notifications']),
+      go('/settings', 'Settings', 'settings', ['theme', 'backup', 'notifications', 'biometrics', 'face id']),
       {
         id: 'action:advisor',
         label: 'Ask Strata Advisor',
@@ -249,6 +253,17 @@ export const CommandPalette = ({
         glyph: '?',
         keywords: ['gemini', 'finance', 'question', 'help'],
         run: () => setAdvisorOpen(true),
+      },
+      {
+        id: 'action:globalsync',
+        label: 'Sync everything (Trading 212 & prices)',
+        group: 'Actions',
+        icon: 'sync',
+        keywords: ['sync', 'trading 212', 't212', 'refresh', 'update', 'market'],
+        run: () => {
+          toast('Syncing portfolio & market prices…');
+          globalSync.mutate();
+        },
       },
       {
         id: 'action:refresh',
@@ -279,16 +294,27 @@ export const CommandPalette = ({
           toast(isPrivacyOn() ? 'Amounts hidden' : 'Amounts visible');
         },
       },
-      {
-        id: 'action:signout',
-        label: 'Sign out',
-        group: 'Actions',
-        glyph: '⏻',
-        keywords: ['log out', 'logout'],
-        run: () => void signOut(),
-      },
     ];
-  }, [navigate, refresh, signOut, privacy]);
+    if (biometric.enabled) {
+      list.push({
+        id: 'action:lock',
+        label: 'Lock app',
+        group: 'Actions',
+        icon: 'lock',
+        keywords: ['biometrics', 'face id', 'security', 'lock'],
+        run: () => lockApp(),
+      });
+    }
+    list.push({
+      id: 'action:signout',
+      label: 'Sign out',
+      group: 'Actions',
+      glyph: '⏻',
+      keywords: ['log out', 'logout'],
+      run: () => void signOut(),
+    });
+    return list;
+  }, [navigate, refresh, globalSync, biometric.enabled, signOut, privacy]);
 
   const results = useMemo(() => filterCommands(commands, query), [commands, query]);
 

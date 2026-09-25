@@ -3,6 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/features/auth/AuthProvider';
+import {
+  disableBiometric,
+  isBiometricSupported,
+  lockApp,
+  registerBiometric,
+  useBiometricLock,
+} from '@/features/auth/biometricLock';
 import { setPrivacy, usePrivacy } from '@/ui/privacy';
 import { toast } from '@/ui/toast';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
@@ -95,6 +102,9 @@ const restoreCount = (payload: BackupPayload): number =>
 export const SettingsPage = () => {
   const { session, signOut } = useAuth();
   const privacyOn = usePrivacy();
+  const biometric = useBiometricLock();
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -104,6 +114,33 @@ export const SettingsPage = () => {
   const [pendingRestore, setPendingRestore] = useState<BackupPayload | null>(null);
   const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
   const email = session?.user?.email ?? '';
+
+  useEffect(() => {
+    void isBiometricSupported().then(setBioSupported);
+  }, []);
+
+  const toggleBiometric = async () => {
+    if (bioBusy) return;
+    if (biometric.enabled) {
+      disableBiometric();
+      toast('Biometric lock disabled', 'success');
+      return;
+    }
+    setBioBusy(true);
+    try {
+      const ok = await registerBiometric(email);
+      if (ok) {
+        toast('Face ID / Biometric lock enabled', 'success');
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : 'Could not enable biometric lock',
+        'error',
+      );
+    } finally {
+      setBioBusy(false);
+    }
+  };
 
   useEffect(() => {
     const onOnline = () => setOnline(true);
@@ -238,6 +275,44 @@ export const SettingsPage = () => {
         <Button variant="ghost" onClick={() => setPrivacy(!privacyOn)}>
           {privacyOn ? 'Show' : 'Hide'}
         </Button>
+      </Card>
+
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[var(--text-strong)]">
+              Biometric lock (Face ID / Touch ID)
+            </p>
+            {biometric.enabled && (
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--positive)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--positive)]">
+                Active
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            {bioSupported || biometric.enabled
+              ? 'Require Face ID or fingerprint on launch and after 2 minutes in the background.'
+              : 'Not available on this browser or insecure connection.'}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {biometric.enabled && (
+            <Button variant="ghost" onClick={lockApp}>
+              Lock now
+            </Button>
+          )}
+          <Button
+            variant={biometric.enabled ? 'ghost' : 'primary'}
+            disabled={(!bioSupported && !biometric.enabled) || bioBusy}
+            onClick={() => void toggleBiometric()}
+          >
+            {bioBusy
+              ? 'Setting up…'
+              : biometric.enabled
+                ? 'Disable'
+                : 'Enable Face ID'}
+          </Button>
+        </div>
       </Card>
 
       <NotificationsCard />
