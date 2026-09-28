@@ -84,7 +84,7 @@ export const WealthLayersBar = ({
           return (
             <div
               key={layer.id}
-              className="flex flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2"
+              className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2"
             >
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex min-w-0 items-center gap-1.5">

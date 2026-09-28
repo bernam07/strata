@@ -35,7 +35,7 @@ export const BottomSheet = ({
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="page-enter relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border-t border-[var(--line)] bg-[var(--surface-raised)] shadow-[0_-16px_48px_rgba(0,0,0,0.65)] sm:rounded-[var(--radius-card)] sm:border">
+      <div className="page-enter relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border-t border-[var(--line)] bg-[var(--surface-raised)] shadow-[0_-16px_48px_rgba(0,0,0,0.65)] sm:rounded-[var(--radius-card)] sm:border">
         <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-[var(--line)] sm:hidden" />
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)]/60 px-5 pb-3.5 pt-3 sm:px-6 sm:pt-5">
           <div className="min-w-0">

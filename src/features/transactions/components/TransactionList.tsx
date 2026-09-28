@@ -146,7 +146,7 @@ export const TransactionList = ({
               return (
                 <li
                   key={transaction.id}
-                  className="group flex flex-col rounded-[var(--radius-field)] px-3.5 py-3 neu-flat transition"
+                  className="group flex min-w-0 flex-col rounded-[var(--radius-field)] px-3.5 py-3 neu-flat transition"
                 >
                   <div
                     role={hasActions ? 'button' : undefined}
@@ -166,7 +166,7 @@ export const TransactionList = ({
                         );
                       }
                     }}
-                    className={`flex items-center gap-3.5 ${hasActions ? 'cursor-pointer' : ''}`}
+                    className={`flex w-full min-w-0 items-center gap-3.5 ${hasActions ? 'cursor-pointer' : ''}`}
                   >
                     {showAccount && account && (
                       <InstitutionLogo institutionId={account.institutionId} size={36} />

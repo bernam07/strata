@@ -46,7 +46,6 @@ const sections: NavSection[] = [
     group: 'Spend',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -72,7 +71,6 @@ const secondarySections: NavSection[] = [
     group: 'Manage',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -289,9 +287,8 @@ const BottomBar = ({
   return (
     <nav
       id="app-bottom-bar"
-      style={{ bottom: 'var(--bottom-bar-offset, 0px)' }}
       className={`fixed inset-x-0 bottom-0 z-30 flex h-[calc(4.25rem+env(safe-area-inset-bottom))] items-start justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pt-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-150 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-32 after:bg-[var(--surface-raised)] lg:hidden ${
-        hidden ? 'invisible opacity-0 pointer-events-none' : ' visible opacity-100'
+        hidden ? 'invisible opacity-0 pointer-events-none' : 'visible opacity-100'
       }`}
     >
       {primaryTabs.map((item) => (
@@ -356,8 +353,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0);
-    const t = setTimeout(healViewport, 80);
-    return () => clearTimeout(t);
+    healViewport();
   }, [location.pathname, healViewport]);
 
   const prevOverlay = useRef(false);
@@ -402,11 +398,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     <div
       id="app-shell"
       ref={shellRef}
-      style={{
-        height: 'var(--app-height, 100dvh)',
-        minHeight: 'var(--app-height, 100dvh)',
-      }}
-      className="flex h-[100dvh] min-h-[100dvh] overflow-hidden"
+      className="flex h-full min-h-[100lvh] overflow-hidden bg-[var(--bg)]"
     >
       {offline && (
         <div className="fixed inset-x-0 top-0 z-[70] border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-xs font-semibold text-[var(--text-2)]">

@@ -131,7 +131,7 @@ export const AccountsPage = () => {
                     </span>
                   </div>
                 )}
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {group.accounts.map((account) => {
                     const bal = balanceById(account.id);
                     const balNum = toNumber(bal);
@@ -139,11 +139,18 @@ export const AccountsPage = () => {
                       positiveTotal > 0 && balNum > 0
                         ? balNum / positiveTotal
                         : 0;
-                    const brand = institution.brandColor || 'var(--accent)';
+                    const brand =
+                      institution.brandColor && institution.brandColor !== '#111111'
+                        ? institution.brandColor
+                        : 'var(--accent)';
                     return (
-                      <Link key={account.id} to={`/accounts/${account.id}`}>
+                      <Link
+                        key={account.id}
+                        to={`/accounts/${account.id}`}
+                        className="block min-w-0"
+                      >
                         <div
-                          className="tap relative flex flex-col gap-3 overflow-hidden rounded-[var(--radius-card)] p-5 transition hover:border-[var(--accent)]"
+                          className="tap relative flex w-full min-w-0 flex-col gap-3 overflow-hidden rounded-[var(--radius-card)] p-4 sm:p-5 transition hover:border-[var(--accent)]"
                           style={{
                             background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${brand} 13%, var(--surface-raised)) 0%, var(--surface-raised) 68%)`,
                             border:
@@ -151,7 +158,7 @@ export const AccountsPage = () => {
                             boxShadow: 'var(--shadow)',
                           }}
                         >
-                          <div className="flex items-center gap-4">
+                          <div className="flex min-w-0 items-center gap-3.5">
                             <InstitutionLogo
                               institutionId={account.institutionId}
                             />

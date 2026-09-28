@@ -55,13 +55,19 @@
   --surface-flat: #1e1b18;
 }
 
-/* Do NOT set height: 100% or min-height: 100dvh on html, body, or #root.
-   Only #app-shell holds 100dvh so that toggling display: none on #app-shell
-   during iOS standalone keyboard recovery collapses the document height to 0
-   and forces WebKit to re-query the full UIWindow bounds. */
 html,
 body,
 #root {
+  height: 100%;
+  min-height: 100%;
+  min-height: 100lvh;
+  background-color: #0a0908;
+}
+
+/* Paint the root element too, not just the body: anything the viewport exposes
+   outside the body box — a safe-area strip, a momentary gap while iOS resizes
+   around the keyboard — otherwise falls through to the system's black. */
+html {
   background-color: var(--bg);
 }
 

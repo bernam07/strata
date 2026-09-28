@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
@@ -66,6 +67,12 @@ export const IntegrationsPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
+      <Link
+        to="/settings"
+        className="tap -mb-4 self-start text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+      >
+        ← Settings
+      </Link>
       <PageHeader
         title="Integrations"
         subtitle="Connect Trading 212 and set up your iPhone widget."

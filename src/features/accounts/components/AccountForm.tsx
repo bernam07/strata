@@ -49,14 +49,14 @@ export const AccountForm = ({ onDone }: { onDone: () => void }) => {
                 key={institution.id}
                 type="button"
                 onClick={() => pickInstitution(institution.id)}
-                className={`tap flex items-center gap-2.5 rounded-[var(--radius-field)] px-2.5 py-2 text-left transition ${
+                className={`tap flex min-w-0 items-center gap-2.5 rounded-[var(--radius-field)] px-2.5 py-2 text-left transition ${
                   active
                     ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
                     : 'neu-flat text-[var(--text-2)] hover:text-[var(--text-strong)]'
                 }`}
               >
                 <InstitutionLogo institutionId={institution.id} size={24} />
-                <span className="truncate text-xs font-semibold">
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold">
                   {institution.displayName}
                 </span>
               </button>
@@ -88,14 +88,14 @@ export const AccountForm = ({ onDone }: { onDone: () => void }) => {
                 key={option.value}
                 type="button"
                 onClick={() => setType(option.value)}
-                className={`tap flex flex-col items-start rounded-[var(--radius-field)] px-3 py-2.5 text-left transition ${
+                className={`tap flex min-w-0 flex-col items-start rounded-[var(--radius-field)] px-3 py-2.5 text-left transition ${
                   active
                     ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
                     : 'neu-flat text-[var(--text-2)] hover:text-[var(--text-strong)]'
                 }`}
               >
-                <span className="text-xs font-bold">{option.label}</span>
-                <span className="text-[10px] text-[var(--text-muted)]">
+                <span className="truncate text-xs font-bold">{option.label}</span>
+                <span className="w-full truncate text-[10px] text-[var(--text-muted)]">
                   {option.hint}
                 </span>
               </button>

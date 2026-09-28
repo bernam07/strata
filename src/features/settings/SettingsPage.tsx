@@ -281,7 +281,7 @@ export const SettingsPage = () => {
                 key={option.id}
                 type="button"
                 onClick={() => setAccent(option.id)}
-                className={`tap flex items-center gap-2.5 rounded-[var(--radius-field)] px-3 py-2.5 text-left transition ${
+                className={`tap flex min-w-0 items-center gap-2.5 rounded-[var(--radius-field)] px-3 py-2.5 text-left transition ${
                   active
                     ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
                     : 'neu-flat text-[var(--text-2)] hover:text-[var(--text-strong)]'
@@ -292,7 +292,7 @@ export const SettingsPage = () => {
                   className="h-4 w-4 shrink-0 rounded-full shadow-sm"
                   style={{ background: option.swatch }}
                 />
-                <span className="truncate text-xs font-semibold">
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold">
                   {option.label}
                 </span>
               </button>
