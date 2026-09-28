@@ -1015,12 +1015,53 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (action === 'ensure-institutions') {
+    try {
+      const scope = await callerScope(req);
+      if (!scope.all && !scope.userId) {
+        return json({ ok: false, error: 'unauthorized' }, 401);
+      }
+      await admin()
+        .from('institutions')
+        .upsert(
+          [
+            {
+              id: 'edenred',
+              display_name: 'Edenred',
+              brand_color: '#F72717',
+              logo_path: '/institutions/edenred.svg',
+              sort_order: 105,
+            },
+          ],
+          { onConflict: 'id' },
+        );
+      return json({ ok: true });
+    } catch (error) {
+      return json({ ok: false, error: msg(error) }, 500);
+    }
+  }
+
   try {
     const scope = await callerScope(req);
     if (!scope.all && !scope.userId) {
       return json({ ok: false, error: 'unauthorized' }, 401);
     }
     const db = admin();
+    await db
+      .from('institutions')
+      .upsert(
+        [
+          {
+            id: 'edenred',
+            display_name: 'Edenred',
+            brand_color: '#F72717',
+            logo_path: '/institutions/edenred.svg',
+            sort_order: 105,
+          },
+        ],
+        { onConflict: 'id' },
+      )
+      .then(() => undefined, () => undefined);
     const result = await refresh(db, scope.userId);
     await refreshCrypto(db, scope.userId).catch(() => undefined);
     await evaluateAlerts(db, scope.userId).catch(() => undefined);

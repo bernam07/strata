@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { isAndroid, isIos, isNative } from './platform';
+import { isAndroid } from './platform';
 
 const NON_TEXT_INPUTS = new Set([
   'button',
@@ -28,11 +28,15 @@ const isEditableElement = (el: Element | null): boolean => {
 
 /**
  * Fixes the iOS standalone PWA WebKit bug where opening and closing the software
- * keyboard shrinks the layout/visual viewport (~59px on iPhone 15 Pro) and shifts
- * `position: fixed; bottom: 0` bars upward with a dead black bar underneath.
+ * keyboard shrinks the layout/visual viewport (~59px on iPhone 15 Pro) and leaves
+ * a dead black bar underneath the bottom navigation bar.
  *
- * Also provides accurate `keyboardOpen` state across iOS standalone PWA (where
- * `window.innerHeight` shrinks alongside `visualViewport.height`) and Android.
+ * Layer 1: Toggles `display: none -> ''` with a synchronous reflow on `#app-shell`
+ * (the sole `100dvh` container while `html, body, #root` have `height: auto`),
+ * forcing WebKit's `LocalFrameView` to re-query the full `UIWindow` bounds.
+ * Layer 2: If WebKit still reports a shrunk `window.innerHeight` after reflow,
+ * sets `--app-height` and `--bottom-bar-offset` on `:root` to compensate the exact
+ * pixel deficit.
  */
 export const useViewportHeal = (
   shellRef: RefObject<HTMLElement | null>,
@@ -40,11 +44,10 @@ export const useViewportHeal = (
 ) => {
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const maxVHRef = useRef<number>(
-    typeof window !== 'undefined'
-      ? Math.max(window.innerHeight, window.visualViewport?.height ?? 0)
-      : 0,
+    typeof window !== 'undefined' ? window.innerHeight : 0,
   );
-  const hadInputSessionRef = useRef(false);
+  const wasKbOpenRef = useRef(false);
+  const isHealingRef = useRef(false);
   const timersRef = useRef<number[]>([]);
 
   const clearTimers = useCallback(() => {
@@ -55,7 +58,7 @@ export const useViewportHeal = (
   }, []);
 
   const healViewport = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isHealingRef.current) return;
 
     // Never interrupt while user is actively focused in an editable field
     if (isEditableElement(document.activeElement)) return;
@@ -71,69 +74,63 @@ export const useViewportHeal = (
       return;
     }
 
-    // Always clamp root scroll offsets caused by iOS input focus panning
-    if (window.scrollY !== 0 || window.scrollX !== 0) {
-      window.scrollTo(0, 0);
-    }
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-
-    // Native Android (e.g. Xiaomi 15T) does not suffer from the WebKit standalone
-    // viewport shrink bug; skip the DOM display toggle on Android.
-    if (isAndroid) return;
-
-    const shell = shellRef.current || document.getElementById('app-shell');
-    const root = document.getElementById('root');
-    const bottomBar = document.getElementById('app-bottom-bar');
-    const scroller = scrollerRef.current;
-    const st = scroller ? scroller.scrollTop : 0;
-
-    // 1. Touch viewport meta to nudge WebKit's UIProcess/WebProcess viewport sync
-    const viewportMeta = document.querySelector('meta[name="viewport"]');
-    if (viewportMeta) {
-      const content = viewportMeta.getAttribute('content');
-      if (content) {
-        viewportMeta.setAttribute('content', content);
+    isHealingRef.current = true;
+    try {
+      // 1. Clamp any root/body/window scroll offset caused by iOS input focus panning
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
       }
-    }
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
 
-    // 2. Collapse document height to 0 (html/body/#root have no min-height: 100dvh)
-    // and force synchronous layout so WebKit's LocalFrameView::adjustViewSize()
-    // queries UIWindow bounds and rebuilds the fixed bottom bar layer.
-    if (bottomBar) bottomBar.style.display = 'none';
-    if (shell) shell.style.display = 'none';
-    if (root) root.style.display = 'none';
+      // Native Android (Xiaomi 15T) does not suffer from the WebKit standalone
+      // viewport shrink bug; skip the DOM display toggle on Android.
+      if (isAndroid) return;
 
-    void document.documentElement.offsetHeight;
-    void document.body.offsetHeight;
+      const rootStyle = document.documentElement.style;
+      rootStyle.removeProperty('--app-height');
+      rootStyle.removeProperty('--bottom-bar-offset');
 
-    if (root) root.style.display = '';
-    if (shell) {
-      shell.style.display = '';
-      void shell.offsetHeight;
-    }
-    if (bottomBar) {
-      bottomBar.style.display = '';
-      void bottomBar.offsetHeight;
-    }
-    void document.documentElement.offsetHeight;
+      const shell = shellRef.current || document.getElementById('app-shell');
+      const scroller = scrollerRef.current;
+      const st = scroller ? scroller.scrollTop : 0;
 
-    // 3. Restore <main> scroll position and ensure window scroll is 0
-    if (scroller && scroller.scrollTop !== st) {
-      scroller.scrollTop = st;
-    }
-    if (window.scrollY !== 0 || window.scrollX !== 0) {
-      window.scrollTo(0, 0);
-    }
+      // 2. Collapse #app-shell (the 100dvh container) so document height drops to 0,
+      // force synchronous layout reflow, and restore display so WebKit re-measures
+      // the full UIWindow bounds.
+      if (shell) {
+        shell.style.display = 'none';
+        void shell.offsetHeight;
+        shell.style.display = '';
+        void shell.offsetHeight;
+      }
 
-    hadInputSessionRef.current = false;
+      // 3. Restore <main> scroll position and ensure window scroll is 0
+      if (scroller && scroller.scrollTop !== st) {
+        scroller.scrollTop = st;
+      }
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+
+      // 4. Fallback pixel compensation if WebKit still reports a shrunk innerHeight
+      const shrink = Math.round(maxVHRef.current - window.innerHeight);
+      if (shrink > 2 && shrink <= 120) {
+        rootStyle.setProperty('--app-height', `${maxVHRef.current}px`);
+        rootStyle.setProperty('--bottom-bar-offset', `${-shrink}px`);
+      } else if (window.innerHeight > maxVHRef.current) {
+        maxVHRef.current = window.innerHeight;
+      }
+    } finally {
+      isHealingRef.current = false;
+    }
   }, [shellRef, scrollerRef]);
 
   const scheduleHeal = useCallback(() => {
     if (typeof window === 'undefined' || isAndroid) return;
     clearTimers();
-    // Cover the full iOS keyboard spring dismissal animation (~350-550ms)
-    const delays = [60, 160, 300, 450, 650];
+    // 140ms matches cederhook's post-blur timing; 320ms and 520ms cover full iOS spring dismissal
+    const delays = [140, 320, 520];
     timersRef.current = delays.map((ms) => window.setTimeout(healViewport, ms));
   }, [clearTimers, healViewport]);
 
@@ -142,64 +139,44 @@ export const useViewportHeal = (
     if (typeof window === 'undefined') return;
 
     const syncViewportState = () => {
+      if (isHealingRef.current) return;
+
       const vv = window.visualViewport;
       const h = Math.min(window.innerHeight, vv ? vv.height : window.innerHeight);
-      const maxH = Math.max(
-        window.innerHeight,
-        vv ? vv.height : 0,
-        isIos && !isNative && window.innerWidth < window.innerHeight
-          ? window.screen?.height ?? 0
-          : 0,
-      );
 
       if (maxVHRef.current === 0) {
-        maxVHRef.current = maxH;
+        maxVHRef.current = window.innerHeight;
       }
 
       const isKb = maxVHRef.current > 0 && h < maxVHRef.current - 120;
       if (!isKb && !isEditableElement(document.activeElement)) {
-        maxVHRef.current = Math.max(maxVHRef.current, window.innerHeight, vv ? vv.height : 0);
-      }
-
-      if (isKb) {
-        hadInputSessionRef.current = true;
+        if (window.innerHeight > maxVHRef.current) {
+          maxVHRef.current = window.innerHeight;
+        }
       }
 
       setKeyboardOpen(isKb);
 
-      // If keyboard just finished closing or viewport is still shrunk/offset, heal
-      if (
-        !isKb &&
-        (hadInputSessionRef.current ||
-          maxVHRef.current - window.innerHeight > 2 ||
-          (vv && vv.offsetTop !== 0) ||
-          window.scrollY !== 0)
-      ) {
+      // Trigger heal when keyboard transitions from open -> closed
+      if (wasKbOpenRef.current && !isKb) {
         scheduleHeal();
       }
+      wasKbOpenRef.current = isKb;
     };
 
     syncViewportState();
     window.addEventListener('resize', syncViewportState);
     window.visualViewport?.addEventListener('resize', syncViewportState);
-    window.visualViewport?.addEventListener('scroll', syncViewportState);
     return () => {
       clearTimers();
       window.removeEventListener('resize', syncViewportState);
       window.visualViewport?.removeEventListener('resize', syncViewportState);
-      window.visualViewport?.removeEventListener('scroll', syncViewportState);
     };
   }, [clearTimers, scheduleHeal]);
 
-  // Trigger on focusin / focusout globally for all inputs
+  // Trigger on focusout globally whenever an input/textarea/select blurs
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const onFocusIn = (e: FocusEvent) => {
-      if (isEditableElement(e.target as Element | null)) {
-        hadInputSessionRef.current = true;
-      }
-    };
 
     const onFocusOut = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null;
@@ -211,14 +188,11 @@ export const useViewportHeal = (
         target.isContentEditable;
       if (!isInput) return;
 
-      hadInputSessionRef.current = true;
       scheduleHeal();
     };
 
-    window.addEventListener('focusin', onFocusIn);
     window.addEventListener('focusout', onFocusOut);
     return () => {
-      window.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('focusout', onFocusOut);
     };
   }, [scheduleHeal]);

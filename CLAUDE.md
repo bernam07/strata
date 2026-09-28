@@ -340,21 +340,24 @@ in iOS standalone PWAs (e.g. iPhone 15 Pro), opening the software keyboard
 shrinks both `window.innerHeight` and `visualViewport.height` / `100dvh`, and
 WebKit fails to restore the viewport height after keyboard dismissal, leaving a
 ~59px black strip below the lifted bottom bar. Five invariants must be kept:
-1. `html, body, #root` must **not** carry `height: 100%` or `min-height: 100dvh`
-   — only `#app-shell` holds `100dvh` so that toggling `display: none -> ''` on
-   `#app-shell` / `#root` collapses the document height to `0` and forces
+1. Do **not** include `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />`
+   in `index.html` — with `viewport-fit=cover`, `black-translucent` causes
+   UIKit/WKWebView to miscalculate the Dynamic Island status-bar offset.
+2. `html, body, #root` must **not** carry `height: 100%` or `min-height: 100dvh`
+   — only `#app-shell` holds `100dvh` so that toggling `display: none -> ''`
+   exclusively on `#app-shell` (never on `#root`, and without mutating
+   `meta[name="viewport"]`) collapses the document height to `0` and forces
    WebKit's `LocalFrameView` to re-query `UIWindow` bounds.
-2. `keyboardOpen` must compare `visualViewport.height` against the baseline
-   maximum height (`maxVHRef`), never `window.innerHeight - 120` (because
-   `window.innerHeight` shrinks alongside `visualViewport.height` in standalone
-   mode).
-3. `BottomBar` (`#app-bottom-bar`) uses `hidden` (`display: none`) rather than
-   `opacity-0` while the keyboard is open and has no overflow pseudo-element
-   below `bottom: 0`, forcing WebKit to recreate its `ScrollingTreeFixedNode` at
-   the restored bottom edge.
-4. Healing runs across the full iOS keyboard spring dismissal curve
-   (`60..650ms`) and on `visualViewport` resize/scroll, and is skipped on native
-   Android (`isAndroid`).
+3. `keyboardOpen` must compare `visualViewport.height` against the baseline
+   maximum `window.innerHeight` (`maxVHRef`), never `window.innerHeight - 120`
+   (because `window.innerHeight` shrinks alongside `visualViewport.height` in
+   standalone mode).
+4. After the `#app-shell` synchronous reflow (`140ms, 320ms, 520ms` after blur /
+   keyboard close), if WebKit still reports a shrunk `window.innerHeight`
+   (`shrink = maxVH - window.innerHeight`), `useViewportHeal` sets
+   `--app-height` and `--bottom-bar-offset: -${shrink}px` on `:root` so
+   `#app-shell` and `#app-bottom-bar` stay anchored to the physical bottom of
+   the screen. Native Android (`isAndroid`) skips the DOM display toggle.
 5. `@supports (-webkit-touch-callout: none)` enforces `16px` font size on
    `input, textarea, select` so iOS WebKit never auto-zooms/pans on focus.
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getInstitution, monogram } from '../institutions';
 
 interface InstitutionLogoProps {
@@ -19,6 +19,9 @@ export const InstitutionLogo = ({
   }, [institution.id, institution.logoPath]);
 
   const [index, setIndex] = useState(0);
+  useEffect(() => {
+    setIndex(0);
+  }, [institutionId]);
   const dimension = { width: size, height: size };
   const src = candidates[index];
 

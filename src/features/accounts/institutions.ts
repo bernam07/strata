@@ -16,6 +16,7 @@ export const institutions: readonly Institution[] = [
   { id: 'novo_banco', displayName: 'Novo Banco', brandColor: '#C4161C', logoPath: '/institutions/novo-banco.svg' },
   { id: 'santander', displayName: 'Santander', brandColor: '#EC0000', logoPath: '/institutions/santander.svg' },
   { id: 'activobank', displayName: 'ActivoBank', brandColor: '#00B0AA', logoPath: '/institutions/activobank.svg' },
+  { id: 'edenred', displayName: 'Edenred', brandColor: '#F72717', logoPath: '/institutions/edenred.svg' },
   { id: 'cash', displayName: 'Physical cash', brandColor: '#6B7280', logoPath: '/institutions/cash.svg' },
 ];
 

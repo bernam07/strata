@@ -50,7 +50,7 @@ export const AccountForm = ({ onDone }: { onDone: () => void }) => {
         <TextInput
           value={name}
           required
-          placeholder="Main Revolut"
+          placeholder={institutionId === 'edenred' ? 'Cartão Refeição' : 'Main Revolut'}
           onChange={(event) => setName(event.target.value)}
         />
       </Labelled>

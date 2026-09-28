@@ -29,16 +29,27 @@ export const useCreateAccount = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (input: NewAccount) => {
-      const { data, error } = await supabase
-        .from('accounts')
-        .insert({
-          name: input.name,
-          type: input.type,
-          institution_id: input.institutionId,
-        })
-        .select('*')
-        .single();
-      if (error) throw error;
+      const attemptInsert = () =>
+        supabase
+          .from('accounts')
+          .insert({
+            name: input.name,
+            type: input.type,
+            institution_id: input.institutionId,
+          })
+          .select('*')
+          .single();
+
+      let { data, error } = await attemptInsert();
+      if (error && error.code === '23503') {
+        await supabase.functions
+          .invoke('market', { body: { action: 'ensure-institutions' } })
+          .catch(() => undefined);
+        const retry = await attemptInsert();
+        data = retry.data;
+        error = retry.error;
+      }
+      if (error || !data) throw error ?? new Error('Failed to create account');
       return toAccount(data);
     },
     onSuccess: () => client.invalidateQueries({ queryKey: accountsKey }),
