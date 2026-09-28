@@ -4,7 +4,11 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 
 export const isNative = Capacitor.isNativePlatform();
 export const isAndroid = Capacitor.getPlatform() === 'android';
-export const isIos = Capacitor.getPlatform() === 'ios';
+export const isIos =
+  Capacitor.getPlatform() === 'ios' ||
+  (typeof navigator !== 'undefined' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)));
 export const isWeb = !isNative;
 
 /**
@@ -20,7 +24,9 @@ export const initPlatform = () => {
     root.classList.add('platform-android');
   } else if (isIos) {
     root.classList.add('platform-ios');
-  } else {
+  }
+
+  if (isWeb) {
     root.classList.add('platform-web');
   }
 

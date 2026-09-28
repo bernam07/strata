@@ -335,13 +335,28 @@ worse: the bar then ends where the *shell* ends, which does not reach under the
 home indicator, so the black strip became **permanent** instead of intermittent.
 That change is reverted. Do not try it again.
 
-Resolved via `src/app/useViewportHeal.ts`: in iOS standalone PWAs, opening the
-software keyboard shrinks `window.innerHeight` / `100dvh` and WebKit fails to
-restore the viewport height after keyboard dismissal, leaving a ~59px black strip
-until force-quit. Toggling `display: none -> ''` with a synchronous reflow
-(`void shell.offsetHeight`) on the `100dvh` `#app-shell` after input blur /
-keyboard dismissal forces WebKit to re-measure the UIWindow and snap back to full
-height.
+Resolved via `src/app/useViewportHeal.ts` + `src/index.css` + `index.html`:
+in iOS standalone PWAs (e.g. iPhone 15 Pro), opening the software keyboard
+shrinks both `window.innerHeight` and `visualViewport.height` / `100dvh`, and
+WebKit fails to restore the viewport height after keyboard dismissal, leaving a
+~59px black strip below the lifted bottom bar. Five invariants must be kept:
+1. `html, body, #root` must **not** carry `height: 100%` or `min-height: 100dvh`
+   — only `#app-shell` holds `100dvh` so that toggling `display: none -> ''` on
+   `#app-shell` / `#root` collapses the document height to `0` and forces
+   WebKit's `LocalFrameView` to re-query `UIWindow` bounds.
+2. `keyboardOpen` must compare `visualViewport.height` against the baseline
+   maximum height (`maxVHRef`), never `window.innerHeight - 120` (because
+   `window.innerHeight` shrinks alongside `visualViewport.height` in standalone
+   mode).
+3. `BottomBar` (`#app-bottom-bar`) uses `hidden` (`display: none`) rather than
+   `opacity-0` while the keyboard is open and has no overflow pseudo-element
+   below `bottom: 0`, forcing WebKit to recreate its `ScrollingTreeFixedNode` at
+   the restored bottom edge.
+4. Healing runs across the full iOS keyboard spring dismissal curve
+   (`60..650ms`) and on `visualViewport` resize/scroll, and is skipped on native
+   Android (`isAndroid`).
+5. `@supports (-webkit-touch-callout: none)` enforces `16px` font size on
+   `input, textarea, select` so iOS WebKit never auto-zooms/pans on focus.
 
 `html` paints `--bg` (not just `body`) so any sliver the viewport exposes is
 app-coloured rather than the system's black. That part is additive and stays.
@@ -412,9 +427,9 @@ The repository is public. Keep it clean: no secrets, no dumps, no scratch files.
   the coins are held on-chain, so automating this would mean tracking addresses
   per blockchain.
 - The service worker update prompt lives in `src/app/useAppUpdate.ts`.
-- An intermittent black strip below the tab bar on iOS after typing or
-  interacting is **unresolved** — see §8. One attempted fix regressed it to a
-  permanent strip and was reverted.
+- The iOS standalone PWA black strip below the tab bar after keyboard dismissal
+  is handled by `src/app/useViewportHeal.ts` — see §8 for the five invariants
+  that must not be regressed.
 
 ---
 

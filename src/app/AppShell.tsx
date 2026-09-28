@@ -269,8 +269,9 @@ const BottomBar = ({
 }) => {
   return (
     <nav
-      className={`fixed inset-x-0 bottom-0 z-30 flex h-[calc(4.25rem+env(safe-area-inset-bottom))] items-start justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pt-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-150 after:absolute after:inset-x-0 after:top-full after:h-32 after:bg-[var(--surface-raised)] after:pointer-events-none lg:hidden ${
-        hidden ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      id="app-bottom-bar"
+      className={`fixed inset-x-0 bottom-0 z-30 h-[calc(4.25rem+env(safe-area-inset-bottom))] items-start justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pt-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md lg:hidden ${
+        hidden ? 'hidden pointer-events-none' : 'flex'
       }`}
     >
       {primaryTabs.map((item) => (
@@ -317,7 +318,6 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [advisorOpen, setAdvisorOpen] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [offline, setOffline] = useState(
     () => typeof navigator !== 'undefined' && !navigator.onLine,
   );
@@ -328,7 +328,10 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const mainRef = useRef<HTMLElement>(null);
   const globalSync = useGlobalSync();
   const biometric = useBiometricLock();
-  const { healViewport } = useViewportHeal(shellRef, mainRef, keyboardOpen);
+  const { keyboardOpen, healViewport, scheduleHeal } = useViewportHeal(
+    shellRef,
+    mainRef,
+  );
 
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0);
@@ -340,26 +343,16 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const anyOpen = moreOpen || paletteOpen || advisorOpen;
     if (prevOverlay.current && !anyOpen) {
-      setTimeout(healViewport, 140);
+      scheduleHeal();
     }
     prevOverlay.current = anyOpen;
-  }, [moreOpen, paletteOpen, advisorOpen, healViewport]);
+  }, [moreOpen, paletteOpen, advisorOpen, scheduleHeal]);
 
   useEffect(() => {
     if (ranRecurring.current) return;
     ranRecurring.current = true;
     recurring.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const updateKeyboard = () => {
-      setKeyboardOpen(vv.height < window.innerHeight - 120);
-    };
-    vv.addEventListener('resize', updateKeyboard);
-    return () => vv.removeEventListener('resize', updateKeyboard);
   }, []);
 
   useEffect(() => {
