@@ -4,6 +4,7 @@ import { kindMeta, manualKinds, parseSignedAmount } from '@/core/transactions/ki
 import { money } from '@/core/money/money';
 import { Button } from '@/ui/Button';
 import { Labelled, MoneyInput, Select, TextInput } from '@/ui/Field';
+import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import {
   useAssignCategory,
   useAssignments,
@@ -206,28 +207,37 @@ export const TransactionForm = ({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Labelled label="Account">
-          <Select
-            value={accountId}
-            disabled={editing}
-            onChange={(event) => setAccountId(event.target.value)}
-          >
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </Select>
-        </Labelled>
-        <Labelled label="Date">
-          <TextInput
-            type="date"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </Labelled>
-      </div>
+      <Labelled label="Account">
+        <div className="flex flex-wrap gap-2 pt-0.5">
+          {accounts.map((account) => {
+            const active = account.id === accountId;
+            return (
+              <button
+                key={account.id}
+                type="button"
+                disabled={editing}
+                onClick={() => setAccountId(account.id)}
+                className={`tap flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
+                  active
+                    ? 'neu-sunken border border-[var(--accent)] text-[var(--text-strong)] shadow-[0_0_12px_-4px_var(--accent)]'
+                    : 'neu-flat text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                }`}
+              >
+                <InstitutionLogo institutionId={account.institutionId} size={18} />
+                <span className="max-w-[140px] truncate">{account.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Labelled>
+
+      <Labelled label="Date">
+        <TextInput
+          type="date"
+          value={date}
+          onChange={(event) => setDate(event.target.value)}
+        />
+      </Labelled>
 
       {showCategory && (
         <Labelled label="Category">

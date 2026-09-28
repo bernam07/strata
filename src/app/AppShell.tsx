@@ -8,6 +8,7 @@ import { AdvisorPanel, CommandPalette } from '@/features/command/CommandPalette'
 import { QuickAdd } from './QuickAdd';
 import { useGlobalSync } from './useGlobalSync';
 import { useViewportHeal } from './useViewportHeal';
+import { togglePrivacy, usePrivacy } from '@/ui/privacy';
 import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
 
@@ -45,6 +46,7 @@ const sections: NavSection[] = [
     group: 'Spend',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -70,6 +72,7 @@ const secondarySections: NavSection[] = [
     group: 'Manage',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+      { to: '/integrations', label: 'Integrations', icon: 'integrations' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -150,6 +153,7 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
 const SidebarSyncButton = () => {
   const globalSync = useGlobalSync();
   const biometric = useBiometricLock();
+  const privacyOn = usePrivacy();
   return (
     <div className="flex items-center gap-1.5">
       <button
@@ -167,6 +171,21 @@ const SidebarSyncButton = () => {
           {icons.sync}
         </span>
         <span>{globalSync.isPending ? 'Syncing…' : 'Sync'}</span>
+      </button>
+      <button
+        type="button"
+        onClick={togglePrivacy}
+        title={privacyOn ? 'Show amounts' : 'Hide amounts'}
+        aria-label={privacyOn ? 'Show amounts' : 'Hide amounts'}
+        className={`tap flex h-7 w-7 items-center justify-center rounded-[var(--radius-field)] border transition ${
+          privacyOn
+            ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+            : 'border-[var(--line)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-strong)]'
+        }`}
+      >
+        <span className="h-3.5 w-3.5 [&>svg]:h-full [&>svg]:w-full">
+          {privacyOn ? icons.eyeOff : icons.eye}
+        </span>
       </button>
       {biometric.enabled && (
         <button
@@ -329,6 +348,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const mainRef = useRef<HTMLElement>(null);
   const globalSync = useGlobalSync();
   const biometric = useBiometricLock();
+  const privacyOn = usePrivacy();
   const { keyboardOpen, healViewport, scheduleHeal } = useViewportHeal(
     shellRef,
     mainRef,
@@ -399,6 +419,21 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePrivacy}
+              aria-label={privacyOn ? 'Show amounts' : 'Hide amounts'}
+              title={privacyOn ? 'Show amounts' : 'Hide amounts'}
+              className={`tap flex h-8 w-8 items-center justify-center rounded-[var(--radius-field)] border transition ${
+                privacyOn
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  : 'border-[var(--line)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-strong)]'
+              }`}
+            >
+              <span className="h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                {privacyOn ? icons.eyeOff : icons.eye}
+              </span>
+            </button>
             {biometric.enabled && (
               <button
                 type="button"

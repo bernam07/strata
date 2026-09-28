@@ -28,13 +28,31 @@
     0 14px 34px -22px rgba(0, 0, 0, 0.95);
 }
 
+:root[data-accent='emerald'] {
+  --accent: #34d399;
+  --accent-ink: #051b11;
+  --accent-soft: rgba(52, 211, 153, 0.14);
+}
+
+:root[data-accent='sapphire'] {
+  --accent: #60a5fa;
+  --accent-ink: #071529;
+  --accent-soft: rgba(96, 165, 250, 0.14);
+}
+
+:root[data-accent='crimson'] {
+  --accent: #f87171;
+  --accent-ink: #220707;
+  --accent-soft: rgba(248, 113, 113, 0.14);
+}
+
 /* Android aesthetic customizations (e.g. Xiaomi 15T)
    Override tokens here to adjust styling specifically for Android without affecting iOS/PWA */
 .platform-android {
-  /* Examples:
   --radius-card: 18px;
   --radius-field: 12px;
-  */
+  --surface-raised: #161412;
+  --surface-flat: #1e1b18;
 }
 
 /* Do NOT set height: 100% or min-height: 100dvh on html, body, or #root.

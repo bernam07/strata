@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { isNegative, toNumber, type Money, sum } from '@/core/money/money';
 import { AmountInline } from '@/ui/Amount';
+import { BottomSheet } from '@/ui/BottomSheet';
+import { pctMax1 } from '@/ui/format';
 import { PageHero } from '@/ui/PageHero';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
-import { Surface } from '@/ui/Surface';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from './api/useAccounts';
 import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
@@ -78,23 +79,33 @@ export const AccountsPage = () => {
     return (accountId: string) => balanceOf(balances, accountId);
   }, [accounts, transactions, brokers]);
 
+  const positiveTotal = useMemo(() => {
+    let total = 0;
+    for (const account of accounts ?? []) {
+      const bal = toNumber(balanceById(account.id));
+      if (bal > 0) total += bal;
+    }
+    return total;
+  }, [accounts, balanceById]);
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Accounts"
         subtitle="Every place your money lives."
         actions={
-          !creating && (
-            <Button onClick={() => setCreating(true)}>New account</Button>
-          )
+          <Button onClick={() => setCreating(true)}>New account</Button>
         }
       />
 
-      {creating && (
-        <Card>
-          <AccountForm onDone={() => setCreating(false)} />
-        </Card>
-      )}
+      <BottomSheet
+        open={creating}
+        title="New account"
+        subtitle="Add a bank, broker or meal card."
+        onClose={() => setCreating(false)}
+      >
+        <AccountForm onDone={() => setCreating(false)} />
+      </BottomSheet>
 
       {isLoading ? (
         <SkeletonRows count={4} />
@@ -121,25 +132,58 @@ export const AccountsPage = () => {
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {group.accounts.map((account) => (
-                    <Link key={account.id} to={`/accounts/${account.id}`}>
-                      <Surface
-                        elevation="raised"
-                        className="tap flex items-center gap-4 p-5 hover:border-[var(--accent)]"
-                      >
-                        <InstitutionLogo institutionId={account.institutionId} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-semibold text-[var(--text-strong)]">
-                            {account.name}
-                          </p>
-                          <p className="text-xs text-[var(--text-muted)]">
-                            {institution.displayName} · {typeLabel[account.type]}
-                          </p>
+                  {group.accounts.map((account) => {
+                    const bal = balanceById(account.id);
+                    const balNum = toNumber(bal);
+                    const weight =
+                      positiveTotal > 0 && balNum > 0
+                        ? balNum / positiveTotal
+                        : 0;
+                    const brand = institution.brandColor || 'var(--accent)';
+                    return (
+                      <Link key={account.id} to={`/accounts/${account.id}`}>
+                        <div
+                          className="tap relative flex flex-col gap-3 overflow-hidden rounded-[var(--radius-card)] p-5 transition hover:border-[var(--accent)]"
+                          style={{
+                            background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${brand} 13%, var(--surface-raised)) 0%, var(--surface-raised) 68%)`,
+                            border:
+                              '1px solid color-mix(in srgb, var(--line) 86%, transparent)',
+                            boxShadow: 'var(--shadow)',
+                          }}
+                        >
+                          <div className="flex items-center gap-4">
+                            <InstitutionLogo
+                              institutionId={account.institutionId}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-[var(--text-strong)]">
+                                {account.name}
+                              </p>
+                              <p className="truncate text-xs text-[var(--text-muted)]">
+                                {institution.displayName} ·{' '}
+                                {typeLabel[account.type]}
+                                {weight > 0
+                                  ? ` · ${pctMax1.format(weight)}`
+                                  : ''}
+                              </p>
+                            </div>
+                            <Balance value={bal} />
+                          </div>
+                          {weight > 0 && (
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${Math.max(3, Math.min(100, weight * 100))}%`,
+                                  background: brand,
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
-                        <Balance value={balanceById(account.id)} />
-                      </Surface>
-                    </Link>
-                  ))}
+                      </Link>
+                    );
+                  })}
                 </div>
               </section>
             );

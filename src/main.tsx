@@ -4,6 +4,7 @@ import { ErrorBoundary } from './app/ErrorBoundary';
 import { Providers } from './app/providers';
 import { AppRouter } from './app/router';
 import './index.css';
+import './ui/theme';
 import { initPlatform, isNative } from './app/platform';
 
 initPlatform();

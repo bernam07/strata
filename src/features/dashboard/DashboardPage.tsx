@@ -23,6 +23,7 @@ import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
 import { Movers } from './Movers';
 import { FinancialTimeline } from './FinancialTimeline';
+import { WealthLayersBar } from './WealthLayersBar';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
 
 export const DashboardPage = () => {
@@ -87,6 +88,21 @@ export const DashboardPage = () => {
     for (const snapshot of brokers.values()) total = total.plus(money(snapshot.total));
     return total;
   }, [brokersQuery.data]);
+
+  const mealTotal = useMemo(() => {
+    let total = 0;
+    for (const entry of model.netWorth.assets) {
+      if (entry.account.institutionId === 'edenred') {
+        total += Math.max(0, toNumber(entry.balance));
+      }
+    }
+    return total;
+  }, [model.netWorth.assets]);
+
+  const liquidCash = Math.max(
+    0,
+    toNumber(model.netWorth.totalAssets) - toNumber(investments) - mealTotal,
+  );
 
   const dataReady =
     !loading &&
@@ -158,12 +174,19 @@ export const DashboardPage = () => {
               </PageHero>
             </div>
 
+            <WealthLayersBar
+              investments={toNumber(investments)}
+              cash={liquidCash}
+              meal={mealTotal}
+              crypto={cryptoTotal}
+            />
+
             <MonthlySummary snapshots={snapshots} className="lg:col-span-2" />
 
             <GoalCard net={netWithCrypto} />
 
             <InsightsStrip
-              cash={Math.max(0, toNumber(model.netWorth.totalAssets) - toNumber(investments))}
+              cash={liquidCash + mealTotal}
               investments={toNumber(investments) + cryptoTotal}
             />
 

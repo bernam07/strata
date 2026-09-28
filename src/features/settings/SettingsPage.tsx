@@ -11,6 +11,7 @@ import {
   useBiometricLock,
 } from '@/features/auth/biometricLock';
 import { setPrivacy, usePrivacy } from '@/ui/privacy';
+import { accentOptions, useAccentTheme } from '@/ui/theme';
 import { toast } from '@/ui/toast';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import { Button } from '@/ui/Button';
@@ -102,6 +103,7 @@ const restoreCount = (payload: BackupPayload): number =>
 export const SettingsPage = () => {
   const { session, signOut } = useAuth();
   const privacyOn = usePrivacy();
+  const [accent, setAccent] = useAccentTheme();
   const biometric = useBiometricLock();
   const [bioSupported, setBioSupported] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
@@ -260,6 +262,43 @@ export const SettingsPage = () => {
         <Button variant="ghost" onClick={() => void signOut()}>
           Sign out
         </Button>
+      </Card>
+
+      <Card className="flex flex-col gap-3.5">
+        <div>
+          <p className="text-sm font-semibold text-[var(--text-strong)]">
+            Accent palette
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            Customize the metallic accent across charts, highlights and controls.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {accentOptions.map((option) => {
+            const active = accent === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setAccent(option.id)}
+                className={`tap flex items-center gap-2.5 rounded-[var(--radius-field)] px-3 py-2.5 text-left transition ${
+                  active
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
+                    : 'neu-flat text-[var(--text-2)] hover:text-[var(--text-strong)]'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 rounded-full shadow-sm"
+                  style={{ background: option.swatch }}
+                />
+                <span className="truncate text-xs font-semibold">
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </Card>
 
       <Card className="flex items-center justify-between gap-3">

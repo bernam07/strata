@@ -17,6 +17,7 @@ import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
 import { Button } from '@/ui/Button';
+import { BottomSheet } from '@/ui/BottomSheet';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
@@ -202,26 +203,26 @@ export const ExpensesPage = () => {
         title="Expenses"
         subtitle="Where your money goes each month."
         actions={
-          !adding && (
-            <Button
-              onClick={() => setAdding(true)}
-              disabled={accounts.length === 0}
-            >
-              Add expense
-            </Button>
-          )
+          <Button
+            onClick={() => setAdding(true)}
+            disabled={accounts.length === 0}
+          >
+            Add expense
+          </Button>
         }
       />
 
-      {adding && (
-        <Card>
-          <TransactionForm
-            accounts={accounts}
-            defaultKind="expense"
-            onDone={() => setAdding(false)}
-          />
-        </Card>
-      )}
+      <BottomSheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        title="New expense"
+      >
+        <TransactionForm
+          accounts={accounts}
+          defaultKind="expense"
+          onDone={() => setAdding(false)}
+        />
+      </BottomSheet>
 
       <SpendOverview transactions={transactions} />
 

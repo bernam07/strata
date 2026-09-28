@@ -22,6 +22,7 @@ import { useInstruments, usePositions } from '@/features/positions/api/usePositi
 import { PositionRow } from '@/features/positions/components/PositionRow';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
 import { Button } from '@/ui/Button';
+import { BottomSheet } from '@/ui/BottomSheet';
 import { Card } from '@/ui/Card';
 import { TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
@@ -165,14 +166,18 @@ export const AccountDetailPage = () => {
         value={toNumber(balance)}
       />
 
-      {adding && account && (
-        <Card>
+      <BottomSheet
+        open={adding && Boolean(account)}
+        onClose={() => setAdding(false)}
+        title="Add movement"
+      >
+        {account && (
           <TransactionForm
             accounts={[account]}
             onDone={() => setAdding(false)}
           />
-        </Card>
-      )}
+        )}
+      </BottomSheet>
 
       {isInvestment && positions.length > 0 && (
         <div className="flex flex-col gap-3">

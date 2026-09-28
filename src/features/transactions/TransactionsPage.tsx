@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
 import { transactionsToCsv } from '@/core/transactions/exportCsv';
 import { Button } from '@/ui/Button';
+import { BottomSheet } from '@/ui/BottomSheet';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
@@ -135,47 +136,55 @@ export const TransactionsPage = () => {
         title="Transactions"
         subtitle="Every movement across your accounts."
         actions={
-          mode === 'none' && (
-            <>
-              {visibleTransactions.length > 0 && (
-                <Button variant="ghost" onClick={exportCsv}>
-                  Export
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                onClick={() => setMode('transfer')}
-                disabled={accounts.length < 2}
-              >
-                Transfer
+          <>
+            {visibleTransactions.length > 0 && (
+              <Button variant="ghost" onClick={exportCsv}>
+                Export
               </Button>
-              <Button onClick={() => setMode('transaction')} disabled={noAccounts}>
-                New
-              </Button>
-            </>
-          )
+            )}
+            <Button
+              variant="ghost"
+              onClick={() => setMode('transfer')}
+              disabled={accounts.length < 2}
+            >
+              Transfer
+            </Button>
+            <Button onClick={() => setMode('transaction')} disabled={noAccounts}>
+              New
+            </Button>
+          </>
         }
       />
 
-      {editing && (
-        <Card>
+      <BottomSheet
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
+        title="Edit transaction"
+      >
+        {editing && (
           <TransactionForm
             accounts={accounts}
             existing={editing}
             onDone={() => setEditing(null)}
           />
-        </Card>
-      )}
-      {mode === 'transaction' && !editing && (
-        <Card>
-          <TransactionForm accounts={accounts} onDone={() => setMode('none')} />
-        </Card>
-      )}
-      {mode === 'transfer' && !editing && (
-        <Card>
-          <TransferForm accounts={accounts} onDone={() => setMode('none')} />
-        </Card>
-      )}
+        )}
+      </BottomSheet>
+
+      <BottomSheet
+        open={mode === 'transaction' && !editing}
+        onClose={() => setMode('none')}
+        title="New transaction"
+      >
+        <TransactionForm accounts={accounts} onDone={() => setMode('none')} />
+      </BottomSheet>
+
+      <BottomSheet
+        open={mode === 'transfer' && !editing}
+        onClose={() => setMode('none')}
+        title="Transfer between accounts"
+      >
+        <TransferForm accounts={accounts} onDone={() => setMode('none')} />
+      </BottomSheet>
 
       {accounts.length > 0 && (
         <Collapsible title="Scheduled · recurring">
