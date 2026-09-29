@@ -25,13 +25,11 @@ import { AmountInline } from '@/ui/Amount';
 import { CardTitle, headingClass } from '@/ui/Heading';
 import { Select, TextInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
-import { detectRecurring } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import { CategoryTiles, type CategoryTile } from './CategoryTiles';
 import { SpendOverview } from './SpendOverview';
-import { SubscriptionLeakCard } from './SubscriptionLeakCard';
 import { tileStyle } from './categoryColors';
 import {
   useAssignCategory,
@@ -188,7 +186,6 @@ export const ExpensesPage = () => {
     () => monthlyCashflow(transactions).slice(0, 6),
     [transactions],
   );
-  const recurring = useMemo(() => detectRecurring(transactions), [transactions]);
 
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
@@ -347,11 +344,6 @@ export const ExpensesPage = () => {
           </div>
         </Collapsible>
       )}
-
-      <SubscriptionLeakCard
-        recurring={recurring}
-        transactions={transactions}
-      />
 
       {comparison.length > 0 && (
         <Collapsible title="This month vs. last">

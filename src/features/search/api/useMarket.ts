@@ -175,14 +175,26 @@ export const useRefreshPrices = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async () => {
+      const { data: cred } = await supabase
+        .from('provider_credentials')
+        .select('provider')
+        .eq('provider', 't212')
+        .maybeSingle();
+
       const { data, error } = await supabase.functions.invoke('market', {
         body: { action: 'refresh' },
       });
       if (error) throw error;
+
+      if (cred) {
+        await supabase.functions.invoke('t212-sync', { body: {} });
+      }
+
       return data as { updated?: number; stale?: number; errors?: string[] };
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ['positions'] });
+      client.invalidateQueries({ queryKey: ['holding'] });
       client.invalidateQueries({ queryKey: ['broker-accounts'] });
       client.invalidateQueries({ queryKey: ['instrument-prices'] });
       client.invalidateQueries({ queryKey: ['net-worth-history'] });

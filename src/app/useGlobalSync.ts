@@ -18,22 +18,17 @@ export const useGlobalSync = () => {
         .eq('provider', 't212')
         .maybeSingle();
 
-      const tasks: Promise<unknown>[] = [
-        supabase.functions.invoke('market', { body: { action: 'refresh' } }),
-      ];
-
-      if (cred) {
-        tasks.push(supabase.functions.invoke('t212-sync', { body: {} }));
-      }
-
-      const results = await Promise.allSettled(tasks);
+      await supabase.functions
+        .invoke('market', { body: { action: 'refresh' } })
+        .catch(() => undefined);
 
       let inserted = 0;
-      if (cred && results[1]?.status === 'fulfilled') {
-        const res = results[1].value as {
-          data?: { inserted?: number; error?: string };
-        };
-        if (res?.data?.inserted) {
+      if (cred) {
+        const res = await supabase.functions.invoke<{
+          inserted?: number;
+          error?: string;
+        }>('t212-sync', { body: {} });
+        if (res.data?.inserted) {
           inserted = res.data.inserted;
         }
       }

@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { BiometricGate } from '@/features/auth/BiometricGate';
 import { lockApp, useBiometricLock } from '@/features/auth/biometricLock';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
-import { AdvisorPanel, CommandPalette } from '@/features/command/CommandPalette';
+import { CommandPalette } from '@/features/command/CommandPalette';
 import { QuickAdd } from './QuickAdd';
 import { useGlobalSync } from './useGlobalSync';
 import { useViewportHeal } from './useViewportHeal';
@@ -204,10 +204,8 @@ const SidebarSyncButton = () => {
 
 const MoreSheet = ({
   onClose,
-  onAdvisor,
 }: {
   onClose: () => void;
-  onAdvisor: () => void;
 }) => {
   const { signOut } = useAuth();
   return (
@@ -244,18 +242,6 @@ const MoreSheet = ({
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 ))}
-                {section.group === 'Manage' && (
-                  <button
-                    type="button"
-                    onClick={onAdvisor}
-                    className="tap flex items-center gap-2 rounded-[var(--radius-field)] neu-flat px-2.5 py-3 text-xs font-semibold text-[var(--text-2)]"
-                  >
-                    <span className="h-4 w-4 shrink-0 text-[var(--accent)] [&>svg]:h-full [&>svg]:w-full">
-                      {icons.advisor}
-                    </span>
-                    <span className="truncate">Advisor</span>
-                  </button>
-                )}
               </div>
             </div>
           ))}
@@ -359,7 +345,6 @@ const BottomBar = ({
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [advisorOpen, setAdvisorOpen] = useState(false);
   const [offline, setOffline] = useState(
     () => typeof navigator !== 'undefined' && !navigator.onLine,
   );
@@ -383,12 +368,12 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
 
   const prevOverlay = useRef(false);
   useEffect(() => {
-    const anyOpen = moreOpen || paletteOpen || advisorOpen;
+    const anyOpen = moreOpen || paletteOpen;
     if (prevOverlay.current && !anyOpen) {
       scheduleHeal();
     }
     prevOverlay.current = anyOpen;
-  }, [moreOpen, paletteOpen, advisorOpen, scheduleHeal]);
+  }, [moreOpen, paletteOpen, scheduleHeal]);
 
   useEffect(() => {
     if (ranRecurring.current) return;
@@ -495,17 +480,8 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         </main>
       </div>
       <BottomBar onMore={() => setMoreOpen(true)} hidden={keyboardOpen} />
-      {moreOpen && (
-        <MoreSheet
-          onClose={() => setMoreOpen(false)}
-          onAdvisor={() => {
-            setMoreOpen(false);
-            setAdvisorOpen(true);
-          }}
-        />
-      )}
+      {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <AdvisorPanel open={advisorOpen} onClose={() => setAdvisorOpen(false)} />
       {!moreOpen && <QuickAdd hidden={keyboardOpen} />}
       <BiometricGate />
       <Toaster />

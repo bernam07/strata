@@ -3,14 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { lockApp, useBiometricLock } from '@/features/auth/biometricLock';
 import { useRefreshPrices } from '@/features/search/api/useMarket';
-import { useAskAdvisor } from '@/features/advisor/api/useAdvisor';
 import { useGlobalSync } from '@/app/useGlobalSync';
 import { icons, type IconName } from '@/app/icons';
 import { toast } from '@/ui/toast';
 import { isPrivacyOn, togglePrivacy, usePrivacy } from '@/ui/privacy';
-import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { Labelled, TextInput } from '@/ui/Field';
 import { filterCommands } from './commands';
 
 interface Command {
@@ -22,191 +18,6 @@ interface Command {
   glyph?: string;
   run: () => void;
 }
-
-const suggestedQuestions = [
-  'Qual é o meu património líquido atual?',
-  'Quais são as minhas maiores posições?',
-  'Resumo dos meus gastos recentes.',
-  'What are my largest holdings?',
-];
-
-const FormattedAdvisorAnswer = ({ text }: { text: string }) => {
-  const lines = text.split('\n');
-
-  return (
-    <div className="space-y-2 text-sm leading-relaxed text-[var(--text-2)]">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-1" />;
-
-        const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ');
-        const content = isBullet ? trimmed.slice(2) : line;
-
-        const parts = content.split(/(\*\*.*?\*\*|\[[A-Za-z]+\])/g);
-        const rendered = parts.map((part, pIdx) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return (
-              <strong key={pIdx} className="font-semibold text-[var(--text-strong)]">
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          if (part.startsWith('[') && part.endsWith(']')) {
-            return (
-              <span
-                key={pIdx}
-                className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]"
-              >
-                {part}
-              </span>
-            );
-          }
-          return part;
-        });
-
-        if (isBullet) {
-          return (
-            <div key={idx} className="flex items-start gap-2 pl-1">
-              <span className="text-[var(--accent)] select-none">•</span>
-              <span className="flex-1">{rendered}</span>
-            </div>
-          );
-        }
-
-        return <p key={idx}>{rendered}</p>;
-      })}
-    </div>
-  );
-};
-
-export const AdvisorPanel = ({
-  open,
-  onClose,
-  initialQuestion = '',
-}: {
-  open: boolean;
-  onClose: () => void;
-  initialQuestion?: string;
-}) => {
-  const advisor = useAskAdvisor();
-  const [question, setQuestion] = useState('');
-
-  useEffect(() => {
-    if (open) {
-      setQuestion(initialQuestion);
-    } else {
-      setQuestion('');
-      advisor.reset();
-    }
-  }, [open, initialQuestion]);
-
-  if (!open) return null;
-
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const trimmed = question.trim();
-    if (trimmed) advisor.mutate(trimmed);
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center px-3 pb-3 sm:items-start sm:px-4 sm:pt-[12vh]"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Ask Strata Advisor"
-    >
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
-      <Card className="relative max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto p-5 sm:max-h-none sm:overflow-visible sm:p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--accent)]">
-              Strata Advisor
-            </p>
-            <h2 className="mt-1 text-lg font-bold text-[var(--text-strong)]">
-              Ask about your finances
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close advisor"
-            className="tap grid h-9 w-9 place-items-center rounded-[var(--radius-field)] neu-flat text-lg text-[var(--text-muted)]"
-          >
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <Labelled label="Question">
-            <TextInput
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              placeholder="What would you like to understand?"
-              maxLength={2000}
-              autoFocus
-            />
-          </Labelled>
-          <div className="flex flex-wrap gap-2">
-            {suggestedQuestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => setQuestion(suggestion)}
-                className="tap rounded-[var(--radius-pill)] border border-[var(--line)] px-2.5 py-1.5 text-left text-xs text-[var(--text-2)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-          <Button type="submit" disabled={!question.trim() || advisor.isPending}>
-            {advisor.isPending ? 'Thinking…' : 'Ask Strata Advisor'}
-          </Button>
-        </form>
-
-        {advisor.isError && (
-          <div
-            className="mt-4 rounded-[var(--radius-field)] border border-[color-mix(in_srgb,var(--negative)_30%,transparent)] bg-[color-mix(in_srgb,var(--negative)_10%,transparent)] p-3 text-xs leading-5 text-[var(--negative)]"
-            role="alert"
-          >
-            {advisor.error instanceof Error
-              ? advisor.error.message
-              : 'Unable to answer that question right now.'}
-          </div>
-        )}
-        {advisor.data && (
-          <div className="mt-5 border-t border-[var(--line)] pt-4">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
-              Answer
-            </p>
-            <div className="max-h-[38vh] overflow-y-auto pr-1">
-              <FormattedAdvisorAnswer text={advisor.data.answer} />
-            </div>
-            {advisor.data.sources.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--line)]/50 pt-3">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Sources
-                </span>
-                {advisor.data.sources.map((source) => (
-                  <a
-                    key={source.path}
-                    href={source.path}
-                    onClick={onClose}
-                    className="tap rounded-[var(--radius-pill)] border border-[var(--line)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
-                  >
-                    {source.label}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        <p className="mt-4 text-[11px] leading-5 text-[var(--text-muted)]">
-          Read-only context from your Strata data. Answers may be incomplete and are not financial advice.
-        </p>
-      </Card>
-    </div>
-  );
-};
 
 export const CommandPalette = ({
   open,
@@ -224,7 +35,6 @@ export const CommandPalette = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const [advisorOpen, setAdvisorOpen] = useState(false);
 
   const commands = useMemo<Command[]>(() => {
     const go = (to: string, label: string, icon: IconName, keywords?: string[]): Command => ({
@@ -246,14 +56,6 @@ export const CommandPalette = ({
       go('/expenses', 'Expenses', 'expenses', ['spending', 'budget']),
       go('/integrations', 'Integrations', 'integrations', ['trading 212', 't212', 'widget']),
       go('/settings', 'Settings', 'settings', ['theme', 'backup', 'notifications', 'biometrics', 'face id']),
-      {
-        id: 'action:advisor',
-        label: 'Ask Strata Advisor',
-        group: 'Actions',
-        glyph: '?',
-        keywords: ['gemini', 'finance', 'question', 'help'],
-        run: () => setAdvisorOpen(true),
-      },
       {
         id: 'action:globalsync',
         label: 'Sync everything (Trading 212 & prices)',
@@ -433,7 +235,6 @@ export const CommandPalette = ({
           </div>
         </div>
       )}
-      <AdvisorPanel open={advisorOpen} onClose={() => setAdvisorOpen(false)} />
     </>
   );
 };

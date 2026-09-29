@@ -139,6 +139,21 @@ interface QuoteResult {
   history: { date: string; value: number }[];
 }
 
+const normalizeMinorCurrency = (
+  rawCurrency: string,
+): { currency: string; scale: number } => {
+  if (rawCurrency === 'GBp' || rawCurrency === 'GBX') {
+    return { currency: 'GBP', scale: 0.01 };
+  }
+  if (rawCurrency === 'ZAc') {
+    return { currency: 'ZAR', scale: 0.01 };
+  }
+  if (rawCurrency === 'ILA') {
+    return { currency: 'ILS', scale: 0.01 };
+  }
+  return { currency: rawCurrency, scale: 1 };
+};
+
 const fetchQuote = async (symbol: string, range = '1y'): Promise<QuoteResult> => {
   const res = await yFetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`,
@@ -151,8 +166,15 @@ const fetchQuote = async (symbol: string, range = '1y'): Promise<QuoteResult> =>
     throw new Error(`chart ${symbol}: ${detail ?? 'no data'}`);
   }
   const meta = result.meta;
-  const price = Number(meta.regularMarketPrice);
-  if (!Number.isFinite(price)) throw new Error(`chart ${symbol}: no price`);
+  const rawPrice = Number(meta.regularMarketPrice);
+  if (!Number.isFinite(rawPrice)) throw new Error(`chart ${symbol}: no price`);
+
+  const { currency, scale } = normalizeMinorCurrency(
+    String(meta.currency ?? 'USD'),
+  );
+  const price = rawPrice * scale;
+  const rawPrev = Number(meta.chartPreviousClose ?? meta.previousClose ?? rawPrice);
+  const previousClose = rawPrev * scale;
 
   const timestamps: number[] = result.timestamp ?? [];
   const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
@@ -161,15 +183,15 @@ const fetchQuote = async (symbol: string, range = '1y'): Promise<QuoteResult> =>
     .filter((p) => typeof p.c === 'number')
     .map((p) => ({
       date: new Date(p.t * 1000).toISOString().slice(0, 10),
-      value: Number(p.c),
+      value: Number(p.c) * scale,
     }));
 
   return {
     quote: {
       symbol,
       price,
-      previousClose: Number(meta.chartPreviousClose ?? meta.previousClose ?? price),
-      currency: String(meta.currency ?? 'USD'),
+      previousClose,
+      currency,
     },
     history,
   };
@@ -468,20 +490,64 @@ const refresh = async (
   });
 
   const priceRows: Record<string, unknown>[] = [];
+  const validHoldingPrice = new Map<string, number>();
+
   await mapLimit(holdings, 8, async (holding) => {
     const quoted = priceByInstrument.get(holding.instrument_id);
     if (!quoted) return;
+
+    const targetCurrency = String(holding.currency || 'EUR');
+    const quoteCurrency = String(quoted.currency || 'USD');
+
+    // If the quote currency differs from the holding currency and we don't have
+    // FX rates for both, reject the quote rather than treating 1 JPY/MXN/ARS as 1 EUR.
+    if (
+      quoteCurrency !== targetCurrency &&
+      ((quoteCurrency !== 'EUR' && !fx.has(quoteCurrency)) ||
+        (targetCurrency !== 'EUR' && !fx.has(targetCurrency)))
+    ) {
+      return;
+    }
+
+    const conversionFactor =
+      quoteCurrency === targetCurrency
+        ? 1
+        : rate(quoteCurrency) / rate(targetCurrency);
+    const convertedPrice = quoted.price * conversionFactor;
+    const convertedPrev = quoted.previousClose * conversionFactor;
+
+    const avgPrice = Number(holding.average_price ?? 0);
+    if (avgPrice > 0) {
+      const ratioToAvg = convertedPrice / avgPrice;
+      if (ratioToAvg > 8 || ratioToAvg < 0.08) {
+        // Mismatched listing or wrong ticker — clear the cached Yahoo symbol
+        // and keep the holding's authoritative broker price untouched.
+        await db
+          .rpc('set_instrument_yahoo', {
+            p_id: holding.instrument_id,
+            p_symbol: null,
+          })
+          .then(() => undefined, () => undefined);
+        return;
+      }
+    }
+
+    validHoldingPrice.set(
+      `${holding.user_id}:${holding.instrument_id}`,
+      convertedPrice,
+    );
+
     await db
       .from('holdings')
-      .update({ current_price: quoted.price, previous_close: quoted.previousClose })
+      .update({ current_price: convertedPrice, previous_close: convertedPrev })
       .eq('user_id', holding.user_id)
       .eq('instrument_id', holding.instrument_id);
     priceRows.push({
       user_id: holding.user_id,
       instrument_id: holding.instrument_id,
       as_of: asOf,
-      close: quoted.price,
-      currency: quoted.currency,
+      close: convertedPrice,
+      currency: targetCurrency,
     });
   });
   if (priceRows.length > 0) await db.rpc('upsert_prices', { p_rows: priceRows });
@@ -498,13 +564,15 @@ const refresh = async (
   for (const holding of holdings) {
     const entry = byUser.get(holding.user_id);
     if (!entry) continue;
-    const quoted = priceByInstrument.get(holding.instrument_id);
-    // Use the fresh quote when we have one, else the last-known stored price, so
-    // a holding that failed to quote this run isn't dropped from the total.
-    const price = quoted ? quoted.price : Number(holding.current_price ?? 0);
-    const currency = quoted ? quoted.currency : holding.currency;
-    if (!quoted) entry.stale += 1;
-    entry.market += Number(holding.quantity) * price * rate(currency);
+    const validPrice = validHoldingPrice.get(
+      `${holding.user_id}:${holding.instrument_id}`,
+    );
+    // Use the validated fresh quote when we have one, else the last-known stored price,
+    // so a holding that failed to quote cleanly isn't dropped or corrupted.
+    const price =
+      validPrice !== undefined ? validPrice : Number(holding.current_price ?? 0);
+    if (validPrice === undefined) entry.stale += 1;
+    entry.market += Number(holding.quantity) * price * rate(holding.currency);
   }
   // Keep the broker account total in step with the live Portfolio value: free
   // cash + holdings at the same prices the Portfolio shows. But only overwrite

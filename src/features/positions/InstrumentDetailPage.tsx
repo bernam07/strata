@@ -14,6 +14,7 @@ import {
   useInstrumentQuote,
 } from '@/features/search/api/useMarket';
 import {
+  isSanePrice,
   usePositions,
   useInstrumentPrices,
   useHolding,
@@ -65,12 +66,19 @@ export const InstrumentDetailPage = () => {
     [positionsQuery.data, id],
   );
 
-  const liveHistory = liveQuote.data?.history ?? [];
+  const refAvgPrice =
+    holding?.averagePrice ?? (position ? toNumber(position.averageCost) : 0);
+  const rawLivePrice = liveQuote.data?.quote?.price;
+  const liveQuoteIsSane =
+    rawLivePrice !== undefined ? isSanePrice(rawLivePrice, refAvgPrice) : true;
+  const liveHistory = liveQuoteIsSane ? (liveQuote.data?.history ?? []) : [];
   const chartPoints = [...(liveHistory.length >= 2 ? liveHistory : prices)].sort(
     (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0),
   );
   const chartCurrency =
-    liveQuote.data?.quote?.currency ?? instrument?.currency ?? 'EUR';
+    (liveQuoteIsSane ? liveQuote.data?.quote?.currency : undefined) ??
+    instrument?.currency ??
+    'EUR';
   const usingLive = liveHistory.length >= 2;
   const liveError = usingLive
     ? null
@@ -230,10 +238,10 @@ export const InstrumentDetailPage = () => {
         </Card>
       ) : null}
 
-      {profile.data?.profile && (
+      {profile.data?.profile && liveQuoteIsSane && (
         <InstrumentFacts
           profile={profile.data.profile}
-          price={liveQuote.data?.quote?.price ?? null}
+          price={liveQuote.data?.quote?.price ?? holding?.currentPrice ?? null}
         />
       )}
 

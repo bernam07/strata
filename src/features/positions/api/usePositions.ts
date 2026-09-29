@@ -47,20 +47,40 @@ export const useSetInstrumentYahoo = () => {
   });
 };
 
+export const isSanePrice = (price: number, referencePrice: number): boolean => {
+  if (!Number.isFinite(price) || price <= 0) return false;
+  if (!Number.isFinite(referencePrice) || referencePrice <= 0) return true;
+  const r = price / referencePrice;
+  return r >= 0.08 && r <= 8;
+};
+
 export const useInstrumentPrices = (instrumentId: string) =>
   useQuery<PricePoint[]>({
     queryKey: ['instrument-prices', instrumentId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('prices')
-        .select('as_of, close')
-        .eq('instrument_id', instrumentId)
-        .order('as_of', { ascending: true });
+      const [{ data, error }, { data: holding }] = await Promise.all([
+        supabase
+          .from('prices')
+          .select('as_of, close')
+          .eq('instrument_id', instrumentId)
+          .order('as_of', { ascending: true }),
+        supabase
+          .from('holdings')
+          .select('average_price')
+          .eq('instrument_id', instrumentId)
+          .maybeSingle(),
+      ]);
       if (error) throw error;
-      return (data ?? []).map((row) => ({
+      const points = (data ?? []).map((row) => ({
         date: row.as_of,
         value: Number(row.close),
       }));
+      const refPrice = Number(holding?.average_price ?? 0);
+      if (refPrice > 0) {
+        const filtered = points.filter((p) => isSanePrice(p.value, refPrice));
+        if (filtered.length > 0) return filtered;
+      }
+      return points;
     },
   });
 
@@ -83,10 +103,15 @@ export const useHolding = (instrumentId: string) =>
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;
+      const averagePrice = Number(data.average_price);
+      const rawCurrent = Number(data.current_price);
+      const currentPrice = isSanePrice(rawCurrent, averagePrice)
+        ? rawCurrent
+        : averagePrice;
       return {
         quantity: Number(data.quantity),
-        averagePrice: Number(data.average_price),
-        currentPrice: Number(data.current_price),
+        averagePrice,
+        currentPrice,
         currency: data.currency,
       };
     },
@@ -156,18 +181,42 @@ export const usePositions = () =>
 
       const holdings = holdingsRes.data ?? [];
       if (holdings.length > 0) {
+        const pricesList = pricesRes.data ?? [];
         const positions: Position[] = holdings.map((holding) => {
           const fx = money(fxRate(holding.currency));
           const quantity = money(holding.quantity);
+          const avgNum = Number(holding.average_price);
+          const rawCurrentNum = Number(holding.current_price);
+
+          let saneCurrentPrice: string | number = holding.current_price;
+          if (!isSanePrice(rawCurrentNum, avgNum)) {
+            const fallbackPrice = pricesList.find(
+              (p) =>
+                p.instrument_id === holding.instrument_id &&
+                isSanePrice(Number(p.close), avgNum),
+            );
+            saneCurrentPrice = fallbackPrice
+              ? fallbackPrice.close
+              : holding.average_price;
+          }
+
+          const saneCurrentNum = Number(saneCurrentPrice);
           const averageCost = mul(money(holding.average_price), fx);
-          const currentEur = mul(money(holding.current_price), fx);
+          const currentEur = mul(money(saneCurrentPrice), fx);
           const costBasis = mul(quantity, averageCost);
           const marketValue = mul(quantity, currentEur);
           const unrealized = subtract(marketValue, costBasis);
           const previous = holding.previous_close;
+          const prevNum = previous !== null ? Number(previous) : 0;
+          const prevIsSane =
+            previous !== null &&
+            prevNum > 0 &&
+            isSanePrice(prevNum, saneCurrentNum) &&
+            Math.abs(prevNum - saneCurrentNum) / Math.max(saneCurrentNum, 0.0001) <= 0.35;
+
           let dayChange: Position['dayChange'] = null;
           let dayChangePct: Position['dayChangePct'] = null;
-          if (previous !== null && money(previous).greaterThan(0)) {
+          if (prevIsSane && previous !== null) {
             const previousEur = mul(money(previous), fx);
             dayChange = mul(quantity, subtract(currentEur, previousEur));
             dayChangePct = ratio(subtract(currentEur, previousEur), previousEur);

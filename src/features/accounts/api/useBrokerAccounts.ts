@@ -23,7 +23,22 @@ export const useBrokerAccounts = () =>
         .from('broker_accounts')
         .select('provider, free, invested, ppl, total');
       if (error) throw error;
-      return new Map((data ?? []).map((row) => [row.provider, row]));
+      return new Map(
+        (data ?? []).map((row) => {
+          const authoritativeTotal =
+            Number(row.free) + Number(row.invested) + Number(row.ppl);
+          const storedTotal = Number(row.total);
+          const isCorruptedTotal =
+            authoritativeTotal > 0 &&
+            Math.abs(storedTotal - authoritativeTotal) / authoritativeTotal > 0.25;
+          return [
+            row.provider,
+            isCorruptedTotal
+              ? { ...row, total: authoritativeTotal.toFixed(4) }
+              : row,
+          ];
+        }),
+      );
     },
   });
 

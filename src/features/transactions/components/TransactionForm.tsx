@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Account, Transaction, TransactionKind } from '@/core/types';
 import { kindMeta, manualKinds, parseSignedAmount } from '@/core/transactions/kinds';
 import { money } from '@/core/money/money';
 import { Button } from '@/ui/Button';
 import { Labelled, MoneyInput, Select, TextInput } from '@/ui/Field';
-import { toast } from '@/ui/toast';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import {
   useAssignCategory,
@@ -17,7 +16,6 @@ import {
   useTransactions,
   useUpdateTransaction,
 } from '../api/useTransactions';
-import { scanReceiptImage } from '../receiptScanner';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -100,8 +98,6 @@ export const TransactionForm = ({
   const { data: assignments } = useAssignments();
   const { data: history = [] } = useTransactions();
   const editing = existing !== undefined;
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [scanning, setScanning] = useState(false);
 
   const NEW_CATEGORY = '__new__';
 
@@ -234,63 +230,6 @@ export const TransactionForm = ({
     }
   };
 
-  const handleFileScan = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    setScanning(true);
-    try {
-      const scanned = await scanReceiptImage(
-        file,
-        categories.map((c) => c.name),
-      );
-      if (scanned.kind === 'income' || scanned.kind === 'expense') {
-        setKind(scanned.kind);
-      }
-      if (scanned.amount !== null && scanned.amount > 0) {
-        setMagnitude(scanned.amount.toFixed(2));
-      }
-      if (scanned.date) {
-        setDate(scanned.date);
-      }
-      if (scanned.merchant) {
-        handleNoteChange(scanned.merchant);
-      }
-      if (scanned.institutionId) {
-        const matchedAcc = accounts.find(
-          (a) => a.institutionId === scanned.institutionId,
-        );
-        if (matchedAcc) {
-          setAccountId(matchedAcc.id);
-          setAccountTouched(true);
-        }
-      }
-      if (scanned.category) {
-        const matchedCat = categories.find(
-          (c) => c.name.toLowerCase() === scanned.category!.toLowerCase(),
-        );
-        if (matchedCat) {
-          setCategoryId(matchedCat.id);
-          setCategoryTouched(true);
-        }
-      }
-      toast(
-        `Talão lido${scanned.merchant ? `: ${scanned.merchant}` : ''}${
-          scanned.amount ? ` · €${scanned.amount.toFixed(2)}` : ''
-        }`,
-        'success',
-      );
-    } catch (err) {
-      toast(
-        err instanceof Error ? err.message : 'Não foi possível ler a imagem',
-        'error',
-      );
-    } finally {
-      setScanning(false);
-    }
-  };
-
   const showCategory = kind === 'expense';
   const pickCategory = (value: string) => {
     setCategoryTouched(true);
@@ -376,34 +315,11 @@ export const TransactionForm = ({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-2">
-        <Labelled label="Type">
-          <div className="pt-0.5">
-            <KindPicker value={kind} onChange={setKind} />
-          </div>
-        </Labelled>
-
-        {!editing && (
-          <div className="pt-5 shrink-0">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileScan}
-            />
-            <button
-              type="button"
-              disabled={scanning}
-              onClick={() => fileInputRef.current?.click()}
-              className="tap inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/45 bg-[var(--accent-soft)] px-3 py-2 text-xs font-bold text-[var(--accent)] disabled:opacity-50"
-            >
-              <span>📷</span>
-              <span>{scanning ? 'Scanning…' : 'Scan receipt'}</span>
-            </button>
-          </div>
-        )}
-      </div>
+      <Labelled label="Type">
+        <div className="pt-0.5">
+          <KindPicker value={kind} onChange={setKind} />
+        </div>
+      </Labelled>
 
       {!editing && quickTemplates.length > 0 && (
         <div className="flex flex-col gap-1.5">
