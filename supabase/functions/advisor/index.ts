@@ -248,6 +248,96 @@ const askGemini = async (
   return answer;
 };
 
+interface ScannedReceipt {
+  amount: number | null;
+  merchant: string | null;
+  date: string | null;
+  kind: 'expense' | 'income';
+  category: string | null;
+  institutionId: string | null;
+}
+
+const scanReceiptWithGemini = async (
+  imageBase64: string,
+  mimeType: string,
+  categories: string[],
+): Promise<ScannedReceipt> => {
+  const apiKey = Deno.env.get('GEMINI_API_KEY')?.trim();
+  if (!apiKey) {
+    throw new Error(
+      'GEMINI_API_KEY secret is missing in Supabase Edge Functions.',
+    );
+  }
+
+  const model = resolveModel();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const prompt = `Analyze this receipt, invoice, or banking/MB WAY screenshot.
+Return ONLY a valid JSON object with these exact keys (no markdown fences, no extra text):
+{
+  "amount": number (positive decimal, total paid/transferred in EUR, e.g. 14.50),
+  "merchant": string (short clean merchant or description, e.g. "Continente", "Galp", "MB WAY Café", "Pingo Doce"),
+  "date": string (YYYY-MM-DD format; if no year or date is visible, use "${todayIso}"),
+  "kind": "expense" | "income",
+  "category": string | null (pick the single best match from this list: ${JSON.stringify(categories)}, or null),
+  "institutionId": string | null (if a bank/card brand is clearly visible, pick from ["cgd","revolut","edenred","moey","bpi","millennium","novo_banco","santander","activobank"], otherwise null)
+}`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: mimeType || 'image/jpeg',
+                data: imageBase64,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: 512,
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Gemini Vision failed (${response.status}): ${errorText.slice(0, 180)}`);
+  }
+
+  const body = await response.json();
+  const parts = body?.candidates?.[0]?.content?.parts ?? [];
+  const rawText = parts
+    .filter((p: { text?: string; thought?: boolean }) => typeof p.text === 'string' && !p.thought)
+    .map((p: { text: string }) => p.text)
+    .join('')
+    .trim();
+
+  const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+  const parsed = JSON.parse(cleanJson);
+  return {
+    amount: typeof parsed.amount === 'number' && parsed.amount > 0 ? parsed.amount : null,
+    merchant: typeof parsed.merchant === 'string' ? parsed.merchant.trim() : null,
+    date: typeof parsed.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : todayIso,
+    kind: parsed.kind === 'income' ? 'income' : 'expense',
+    category: typeof parsed.category === 'string' ? parsed.category : null,
+    institutionId: typeof parsed.institutionId === 'string' ? parsed.institutionId : null,
+  };
+};
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -258,8 +348,32 @@ Deno.serve(async (request) => {
     if (!userId) return json({ error: 'unauthorized' }, 401);
 
     const body = (await request.json().catch(() => null)) as {
+      action?: unknown;
+      imageBase64?: unknown;
+      mimeType?: unknown;
+      categories?: unknown;
       question?: unknown;
     } | null;
+
+    if (body?.action === 'scan_receipt') {
+      const imageBase64 =
+        typeof body.imageBase64 === 'string' ? body.imageBase64.trim() : '';
+      const mimeType =
+        typeof body.mimeType === 'string' ? body.mimeType.trim() : 'image/jpeg';
+      const categories = Array.isArray(body.categories)
+        ? body.categories.filter((c): c is string => typeof c === 'string')
+        : [];
+      if (!imageBase64) {
+        return json({ error: 'imageBase64 is required' }, 400);
+      }
+      const receipt = await scanReceiptWithGemini(
+        imageBase64,
+        mimeType,
+        categories,
+      );
+      return json({ receipt });
+    }
+
     const question =
       typeof body?.question === 'string' ? body.question.trim() : '';
     if (!question) return json({ error: 'question is required' }, 400);

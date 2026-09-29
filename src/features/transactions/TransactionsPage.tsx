@@ -36,11 +36,32 @@ export const TransactionsPage = () => {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [prefill, setPrefill] = useState<{
+    amount?: string;
+    note?: string;
+    account?: string;
+    kind?: 'expense' | 'income';
+  } | null>(null);
 
   useEffect(() => {
     const add = searchParams.get('new');
-    if (add === 'transaction' || add === 'transfer') {
-      setMode(add);
+    if (add === 'transaction' || add === 'transfer' || add === 'expense') {
+      const rawAmount = searchParams.get('amount') ?? undefined;
+      const cleanAmount = rawAmount
+        ? rawAmount.replace(/[^0-9.,]/g, '').replace(',', '.')
+        : undefined;
+      setPrefill({
+        amount: cleanAmount,
+        note: searchParams.get('note') ?? searchParams.get('merchant') ?? undefined,
+        account: searchParams.get('account') ?? searchParams.get('institution') ?? undefined,
+        kind:
+          searchParams.get('kind') === 'income'
+            ? 'income'
+            : add === 'expense'
+              ? 'expense'
+              : undefined,
+      });
+      setMode(add === 'transfer' ? 'transfer' : 'transaction');
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -172,10 +193,20 @@ export const TransactionsPage = () => {
 
       <BottomSheet
         open={mode === 'transaction' && !editing}
-        onClose={() => setMode('none')}
+        onClose={() => {
+          setMode('none');
+          setPrefill(null);
+        }}
         title="New transaction"
       >
-        <TransactionForm accounts={accounts} onDone={() => setMode('none')} />
+        <TransactionForm
+          accounts={accounts}
+          prefill={prefill ?? undefined}
+          onDone={() => {
+            setMode('none');
+            setPrefill(null);
+          }}
+        />
       </BottomSheet>
 
       <BottomSheet

@@ -4,9 +4,10 @@ import { balanceOf, deriveBalances } from '@/core/balances/deriveBalances';
 import { isNegative, toNumber, type Money, sum } from '@/core/money/money';
 import { AmountInline } from '@/ui/Amount';
 import { BottomSheet } from '@/ui/BottomSheet';
-import { pctMax1 } from '@/ui/format';
+import { pct0, pctMax1 } from '@/ui/format';
 import { PageHero } from '@/ui/PageHero';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { TransferForm } from '@/features/transactions/components/TransferForm';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
@@ -14,6 +15,7 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from './api/useAccounts';
 import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { AccountForm } from './components/AccountForm';
+import { getEdenredMonthStats } from './components/EdenredPaceCard';
 import { InstitutionLogo } from './components/InstitutionLogo';
 import { getInstitution } from './institutions';
 import type { Account } from '@/core/types';
@@ -23,6 +25,15 @@ const typeLabel: Record<string, string> = {
   investment: 'Investment',
   liability: 'Liability',
 };
+
+const SUB_ACCOUNT_PALETTE = [
+  '#3B82F6',
+  '#10B981',
+  '#F59E0B',
+  '#A855F7',
+  '#EC4899',
+  '#06B6D4',
+];
 
 interface Group {
   institutionId: string;
@@ -44,6 +55,7 @@ export const AccountsPage = () => {
   const { data: transactions = [] } = useTransactions();
   const { data: brokers } = useBrokerAccounts();
   const [creating, setCreating] = useState(false);
+  const [movingGroup, setMovingGroup] = useState<Group | null>(null);
 
   const groups = useMemo<Group[]>(() => {
     const list = accounts ?? [];
@@ -107,6 +119,24 @@ export const AccountsPage = () => {
         <AccountForm onDone={() => setCreating(false)} />
       </BottomSheet>
 
+      <BottomSheet
+        open={movingGroup !== null}
+        title={
+          movingGroup
+            ? `Move between ${getInstitution(movingGroup.institutionId).displayName} buckets`
+            : 'Move between buckets'
+        }
+        subtitle="Reallocate money across your sub-accounts while keeping the bank total intact."
+        onClose={() => setMovingGroup(null)}
+      >
+        {movingGroup && (
+          <TransferForm
+            accounts={movingGroup.accounts}
+            onDone={() => setMovingGroup(null)}
+          />
+        )}
+      </BottomSheet>
+
       {isLoading ? (
         <SkeletonRows count={4} />
       ) : accounts && accounts.length > 0 ? (
@@ -119,16 +149,92 @@ export const AccountsPage = () => {
           {groups.map((group) => {
             const institution = getInstitution(group.institutionId);
             const many = group.accounts.length > 1;
+            const groupPositiveSum = group.accounts.reduce((acc, a) => {
+              const v = toNumber(balanceById(a.id));
+              return v > 0 ? acc + v : acc;
+            }, 0);
+
             return (
-              <section key={group.institutionId} className="flex flex-col gap-2.5">
+              <section key={group.institutionId} className="flex flex-col gap-3">
                 {many && (
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      {institution.displayName}
-                    </span>
-                    <span className="text-xs font-semibold text-[var(--text-muted)]">
-                      Combined <Balance value={group.total} />
-                    </span>
+                  <div className="flex min-w-0 flex-col gap-2.5 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface-raised)] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <InstitutionLogo
+                          institutionId={group.institutionId}
+                          size={28}
+                        />
+                        <div className="min-w-0">
+                          <span className="block truncate text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-strong)]">
+                            {institution.displayName}
+                          </span>
+                          <span className="block text-[11px] text-[var(--text-muted)]">
+                            {group.accounts.length} virtual buckets · Real bank total:{' '}
+                            <strong className="font-bold text-[var(--text-strong)]">
+                              <AmountInline value={toNumber(group.total)} />
+                            </strong>
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMovingGroup(group)}
+                        className="tap shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-bold text-[var(--accent)]"
+                      >
+                        ⇄ Reallocate
+                      </button>
+                    </div>
+
+                    {groupPositiveSum > 0 && (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex h-2 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+                          {group.accounts.map((acc, idx) => {
+                            const val = Math.max(0, toNumber(balanceById(acc.id)));
+                            if (val <= 0) return null;
+                            const share = (val / groupPositiveSum) * 100;
+                            const color =
+                              SUB_ACCOUNT_PALETTE[
+                                idx % SUB_ACCOUNT_PALETTE.length
+                              ]!;
+                            return (
+                              <div
+                                key={acc.id}
+                                style={{ width: `${share}%`, background: color }}
+                                className="h-full transition-all duration-300"
+                                title={`${acc.name}: ${pct0.format(val / groupPositiveSum)}`}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {group.accounts.map((acc, idx) => {
+                            const val = Math.max(0, toNumber(balanceById(acc.id)));
+                            if (val <= 0) return null;
+                            const color =
+                              SUB_ACCOUNT_PALETTE[
+                                idx % SUB_ACCOUNT_PALETTE.length
+                              ]!;
+                            return (
+                              <span
+                                key={acc.id}
+                                className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]"
+                              >
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ background: color }}
+                                />
+                                <span className="font-semibold text-[var(--text-2)]">
+                                  {acc.name}
+                                </span>
+                                <span className="tabular-nums">
+                                  {pct0.format(val / groupPositiveSum)}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -143,6 +249,10 @@ export const AccountsPage = () => {
                       institution.brandColor && institution.brandColor !== '#111111'
                         ? institution.brandColor
                         : 'var(--accent)';
+                    const edenredStats =
+                      account.institutionId === 'edenred' && balNum > 0
+                        ? getEdenredMonthStats(balNum)
+                        : null;
                     return (
                       <Link
                         key={account.id}
@@ -173,6 +283,12 @@ export const AccountsPage = () => {
                                   ? ` · ${pctMax1.format(weight)}`
                                   : ''}
                               </p>
+                              {edenredStats && (
+                                <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--positive)]">
+                                  <AmountInline value={edenredStats.perWorkingDay} />
+                                  /workday · {edenredStats.remainingWorkingDays}d left
+                                </p>
+                              )}
                             </div>
                             <Balance value={bal} />
                           </div>

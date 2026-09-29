@@ -13,6 +13,8 @@ import {
 import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { getInstitution } from './institutions';
 import { InstitutionLogo } from './components/InstitutionLogo';
+import { EdenredPaceCard } from './components/EdenredPaceCard';
+import { ReconcileBalanceCard } from './components/ReconcileBalanceCard';
 import {
   useReverseTransaction,
   useTransactions,
@@ -165,6 +167,21 @@ export const AccountDetailPage = () => {
         label={negative ? 'Owed' : 'Balance'}
         value={toNumber(balance)}
       />
+
+      {account && !isInvestment && (
+        <ReconcileBalanceCard
+          account={account}
+          currentBalance={toNumber(balance)}
+        />
+      )}
+
+      {account?.institutionId === 'edenred' && (
+        <EdenredPaceCard
+          account={account}
+          balance={toNumber(balance)}
+          transactions={transactions}
+        />
+      )}
 
       <BottomSheet
         open={adding && Boolean(account)}
