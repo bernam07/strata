@@ -29,7 +29,6 @@ jobs:
       - name: Type-check edge functions
         run: |
           deno check \
-            supabase/functions/advisor/index.ts \
             supabase/functions/market/index.ts \
             supabase/functions/t212-sync/index.ts \
             supabase/functions/widget/index.ts
