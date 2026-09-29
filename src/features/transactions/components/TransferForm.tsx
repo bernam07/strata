@@ -38,7 +38,14 @@ export const TransferForm = ({
         onSuccess: () => {
           setAmount('');
           setNote('');
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
           onDone();
+          requestAnimationFrame(() => {
+            document.querySelector('main')?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+            window.scrollTo(0, 0);
+          });
         },
       },
     );

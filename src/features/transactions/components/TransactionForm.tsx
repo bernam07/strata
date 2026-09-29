@@ -163,7 +163,14 @@ export const TransactionForm = ({
       setMagnitude('');
       setNote('');
       setNewCategoryName('');
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       onDone();
+      requestAnimationFrame(() => {
+        document.querySelector('main')?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        window.scrollTo(0, 0);
+      });
     } catch {
       // surfaced via the failed flag below
     }

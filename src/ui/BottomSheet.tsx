@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export const BottomSheet = ({
   open,
@@ -15,16 +16,24 @@ export const BottomSheet = ({
 }) => {
   useEffect(() => {
     if (!open) return;
+    const main = document.querySelector('main');
+    const savedScrollTop = main ? main.scrollTop : 0;
+
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (main && Math.abs(main.scrollTop - savedScrollTop) > 5) {
+        main.scrollTo({ top: savedScrollTop, behavior: 'instant' as ScrollBehavior });
+      }
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
-  return (
+  const sheet = (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
@@ -63,4 +72,8 @@ export const BottomSheet = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(sheet, document.body)
+    : sheet;
 };

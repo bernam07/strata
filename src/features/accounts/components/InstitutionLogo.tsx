@@ -6,6 +6,8 @@ interface InstitutionLogoProps {
   size?: number;
 }
 
+const failedLogoUrls = new Set<string>();
+
 export const InstitutionLogo = ({
   institutionId,
   size = 44,
@@ -13,22 +15,27 @@ export const InstitutionLogo = ({
   const institution = getInstitution(institutionId);
 
   const candidates = useMemo(() => {
-    const list = [`/institutions/${institution.id}.png`];
-    if (institution.logoPath) list.push(institution.logoPath);
-    return list;
+    const raw: string[] = [];
+    if (institution.logoPath) raw.push(institution.logoPath);
+    const pngFallback = `/institutions/${institution.id}.png`;
+    const svgFallback = `/institutions/${institution.id}.svg`;
+    if (!raw.includes(pngFallback)) raw.push(pngFallback);
+    if (!raw.includes(svgFallback)) raw.push(svgFallback);
+    return raw.filter((url) => !failedLogoUrls.has(url));
   }, [institution.id, institution.logoPath]);
 
   const [index, setIndex] = useState(0);
   useEffect(() => {
     setIndex(0);
   }, [institutionId]);
+
   const dimension = { width: size, height: size };
   const src = candidates[index];
 
   if (!src) {
     return (
       <div
-        className="flex items-center justify-center rounded-full text-sm font-bold text-white"
+        className="flex shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
         style={{ ...dimension, backgroundColor: institution.brandColor }}
         aria-label={institution.displayName}
       >
@@ -39,14 +46,18 @@ export const InstitutionLogo = ({
 
   return (
     <div
-      className="flex items-center justify-center overflow-hidden rounded-full neu-flat"
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full neu-flat"
       style={dimension}
     >
       <img
         src={src}
         alt={institution.displayName}
+        decoding="async"
         className="h-full w-full object-cover"
-        onError={() => setIndex((current) => current + 1)}
+        onError={() => {
+          failedLogoUrls.add(src);
+          setIndex((current) => current + 1);
+        }}
       />
     </div>
   );

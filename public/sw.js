@@ -1,13 +1,17 @@
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
-      .open('strata-shell-v6')
+      .open('strata-shell-v7')
       .then((cache) =>
         cache.addAll([
           '/',
           '/manifest.webmanifest',
           '/icons/icon-192.png',
           '/icons/icon-512.png',
+          '/institutions/cgd.svg',
+          '/institutions/trading212.png',
+          '/institutions/revolut.png',
+          '/institutions/edenred.png',
         ]),
       )
       .then(() => self.skipWaiting()),
@@ -21,7 +25,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== 'strata-shell-v6' && key !== 'strata-assets-v6')
+            .filter((key) => key !== 'strata-shell-v7' && key !== 'strata-assets-v7')
             .map((key) => caches.delete(key)),
         ),
       )
@@ -42,7 +46,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok) {
             const copy = response.clone();
-            void caches.open('strata-shell-v6').then((cache) => cache.put('/', copy));
+            void caches.open('strata-shell-v7').then((cache) => cache.put('/', copy));
           }
           return response;
         })
@@ -54,9 +58,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname.startsWith('/assets/')) {
+  if (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/institutions/') ||
+    url.pathname.startsWith('/icons/')
+  ) {
     event.respondWith(
-      caches.open('strata-assets-v6').then(async (cache) => {
+      caches.open('strata-assets-v7').then(async (cache) => {
         const cached = await cache.match(request);
         if (cached) return cached;
 

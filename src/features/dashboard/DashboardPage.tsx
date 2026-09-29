@@ -22,7 +22,6 @@ import { Onboarding } from '@/features/onboarding/Onboarding';
 import { NetWorthDonut } from './NetWorthDonut';
 import { GoalCard } from './GoalCard';
 import { InsightsStrip } from './InsightsStrip';
-import { MonthlySummary } from './MonthlySummary';
 import { MonthlyPulseCard } from './MonthlyPulseCard';
 import { Movers } from './Movers';
 import { FinancialTimeline } from './FinancialTimeline';
@@ -227,9 +226,8 @@ export const DashboardPage = () => {
             <MonthlyPulseCard
               transactions={transactionsQuery.data ?? []}
               liquidCash={liquidCash}
+              snapshots={snapshots}
             />
-
-            <MonthlySummary snapshots={snapshots} className="lg:col-span-2" />
 
             <GoalCard net={netWithCrypto} monthlySavings={avgMonthlySavings} />
 
