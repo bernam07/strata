@@ -1,7 +1,7 @@
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
-      .open('strata-shell-v4')
+      .open('strata-shell-v6')
       .then((cache) =>
         cache.addAll([
           '/',
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== 'strata-shell-v4' && key !== 'strata-assets-v4')
+            .filter((key) => key !== 'strata-shell-v6' && key !== 'strata-assets-v6')
             .map((key) => caches.delete(key)),
         ),
       )
@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok) {
             const copy = response.clone();
-            void caches.open('strata-shell-v4').then((cache) => cache.put('/', copy));
+            void caches.open('strata-shell-v6').then((cache) => cache.put('/', copy));
           }
           return response;
         })
@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
-      caches.open('strata-assets-v4').then(async (cache) => {
+      caches.open('strata-assets-v6').then(async (cache) => {
         const cached = await cache.match(request);
         if (cached) return cached;
 

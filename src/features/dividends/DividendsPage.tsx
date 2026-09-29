@@ -15,6 +15,7 @@ import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Surface } from '@/ui/Surface';
 import { useDividends } from './api/useDividends';
 import { DividendsBarChart } from './DividendsBarChart';
+import { DividendsHeatmap } from './DividendsHeatmap';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import {
   usePositions,
@@ -187,6 +188,15 @@ export const DividendsPage = () => {
             )}
           </PageHero>
 
+          {received.length > 0 && (
+            <DividendsHeatmap
+              mode="received"
+              received={received}
+              expected={expected}
+              instruments={instruments}
+            />
+          )}
+
           {topPayers.length > 0 && (
             <Card className="flex flex-col gap-3">
               <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
@@ -265,6 +275,15 @@ export const DividendsPage = () => {
               </div>
             )}
           </PageHero>
+
+          {expected.length > 0 && (
+            <DividendsHeatmap
+              mode="expected"
+              received={received}
+              expected={expected}
+              instruments={instruments}
+            />
+          )}
 
           {forecastByHolding.length > 0 && (
             <Card className="flex flex-col gap-3">

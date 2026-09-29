@@ -42,7 +42,7 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
 
       {/* Sits comfortably above the bottom navigation bar and home indicator */}
       <div
-        className={`fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] right-4 z-40 transition-all duration-200 ease-out lg:bottom-8 lg:right-8 ${
+        className={`fixed bottom-[calc(var(--bottom-bar-total-h,4rem)+0.85rem)] right-4 z-40 transition-all duration-200 ease-out lg:bottom-8 lg:right-8 ${
           hidden ? 'translate-y-20 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}
       >
@@ -51,7 +51,7 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
           onClick={() => setOpen((value) => !value)}
           aria-label={open ? 'Close quick add' : 'Quick add'}
           aria-expanded={open}
-          className="tap relative z-10 grid h-14 w-14 place-items-center rounded-full shadow-[0_12px_28px_-10px_var(--accent)]"
+          className="tap relative z-10 grid h-12 w-12 sm:h-14 sm:w-14 place-items-center rounded-full shadow-[0_12px_28px_-10px_var(--accent)]"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
         >
           <svg

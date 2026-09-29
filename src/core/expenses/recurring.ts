@@ -9,13 +9,29 @@ export type Cadence =
   | 'quarterly'
   | 'annual';
 
+export interface PriceCreep {
+  previousAmount: number;
+  latestAmount: number;
+  deltaAmount: number;
+  deltaPct: number;
+}
+
 export interface RecurringExpense {
   label: string;
   amount: Money;
+  latestAmount: Money;
   cadence: Cadence;
   count: number;
   lastAt: string;
   nextExpected: string;
+  priceCreep: PriceCreep | null;
+}
+
+export interface HabitLeak {
+  label: string;
+  countLast30d: number;
+  totalLast30d: number;
+  tenYearCost: number;
 }
 
 const DAY = 86_400_000;
@@ -47,6 +63,20 @@ const median = (values: number[]): number => {
 
 const normalize = (note: string): string =>
   note.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Future value of investing `monthlyAmount` every month for `years` at `annualReturn` (default 8% p.a.).
+ */
+export const compoundMonthlyCost = (
+  monthlyAmount: number,
+  years = 10,
+  annualReturn = 0.08,
+): number => {
+  if (monthlyAmount <= 0 || years <= 0) return 0;
+  const months = years * 12;
+  const r = annualReturn / 12;
+  return monthlyAmount * ((Math.pow(1 + r, months) - 1) / r);
+};
 
 export const detectRecurring = (
   transactions: readonly Transaction[],
@@ -80,15 +110,34 @@ export const detectRecurring = (
 
     const amounts = sorted.map((t) => Number(t.amount)).map(Math.abs);
     const last = sorted[sorted.length - 1]!;
+    const latestVal = amounts[amounts.length - 1]!;
+    const priorAmounts = amounts.slice(0, -1);
+    const priorMedian = median(priorAmounts);
+
+    let priceCreep: PriceCreep | null = null;
+    if (priorMedian > 0 && latestVal - priorMedian >= 0.25) {
+      const deltaPct = (latestVal - priorMedian) / priorMedian;
+      if (deltaPct >= 0.015) {
+        priceCreep = {
+          previousAmount: priorMedian,
+          latestAmount: latestVal,
+          deltaAmount: latestVal - priorMedian,
+          deltaPct,
+        };
+      }
+    }
+
     recurring.push({
       label: last.note!.trim(),
       amount: money(median(amounts).toFixed(2)),
+      latestAmount: money(latestVal.toFixed(2)),
       cadence,
       count: sorted.length,
       lastAt: last.occurredAt,
       nextExpected: new Date(
         Date.parse(last.occurredAt) + cadenceDays[cadence] * DAY,
       ).toISOString(),
+      priceCreep,
     });
   }
 
@@ -97,5 +146,51 @@ export const detectRecurring = (
 
 export const monthlyEquivalent = (item: RecurringExpense): Money => {
   const perMonth = 30 / cadenceDays[item.cadence];
-  return item.amount.times(perMonth);
+  return item.latestAmount.times(perMonth);
+};
+
+/**
+ * Finds frequent repeat expenses in the last 30 days (3+ occurrences) that are NOT already in `recurring`,
+ * highlighting habitual micro-leaks (e.g. cafés, delivery, impulse purchases).
+ */
+export const detectHabitLeaks = (
+  transactions: readonly Transaction[],
+  recurringLabels: ReadonlySet<string>,
+  now = new Date(),
+): HabitLeak[] => {
+  const cutoff = now.getTime() - 30 * DAY;
+  const groups = new Map<string, { label: string; count: number; total: number }>();
+
+  for (const tx of transactions) {
+    if (tx.kind !== 'expense') continue;
+    if (!tx.note || tx.note.trim().length === 0) continue;
+    const ts = Date.parse(tx.occurredAt);
+    if (Number.isNaN(ts) || ts < cutoff) continue;
+
+    const key = normalize(tx.note);
+    if (recurringLabels.has(key)) continue;
+
+    const amt = Math.abs(Number(tx.amount));
+    if (amt <= 0) continue;
+
+    const current = groups.get(key) ?? {
+      label: tx.note.trim(),
+      count: 0,
+      total: 0,
+    };
+    current.count += 1;
+    current.total += amt;
+    groups.set(key, current);
+  }
+
+  return [...groups.values()]
+    .filter((item) => item.count >= 3)
+    .map((item) => ({
+      label: item.label,
+      countLast30d: item.count,
+      totalLast30d: item.total,
+      tenYearCost: compoundMonthlyCost(item.total, 10, 0.08),
+    }))
+    .sort((a, b) => b.totalLast30d - a.totalLast30d)
+    .slice(0, 5);
 };

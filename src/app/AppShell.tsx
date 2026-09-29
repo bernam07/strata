@@ -287,7 +287,12 @@ const BottomBar = ({
   return (
     <nav
       id="app-bottom-bar"
-      className={`fixed inset-x-0 bottom-0 z-30 flex h-[calc(4.25rem+env(safe-area-inset-bottom))] items-start justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1 pt-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-150 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-32 after:bg-[var(--surface-raised)] lg:hidden ${
+      style={{
+        height: 'var(--bottom-bar-total-h)',
+        paddingTop: 'var(--bottom-bar-pad-t)',
+        paddingBottom: 'var(--bottom-bar-pad-b)',
+      }}
+      className={`fixed inset-x-0 bottom-0 z-30 flex items-start justify-around border-t border-[var(--line)] bg-[var(--surface-raised)]/95 px-1.5 shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-150 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-32 after:bg-[var(--surface-raised)] lg:hidden ${
         hidden ? 'invisible opacity-0 pointer-events-none' : 'visible opacity-100'
       }`}
     >
@@ -296,8 +301,12 @@ const BottomBar = ({
           key={item.to}
           to={item.to}
           end={item.end}
+          style={{
+            height: 'var(--bottom-bar-item-h)',
+            fontSize: 'var(--bottom-bar-font)',
+          }}
           className={({ isActive }) =>
-            `tap relative flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors ${
+            `tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold transition-colors ${
               isActive
                 ? 'text-[var(--accent)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
@@ -307,12 +316,18 @@ const BottomBar = ({
           {({ isActive }) => (
             <>
               {isActive && (
-                <span className="absolute top-0 h-[2.5px] w-8 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                <span className="absolute top-0 h-[2px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
               )}
-              <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
+              <span
+                style={{
+                  width: 'var(--bottom-bar-icon)',
+                  height: 'var(--bottom-bar-icon)',
+                }}
+                className="[&>svg]:h-full [&>svg]:w-full"
+              >
                 {icons[item.icon]}
               </span>
-              <span className="leading-tight">{item.label}</span>
+              <span className="leading-none">{item.label}</span>
             </>
           )}
         </NavLink>
@@ -320,12 +335,22 @@ const BottomBar = ({
       <button
         type="button"
         onClick={onMore}
-        className="tap relative flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-2)] transition-colors"
+        style={{
+          height: 'var(--bottom-bar-item-h)',
+          fontSize: 'var(--bottom-bar-font)',
+        }}
+        className="tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-2)] transition-colors"
       >
-        <span className="h-6 w-6 [&>svg]:h-full [&>svg]:w-full">
+        <span
+          style={{
+            width: 'var(--bottom-bar-icon)',
+            height: 'var(--bottom-bar-icon)',
+          }}
+          className="[&>svg]:h-full [&>svg]:w-full"
+        >
           {icons.more}
         </span>
-        <span className="leading-tight">More</span>
+        <span className="leading-none">More</span>
       </button>
     </nav>
   );

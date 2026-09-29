@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { deriveBalances } from '@/core/balances/deriveBalances';
+import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
 import { isNegative, money, sum, toNumber, zero, type Money } from '@/core/money/money';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
@@ -10,6 +11,7 @@ import {
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
 import { useCrypto } from '@/features/crypto/api/useCrypto';
+import { NetWorthChart } from '@/features/analytics/NetWorthChart';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
 import { PageHero } from '@/ui/PageHero';
@@ -21,12 +23,14 @@ import { NetWorthDonut } from './NetWorthDonut';
 import { GoalCard } from './GoalCard';
 import { InsightsStrip } from './InsightsStrip';
 import { MonthlySummary } from './MonthlySummary';
+import { MonthlyPulseCard } from './MonthlyPulseCard';
 import { Movers } from './Movers';
 import { FinancialTimeline } from './FinancialTimeline';
 import { WealthLayersBar } from './WealthLayersBar';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
 
 export const DashboardPage = () => {
+  const [heroView, setHeroView] = useState<'allocation' | 'trajectory'>('allocation');
   const accountsQuery = useAccounts();
   const transactionsQuery = useTransactions();
   const brokersQuery = useBrokerAccounts();
@@ -104,6 +108,13 @@ export const DashboardPage = () => {
     toNumber(model.netWorth.totalAssets) - toNumber(investments) - mealTotal,
   );
 
+  const avgMonthlySavings = useMemo(() => {
+    const rows = monthlyCashflow(transactionsQuery.data ?? []).slice(0, 3);
+    if (rows.length === 0) return 0;
+    const sumNet = rows.reduce((acc, row) => acc + toNumber(row.net), 0);
+    return Math.max(0, sumNet / rows.length);
+  }, [transactionsQuery.data]);
+
   const dataReady =
     !loading &&
     !brokersQuery.isLoading &&
@@ -152,10 +163,38 @@ export const DashboardPage = () => {
           <AlertBanner />
 
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-            <div className="lg:col-span-2">
+            <div className="min-w-0 lg:col-span-2">
               <PageHero
                 label="Net worth"
                 value={toNumber(netWithCrypto)}
+                toolbar={
+                  snapshots.length >= 2 ? (
+                    <div className="ml-auto inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-sunken)] p-0.5 text-[11px] font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setHeroView('allocation')}
+                        className={`tap rounded-full px-2.5 py-1 transition-colors ${
+                          heroView === 'allocation'
+                            ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                        }`}
+                      >
+                        Allocation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHeroView('trajectory')}
+                        className={`tap rounded-full px-2.5 py-1 transition-colors ${
+                          heroView === 'trajectory'
+                            ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                        }`}
+                      >
+                        Trajectory
+                      </button>
+                    </div>
+                  ) : undefined
+                }
                 aside={
                   todayPl !== null ? (
                     <DeltaPill
@@ -166,11 +205,15 @@ export const DashboardPage = () => {
                   ) : undefined
                 }
               >
-                <NetWorthDonut
-                  netWorth={model.netWorth}
-                  extra={cryptoExtra}
-                  net={netWithCrypto}
-                />
+                {heroView === 'trajectory' && snapshots.length >= 2 ? (
+                  <NetWorthChart series={snapshots} />
+                ) : (
+                  <NetWorthDonut
+                    netWorth={model.netWorth}
+                    extra={cryptoExtra}
+                    net={netWithCrypto}
+                  />
+                )}
               </PageHero>
             </div>
 
@@ -181,9 +224,14 @@ export const DashboardPage = () => {
               crypto={cryptoTotal}
             />
 
+            <MonthlyPulseCard
+              transactions={transactionsQuery.data ?? []}
+              liquidCash={liquidCash}
+            />
+
             <MonthlySummary snapshots={snapshots} className="lg:col-span-2" />
 
-            <GoalCard net={netWithCrypto} />
+            <GoalCard net={netWithCrypto} monthlySavings={avgMonthlySavings} />
 
             <InsightsStrip
               cash={liquidCash + mealTotal}
@@ -191,9 +239,9 @@ export const DashboardPage = () => {
             />
 
             {rankablePositions >= 2 && (
-              <section className="flex flex-col gap-3">
+              <section className="flex min-w-0 flex-col gap-3">
                 <Collapsible title="Movers" badge={`${rankablePositions} positions`}>
-                <Movers positions={positions} instruments={positionInstruments} />
+                  <Movers positions={positions} instruments={positionInstruments} />
                 </Collapsible>
               </section>
             )}

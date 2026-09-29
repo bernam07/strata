@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  formatEur,
   isNegative,
   money,
   toNumber,
@@ -26,12 +25,13 @@ import { AmountInline } from '@/ui/Amount';
 import { CardTitle, headingClass } from '@/ui/Heading';
 import { Select, TextInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
-import { detectRecurring, monthlyEquivalent } from '@/core/expenses/recurring';
+import { detectRecurring } from '@/core/expenses/recurring';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
 import { CategoryManager } from './CategoryManager';
 import { CategoryTiles, type CategoryTile } from './CategoryTiles';
 import { SpendOverview } from './SpendOverview';
+import { SubscriptionLeakCard } from './SubscriptionLeakCard';
 import { tileStyle } from './categoryColors';
 import {
   useAssignCategory,
@@ -189,11 +189,6 @@ export const ExpensesPage = () => {
     [transactions],
   );
   const recurring = useMemo(() => detectRecurring(transactions), [transactions]);
-  const recurringMonthly = useMemo(
-    () =>
-      recurring.reduce((total, item) => total.plus(monthlyEquivalent(item)), money('0')),
-    [recurring],
-  );
 
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
@@ -353,34 +348,10 @@ export const ExpensesPage = () => {
         </Collapsible>
       )}
 
-      {recurring.length > 0 && (
-        <Collapsible
-          title="Recurring"
-          badge={`~${formatEur(recurringMonthly)}/mo`}
-        >
-          <ul className="flex flex-col gap-2">
-            {recurring.map((item) => (
-              <li key={item.label} className={rowClass}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
-                    {item.label}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {item.cadence} · next{' '}
-                    {new Date(item.nextExpected).toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'short',
-                    })}
-                  </p>
-                </div>
-                <span className="text-sm font-semibold text-[var(--text-strong)]">
-                  <AmountInline value={toNumber(item.amount)} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Collapsible>
-      )}
+      <SubscriptionLeakCard
+        recurring={recurring}
+        transactions={transactions}
+      />
 
       {comparison.length > 0 && (
         <Collapsible title="This month vs. last">
