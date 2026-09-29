@@ -1,4 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
+import {
+  computePaydayCycle,
+  usePaydayCycle,
+  type PaydayConfig,
+} from '@/core/payday/paydayCycle';
 import type { Transaction } from '@/core/types';
 import { PageHero } from '@/ui/PageHero';
 import { DeltaPill } from '@/ui/DeltaPill';
@@ -18,10 +23,11 @@ const monthLong = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
 });
 
-type Range = 'week' | 'month' | '6m';
+type Range = 'week' | 'cycle' | 'month' | '6m';
 
 const RANGES: { value: Range; label: string }[] = [
   { value: 'week', label: 'Week' },
+  { value: 'cycle', label: 'Pay cycle' },
   { value: 'month', label: 'Month' },
   { value: '6m', label: '6 months' },
 ];
@@ -42,7 +48,11 @@ const isoDay = (date: Date) =>
 const isoMonth = (date: Date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
 
-const buildBuckets = (range: Range, offset: number): Bucket[] => {
+const buildBuckets = (
+  range: Range,
+  offset: number,
+  paydayConfig: PaydayConfig,
+): Bucket[] => {
   const now = new Date();
   const blank = { total: 0 };
 
@@ -60,6 +70,35 @@ const buildBuckets = (range: Range, offset: number): Bucket[] => {
         ...blank,
       };
     });
+  }
+
+  if (range === 'cycle') {
+    let cycle = computePaydayCycle(now, paydayConfig);
+    for (let i = 0; i < offset; i += 1) {
+      const [y = 0, m = 1, d = 1] = cycle.cycleStartIso.split('-').map(Number);
+      const prevAnchor = new Date(y, m - 1, d - 1, 12, 0, 0);
+      cycle = computePaydayCycle(prevAnchor, paydayConfig);
+    }
+    const [sy, sm, sd] = cycle.cycleStartIso.split('-').map(Number);
+    const [ey, em, ed] = cycle.cycleEndIso.split('-').map(Number);
+    const start = new Date(sy!, sm! - 1, sd!, 12, 0, 0);
+    const end = new Date(ey!, em! - 1, ed!, 12, 0, 0);
+    const buckets: Bucket[] = [];
+    const cursor = new Date(start);
+    let idx = 0;
+    while (cursor <= end && idx < 45) {
+      const dayNum = cursor.getDate();
+      buckets.push({
+        key: isoDay(cursor),
+        label: String(dayNum),
+        full: dayFull.format(cursor),
+        showLabel: idx === 0 || idx % 7 === 0,
+        ...blank,
+      });
+      cursor.setDate(cursor.getDate() + 1);
+      idx += 1;
+    }
+    return buckets;
   }
 
   if (range === 'month') {
@@ -139,6 +178,7 @@ export const SpendOverview = ({
   const [range, setRange] = useState<Range>('week');
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
+  const { config: paydayConfig } = usePaydayCycle();
   const plotRef = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
   // A drag selects as the finger moves; the click that follows pointerup would
@@ -146,9 +186,13 @@ export const SpendOverview = ({
   const dragged = useRef(false);
 
   const model = useMemo(() => {
-    const buckets = fillBuckets(buildBuckets(range, offset), transactions, range);
+    const buckets = fillBuckets(
+      buildBuckets(range, offset, paydayConfig),
+      transactions,
+      range,
+    );
     const previous = fillBuckets(
-      buildBuckets(range, offset + 1),
+      buildBuckets(range, offset + 1, paydayConfig),
       transactions,
       range,
     );
@@ -163,7 +207,7 @@ export const SpendOverview = ({
       average: total / buckets.length,
       label: periodLabel(range, buckets),
     };
-  }, [range, offset, transactions]);
+  }, [range, offset, transactions, paydayConfig]);
 
   // Selection can outlive a range change (a month has more bars than a week).
   const active =
@@ -283,7 +327,7 @@ export const SpendOverview = ({
             </div>
           )}
           <div
-            className={`flex h-full items-end ${range === 'month' ? 'gap-[3px]' : 'gap-2'}`}
+            className={`flex h-full items-end ${range === 'month' || range === 'cycle' ? 'gap-[3px]' : 'gap-2'}`}
           >
             {model.buckets.map((bucket, index) => {
               const height = (bucket.total / model.max) * 100;
@@ -305,7 +349,7 @@ export const SpendOverview = ({
                 >
                   <span
                     className={`relative h-full w-full overflow-hidden rounded-lg neu-sunken ${
-                      range === 'month' ? '' : 'max-w-[22px]'
+                      range === 'month' || range === 'cycle' ? '' : 'max-w-[22px]'
                     }`}
                     style={{
                       outline: isActive
@@ -334,7 +378,7 @@ export const SpendOverview = ({
           </div>
         </div>
         <div
-          className={`flex ${range === 'month' ? 'gap-[3px]' : 'gap-2'}`}
+          className={`flex ${range === 'month' || range === 'cycle' ? 'gap-[3px]' : 'gap-2'}`}
           aria-hidden="true"
         >
           {model.buckets.map((bucket, index) => (

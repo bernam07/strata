@@ -12,6 +12,10 @@ import {
   monthlyExpenses,
   type CategoryLookup,
 } from '@/core/expenses/summary';
+import {
+  computePaydayCycle,
+  usePaydayCycle,
+} from '@/core/payday/paydayCycle';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
@@ -24,6 +28,8 @@ import { Surface } from '@/ui/Surface';
 import { AmountInline } from '@/ui/Amount';
 import { CardTitle, headingClass } from '@/ui/Heading';
 import { Select, TextInput } from '@/ui/Field';
+import { SegmentedControl } from '@/ui/SegmentedControl';
+import { dayMonth } from '@/ui/format';
 import { toast } from '@/ui/toast';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import { BudgetPanel } from './BudgetPanel';
@@ -71,6 +77,16 @@ export const ExpensesPage = () => {
   const { data: categories = [] } = useCategories();
   const { data: assignments } = useAssignments();
   const assign = useAssignCategory();
+  const { cycle, config: paydayConfig } = usePaydayCycle();
+  const [periodMode, setPeriodMode] = useState<'calendar' | 'cycle'>(() => {
+    try {
+      return localStorage.getItem('strata-expenses-period-v1') === 'calendar'
+        ? 'calendar'
+        : 'cycle';
+    } catch {
+      return 'cycle';
+    }
+  });
   const [adding, setAdding] = useState(false);
   const [managing, setManaging] = useState(false);
   const [editingCategory, setEditingCategory] = useState<{
@@ -80,6 +96,15 @@ export const ExpensesPage = () => {
   } | null>(null);
   const updateCategory = useUpdateCategory();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const changePeriodMode = (next: 'calendar' | 'cycle') => {
+    setPeriodMode(next);
+    try {
+      localStorage.setItem('strata-expenses-period-v1', next);
+    } catch {
+      // ignore
+    }
+  };
 
   const saveCategory = () => {
     if (!editingCategory) return;
@@ -118,22 +143,64 @@ export const ExpensesPage = () => {
     [transactions, categoryName],
   );
 
+  const activePeriod = useMemo(() => {
+    if (periodMode === 'cycle') {
+      const [sy = 0, sm = 1, sd = 1] = cycle.cycleStartIso.split('-').map(Number);
+      const prevAnchor = new Date(sy, sm - 1, sd - 1, 12, 0, 0);
+      const prevCycle = computePaydayCycle(prevAnchor, paydayConfig);
+      const label = `${dayMonth.format(cycle.cycleStart)} – ${dayMonth.format(cycle.cycleEndInclusive)}`;
+      const paceRatio = Math.min(
+        1,
+        Math.max(0, cycle.elapsedCalendarDays / cycle.totalCalendarDays),
+      );
+      return {
+        label: `Pay cycle (${label})`,
+        shortLabel: label,
+        paceRatio,
+        inCurrent: (iso: string) => {
+          const d = iso.slice(0, 10);
+          return d >= cycle.cycleStartIso && d <= cycle.cycleEndIso;
+        },
+        inPrevious: (iso: string) => {
+          const d = iso.slice(0, 10);
+          return d >= prevCycle.cycleStartIso && d <= prevCycle.cycleEndIso;
+        },
+      };
+    }
+
+    const curMonth = monthKey(0);
+    const prevMonth = monthKey(1);
+    const now = new Date();
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+    ).getDate();
+    const paceRatio = Math.min(1, Math.max(0, now.getDate() / daysInMonth));
+    return {
+      label: monthLabel(curMonth),
+      shortLabel: monthLabel(curMonth),
+      paceRatio,
+      inCurrent: (iso: string) => iso.startsWith(curMonth),
+      inPrevious: (iso: string) => iso.startsWith(prevMonth),
+    };
+  }, [periodMode, cycle, paydayConfig]);
+
   const comparison = useMemo(() => {
     const current = transactions.filter((t) =>
-      t.occurredAt.startsWith(monthKey(0)),
+      activePeriod.inCurrent(t.occurredAt),
     );
     const previous = transactions.filter((t) =>
-      t.occurredAt.startsWith(monthKey(1)),
+      activePeriod.inPrevious(t.occurredAt),
     );
     return comparePeriods(current, previous, categoryName);
-  }, [transactions, categoryName]);
+  }, [transactions, categoryName, activePeriod]);
 
   const spentThisMonth = useMemo(() => {
-    const currentMonth = monthKey(0);
     const totals = new Map<string, Money>();
     for (const transaction of transactions) {
       if (transaction.kind !== 'expense') continue;
-      if (!transaction.occurredAt.startsWith(currentMonth)) continue;
+      if (!activePeriod.inCurrent(transaction.occurredAt)) continue;
       const categoryId = assignments?.get(transaction.id);
       if (!categoryId) continue;
       totals.set(
@@ -142,7 +209,7 @@ export const ExpensesPage = () => {
       );
     }
     return totals;
-  }, [transactions, assignments]);
+  }, [transactions, assignments, activePeriod]);
 
   const spentOf = useCallback(
     (categoryId: string) => spentThisMonth.get(categoryId) ?? zero(),
@@ -150,12 +217,11 @@ export const ExpensesPage = () => {
   );
 
   const categoryTiles = useMemo<CategoryTile[]>(() => {
-    const currentMonth = monthKey(0);
     const byId = new Map(categories.map((c) => [c.id, c]));
     const agg = new Map<string, { amount: number; count: number }>();
     for (const transaction of transactions) {
       if (transaction.kind !== 'expense') continue;
-      if (!transaction.occurredAt.startsWith(currentMonth)) continue;
+      if (!activePeriod.inCurrent(transaction.occurredAt)) continue;
       const categoryId = assignments?.get(transaction.id);
       if (!categoryId) continue;
       const entry = agg.get(categoryId) ?? { amount: 0, count: 0 };
@@ -173,7 +239,7 @@ export const ExpensesPage = () => {
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 6);
-  }, [transactions, categories, assignments]);
+  }, [transactions, categories, assignments, activePeriod]);
 
   // The comparison and summary rows key by category name, so colour has to be
   // looked up that way to carry through from the tiles.
@@ -190,17 +256,29 @@ export const ExpensesPage = () => {
   const expenses = transactions.filter((t) => t.kind === 'expense');
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Expenses"
-        subtitle="Where your money goes each month."
+        subtitle="Where your money goes each period."
         actions={
-          <Button
-            onClick={() => setAdding(true)}
-            disabled={accounts.length === 0}
-          >
-            Add expense
-          </Button>
+          <>
+            <SegmentedControl
+              value={periodMode}
+              onChange={changePeriodMode}
+              label="Expense period mode"
+              segments={[
+                { value: 'cycle', label: 'Pay cycle' },
+                { value: 'calendar', label: 'Calendar' },
+              ]}
+            />
+            <Button
+              size="sm"
+              onClick={() => setAdding(true)}
+              disabled={accounts.length === 0}
+            >
+              Add expense
+            </Button>
+          </>
         }
       />
 
@@ -220,7 +298,12 @@ export const ExpensesPage = () => {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3 px-0.5">
-          <h2 className={headingClass}>Categories</h2>
+          <div className="flex items-baseline gap-2">
+            <h2 className={headingClass}>Categories</h2>
+            <span className="text-xs text-[var(--text-muted)]">
+              · {activePeriod.shortLabel}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -296,7 +379,7 @@ export const ExpensesPage = () => {
 
         {categoryTiles.length === 0 && !managing && (
           <p className="px-0.5 text-sm text-[var(--text-muted)]">
-            Nothing categorised in {monthLabel(monthKey(0))} yet — assign a few
+            Nothing categorised in {activePeriod.shortLabel} yet — assign a few
             expenses below, or use Manage to add categories.
           </p>
         )}
@@ -304,7 +387,12 @@ export const ExpensesPage = () => {
 
       <Card className="flex flex-col gap-4">
         <CardTitle>Budgets</CardTitle>
-        <BudgetPanel categories={categories} spentOf={spentOf} />
+        <BudgetPanel
+          categories={categories}
+          spentOf={spentOf}
+          paceRatio={activePeriod.paceRatio}
+          periodLabel={activePeriod.label}
+        />
       </Card>
 
       {cashflow.length > 0 && (
@@ -346,7 +434,13 @@ export const ExpensesPage = () => {
       )}
 
       {comparison.length > 0 && (
-        <Collapsible title="This month vs. last">
+        <Collapsible
+          title={
+            periodMode === 'cycle'
+              ? 'This pay cycle vs. previous'
+              : 'This month vs. last'
+          }
+        >
           <ul className="flex flex-col gap-2">
             {comparison.map((row) => {
               const up = row.delta.greaterThan(0);

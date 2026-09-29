@@ -119,6 +119,15 @@ export const TransactionForm = ({
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // Split / MB WAY state for shared expenses
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [splitDivisor, setSplitDivisor] = useState<2 | 3 | 4 | 'custom'>(2);
+  const [customMyShare, setCustomMyShare] = useState('');
+  const [splitRecordMode, setSplitRecordMode] = useState<'net' | 'ledger'>('net');
+  const [reimburseAccountId, setReimburseAccountId] = useState(
+    existing?.accountId ?? accounts[0]?.id ?? '',
+  );
+
   useEffect(() => {
     if (editing && !categoryTouched && assignments) {
       setCategoryId(assignments.get(existing.id) ?? '');
@@ -139,6 +148,7 @@ export const TransactionForm = ({
       );
       if (matchedAcc) {
         setAccountId(matchedAcc.id);
+        setReimburseAccountId(matchedAcc.id);
         setAccountTouched(true);
       }
     }
@@ -201,6 +211,7 @@ export const TransactionForm = ({
     setNote(tpl.label);
     if (tpl.accountId && validAccountIds.has(tpl.accountId)) {
       setAccountId(tpl.accountId);
+      setReimburseAccountId(tpl.accountId);
       setAccountTouched(true);
     }
     if (kind === 'expense' && tpl.categoryId) {
@@ -224,6 +235,7 @@ export const TransactionForm = ({
 
     if (!accountTouched && match.accountId && validAccountIds.has(match.accountId)) {
       setAccountId(match.accountId);
+      setReimburseAccountId(match.accountId);
     }
     if (kind === 'expense' && !categoryTouched && match.categoryId) {
       setCategoryId(match.categoryId);
@@ -246,11 +258,43 @@ export const TransactionForm = ({
     return categoryId || null;
   };
 
+  const totalBillNum = Math.max(0, Number(magnitude) || 0);
+  const myShareNum = useMemo(() => {
+    if (!splitOpen || kind !== 'expense' || editing) return totalBillNum;
+    if (splitDivisor === 'custom') {
+      const parsed = Number(customMyShare);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return Math.min(totalBillNum, Math.round(parsed * 100) / 100);
+      }
+      return totalBillNum;
+    }
+    return Math.round((totalBillNum / splitDivisor) * 100) / 100;
+  }, [splitOpen, kind, editing, totalBillNum, splitDivisor, customMyShare]);
+
+  const reimbursedNum = Math.max(
+    0,
+    Math.round((totalBillNum - myShareNum) * 100) / 100,
+  );
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!accountId) return;
-    const amount = parseSignedAmount(kind, magnitude || '0').toFixed(4);
+    const effectiveMagnitude =
+      splitOpen && kind === 'expense' && !editing && myShareNum > 0
+        ? String(myShareNum)
+        : magnitude || '0';
+    const amount = parseSignedAmount(kind, effectiveMagnitude).toFixed(4);
     const occurredAt = new Date(`${date}T12:00:00`).toISOString();
+
+    const baseNote = note.trim();
+    const finalNote =
+      splitOpen &&
+      kind === 'expense' &&
+      !editing &&
+      reimbursedNum > 0 &&
+      splitRecordMode === 'net'
+        ? `${baseNote || 'Expense'} (my share of €${totalBillNum.toFixed(2)})`
+        : baseNote || null;
 
     try {
       if (editing) {
@@ -259,7 +303,7 @@ export const TransactionForm = ({
           kind,
           amount,
           occurredAt,
-          note: note.trim() || null,
+          note: baseNote || null,
         });
         if (categoryTouched) {
           const category = await resolveCategory();
@@ -277,7 +321,7 @@ export const TransactionForm = ({
         kind,
         amount,
         occurredAt,
-        note: note.trim() || null,
+        note: finalNote,
       });
       const category = await resolveCategory();
       if (category) {
@@ -286,9 +330,36 @@ export const TransactionForm = ({
           categoryId: category,
         });
       }
+
+      // If the user chose to also record the fronted bill + MB WAY reimbursement in the ledger
+      // (using 'adjustment' legs so Expenses/Budgets only count `myShareNum`):
+      if (
+        splitOpen &&
+        kind === 'expense' &&
+        reimbursedNum > 0 &&
+        splitRecordMode === 'ledger'
+      ) {
+        const targetAccId = reimburseAccountId || accountId;
+        await create.mutateAsync({
+          accountId,
+          kind: 'adjustment',
+          amount: (-reimbursedNum).toFixed(4),
+          occurredAt,
+          note: `${baseNote || 'Split'} (fronted for others)`,
+        });
+        await create.mutateAsync({
+          accountId: targetAccId,
+          kind: 'adjustment',
+          amount: reimbursedNum.toFixed(4),
+          occurredAt,
+          note: `MB WAY · ${baseNote || 'Split reimbursement'}`,
+        });
+      }
+
       setMagnitude('');
       setNote('');
       setNewCategoryName('');
+      setSplitOpen(false);
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
@@ -314,7 +385,7 @@ export const TransactionForm = ({
     assignCategory.isError;
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-5">
+    <form onSubmit={submit} className="flex flex-col gap-4">
       <Labelled label="Type">
         <div className="pt-0.5">
           <KindPicker value={kind} onChange={setKind} />
@@ -366,11 +437,28 @@ export const TransactionForm = ({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Amount (EUR)
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            {splitOpen && kind === 'expense' && !editing
+              ? 'Total bill paid (EUR)'
+              : 'Amount (EUR)'}
+          </span>
+          {!editing && kind === 'expense' && (
+            <button
+              type="button"
+              onClick={() => setSplitOpen((prev) => !prev)}
+              className={`tap inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                splitOpen
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/40'
+                  : 'neu-flat text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+              }`}
+            >
+              <span>÷ Split / MB WAY</span>
+            </button>
+          )}
+        </div>
         <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-[var(--text-muted)]">
+          <span className="pointer-events-none absolute left-4 top-3.5 text-lg font-semibold text-[var(--text-muted)]">
             €
           </span>
           <MoneyInput
@@ -384,6 +472,133 @@ export const TransactionForm = ({
         </div>
       </div>
 
+      {!editing && kind === 'expense' && splitOpen && (
+        <div className="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface-sunken)] p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+              Your share
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {([2, 3, 4] as const).map((div) => (
+                <button
+                  key={div}
+                  type="button"
+                  onClick={() => setSplitDivisor(div)}
+                  className={`tap rounded-full px-2.5 py-0.5 text-xs font-bold transition ${
+                    splitDivisor === div
+                      ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                      : 'neu-flat text-[var(--text-2)]'
+                  }`}
+                >
+                  ÷{div}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSplitDivisor('custom')}
+                className={`tap rounded-full px-2.5 py-0.5 text-xs font-bold transition ${
+                  splitDivisor === 'custom'
+                    ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                    : 'neu-flat text-[var(--text-2)]'
+                }`}
+              >
+                Custom €
+              </button>
+            </div>
+          </div>
+
+          {splitDivisor === 'custom' && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-[var(--text-2)]">
+                Your real expense (€):
+              </span>
+              <div className="w-28">
+                <MoneyInput
+                  value={customMyShare}
+                  placeholder="0.00"
+                  showCalculator={false}
+                  onChange={setCustomMyShare}
+                  className="block w-full rounded-[var(--radius-field)] neu-flat px-2.5 py-1.5 text-right text-sm font-bold tabular-nums text-[var(--text-strong)] outline-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {totalBillNum > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-field)] neu-flat px-3 py-2 text-xs">
+              <span>
+                Counts in Expenses:{' '}
+                <strong className="font-bold tabular-nums text-[var(--negative)]">
+                  −€{myShareNum.toFixed(2)}
+                </strong>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                MB WAY back:{' '}
+                <strong className="font-bold tabular-nums text-[var(--positive)]">
+                  +€{reimbursedNum.toFixed(2)}
+                </strong>
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setSplitRecordMode('net')}
+              className={`tap flex-1 rounded-[var(--radius-field)] px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                splitRecordMode === 'net'
+                  ? 'border border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  : 'neu-flat text-[var(--text-muted)]'
+              }`}
+            >
+              Only record my share (−€{myShareNum.toFixed(2)})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSplitRecordMode('ledger')}
+              className={`tap flex-1 rounded-[var(--radius-field)] px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                splitRecordMode === 'ledger'
+                  ? 'border border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  : 'neu-flat text-[var(--text-muted)]'
+              }`}
+            >
+              Full bill (−€{totalBillNum.toFixed(2)}) + MB WAY (+€{reimbursedNum.toFixed(2)})
+            </button>
+          </div>
+
+          {splitRecordMode === 'ledger' && accounts.length > 1 && (
+            <div className="flex flex-col gap-1 pt-1">
+              <span className="text-[10.5px] font-semibold text-[var(--text-muted)]">
+                Account that received the MB WAY (+€{reimbursedNum.toFixed(2)}):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {accounts.map((acc) => {
+                  const active = acc.id === reimburseAccountId;
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => setReimburseAccountId(acc.id)}
+                      className={`tap flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        active
+                          ? 'border border-[var(--positive)] bg-[var(--positive)]/15 text-[var(--positive)]'
+                          : 'neu-flat text-[var(--text-muted)]'
+                      }`}
+                    >
+                      <InstitutionLogo
+                        institutionId={acc.institutionId}
+                        size={14}
+                      />
+                      <span>{acc.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <Labelled label="Account">
         <div className="flex flex-wrap gap-2 pt-0.5">
           {accounts.map((account) => {
@@ -395,6 +610,7 @@ export const TransactionForm = ({
                 disabled={editing}
                 onClick={() => {
                   setAccountId(account.id);
+                  setReimburseAccountId(account.id);
                   setAccountTouched(true);
                 }}
                 className={`tap flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${

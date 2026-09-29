@@ -1,13 +1,20 @@
 import type { ButtonHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'ghost';
+type Size = 'sm' | 'md';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
+  size?: Size;
 }
 
 const base =
-  'tap inline-flex items-center justify-center gap-2 rounded-[var(--radius-field)] px-4 py-2.5 text-sm font-semibold active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50';
+  'tap inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-field)] font-semibold active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50';
+
+const sizeClass: Record<Size, string> = {
+  sm: 'px-3 py-1.5 text-xs',
+  md: 'px-3.5 py-2 text-sm',
+};
 
 const variantClass: Record<Variant, string> = {
   primary:
@@ -18,13 +25,14 @@ const variantClass: Record<Variant, string> = {
 
 export const Button = ({
   variant = 'primary',
+  size = 'md',
   className = '',
   type = 'button',
   ...props
 }: ButtonProps) => (
   <button
     type={type}
-    className={`${base} ${variantClass[variant]} ${className}`}
+    className={`${base} ${sizeClass[size]} ${variantClass[variant]} ${className}`}
     {...props}
   />
 );

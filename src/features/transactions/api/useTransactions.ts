@@ -147,6 +147,21 @@ export const useDeleteTransaction = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: row } = await supabase
+        .from('transactions')
+        .select('transfer_group_id')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (row?.transfer_group_id) {
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .eq('transfer_group_id', row.transfer_group_id);
+        if (error) throw error;
+        return;
+      }
+
       // Drop any category assignment first, then the transaction itself.
       await supabase
         .from('transaction_categories')

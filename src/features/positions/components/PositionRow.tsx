@@ -11,14 +11,19 @@ export const PositionRow = ({
   position,
   instrument,
   weight,
+  metricMode = 'all',
 }: {
   position: Position;
   instrument: InstrumentMeta | undefined;
   weight?: number;
+  metricMode?: 'all' | 'today';
 }) => {
-  const gain = position.unrealized;
-  const negative = gain ? isNegative(gain) : false;
-  const color = gain
+  const activeGain =
+    metricMode === 'today' ? position.dayChange : position.unrealized;
+  const activePct =
+    metricMode === 'today' ? position.dayChangePct : position.unrealizedPct;
+  const negative = activeGain ? isNegative(activeGain) : false;
+  const color = activeGain
     ? negative
       ? 'var(--negative)'
       : 'var(--positive)'
@@ -28,41 +33,60 @@ export const PositionRow = ({
     <Link to={`/positions/${position.instrumentId}`}>
       <Surface
         elevation="flat"
-        className="tap flex items-center gap-4 p-4 hover:border-[var(--accent)]"
+        className="tap relative flex flex-col gap-2.5 overflow-hidden p-4 hover:border-[var(--accent)]"
       >
-        <StockAvatar
-          ticker={instrument?.ticker ?? position.instrumentId}
-          isin={instrument?.isin}
-          size={38}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-[var(--text-strong)]">
-            {instrument?.name ?? instrument?.ticker ?? 'Instrument'}
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">
-            {quantityFormat.format(position.quantity.toNumber())} sh ·{' '}
-            <AmountInline value={toNumber(position.averageCost)} /> avg
-          </p>
-          {weight !== undefined && (
-            <p className="text-[11px] font-semibold text-[var(--accent)]">
-              {percent.format(weight)} of portfolio
+        <div className="flex items-center gap-3.5">
+          <StockAvatar
+            ticker={instrument?.ticker ?? position.instrumentId}
+            isin={instrument?.isin}
+            size={38}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <p className="truncate font-semibold text-[var(--text-strong)]">
+                {instrument?.name ?? instrument?.ticker ?? 'Instrument'}
+              </p>
+              {weight !== undefined && weight > 0 && (
+                <span className="shrink-0 rounded-full bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-[var(--text-muted)]">
+                  {percent.format(weight)}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
+              {quantityFormat.format(position.quantity.toNumber())} sh ·{' '}
+              <AmountInline value={toNumber(position.averageCost)} /> avg
             </p>
-          )}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-semibold tabular-nums text-[var(--text-strong)]">
+              <AmountInline
+                value={toNumber(position.marketValue ?? position.costBasis)}
+              />
+            </p>
+            {activeGain ? (
+              <p className="mt-0.5 text-xs font-semibold tabular-nums" style={{ color }}>
+                <AmountInline value={toNumber(activeGain)} signed />
+                {activePct !== null && ` · ${percent.format(activePct)}`}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                {metricMode === 'today' ? 'No change today' : '—'}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-semibold text-[var(--text-strong)]">
-            <AmountInline
-              value={toNumber(position.marketValue ?? position.costBasis)}
+
+        {weight !== undefined && weight > 0 && (
+          <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.max(2.5, Math.min(100, weight * 100))}%`,
+                background: 'var(--accent)',
+              }}
             />
-          </p>
-          {gain && (
-            <p className="text-xs font-semibold" style={{ color }}>
-              <AmountInline value={toNumber(gain)} signed />
-              {position.unrealizedPct !== null &&
-                ` · ${percent.format(position.unrealizedPct)}`}
-            </p>
-          )}
-        </div>
+          </div>
+        )}
       </Surface>
     </Link>
   );

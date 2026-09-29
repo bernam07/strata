@@ -140,7 +140,7 @@ export const DashboardPage = () => {
   }, [positions, cryptoDay]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Overview"
         subtitle="Everything you own and owe, in one cross-section."

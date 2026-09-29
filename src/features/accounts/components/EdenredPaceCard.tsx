@@ -1,4 +1,9 @@
 import { useMemo, useState } from 'react';
+import {
+  computePaydayCycle,
+  usePaydayCycle,
+  type PaydayRuleMode,
+} from '@/core/payday/paydayCycle';
 import type { Account, Transaction } from '@/core/types';
 import { useCreateTransaction } from '@/features/transactions/api/useTransactions';
 import { AmountInline } from '@/ui/Amount';
@@ -8,7 +13,6 @@ import { MoneyInput, TextInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
 
 const DAILY_RATE_KEY = 'strata-edenred-daily-rate';
-const PAYDAY_WORKDAYS_KEY = 'strata-edenred-workdays-before-end';
 
 const loadDailyRate = (): string => {
   try {
@@ -18,125 +22,23 @@ const loadDailyRate = (): string => {
   }
 };
 
-const loadWorkdaysBeforeEnd = (): number => {
-  try {
-    const raw = Number(localStorage.getItem(PAYDAY_WORKDAYS_KEY));
-    if (Number.isFinite(raw) && raw >= 1 && raw <= 15) return Math.round(raw);
-    return 4;
-  } catch {
-    return 4;
-  }
-};
-
-// Returns the date corresponding to `workdaysBeforeEnd` working days (Mon–Fri)
-// counting backwards from the end of the given month.
-// Example: Sep 2026 has 30 days (Wed=1, Tue=2, Mon=3, Fri 25=4) -> 25 Sep 2026.
-export const getPaydayForMonth = (
-  year: number,
-  month: number,
-  workdaysBeforeEnd = 4,
-): Date => {
-  const target = Math.max(1, Math.min(15, Math.round(workdaysBeforeEnd)));
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  let seen = 0;
-  for (let d = lastDay; d >= 1; d -= 1) {
-    const date = new Date(year, month, d);
-    const dow = date.getDay();
-    if (dow !== 0 && dow !== 6) {
-      seen += 1;
-      if (seen === target) return date;
-    }
-  }
-  return new Date(year, month, 1);
-};
-
-export const countWorkingDaysBetween = (startInclusive: Date, endExclusive: Date): number => {
-  const cur = new Date(
-    startInclusive.getFullYear(),
-    startInclusive.getMonth(),
-    startInclusive.getDate(),
-  );
-  const end = new Date(
-    endExclusive.getFullYear(),
-    endExclusive.getMonth(),
-    endExclusive.getDate(),
-  );
-  let count = 0;
-  while (cur < end) {
-    const dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) count += 1;
-    cur.setDate(cur.getDate() + 1);
-  }
-  return count;
-};
-
-const toIsoDate = (date: Date): string => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
 const shortDateFmt = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
   month: 'short',
 });
 
-export const getEdenredMonthStats = (
-  balance: number,
-  now = new Date(),
-  workdaysBeforeEnd = loadWorkdaysBeforeEnd(),
-) => {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const thisMonthPayday = getPaydayForMonth(
-    today.getFullYear(),
-    today.getMonth(),
-    workdaysBeforeEnd,
-  );
-
-  let cycleStart: Date;
-  let nextPayday: Date;
-
-  if (today >= thisMonthPayday) {
-    cycleStart = thisMonthPayday;
-    nextPayday = getPaydayForMonth(
-      today.getFullYear(),
-      today.getMonth() + 1,
-      workdaysBeforeEnd,
-    );
-  } else {
-    cycleStart = getPaydayForMonth(
-      today.getFullYear(),
-      today.getMonth() - 1,
-      workdaysBeforeEnd,
-    );
-    nextPayday = thisMonthPayday;
-  }
-
-  const cycleEndInclusive = new Date(
-    nextPayday.getFullYear(),
-    nextPayday.getMonth(),
-    nextPayday.getDate() - 1,
-  );
-
-  const totalWorkingDays = Math.max(
-    1,
-    countWorkingDaysBetween(cycleStart, nextPayday),
-  );
-  const remainingWorkingDays = Math.max(
-    1,
-    countWorkingDaysBetween(today, nextPayday),
-  );
-  const perWorkingDay = Math.max(0, balance) / remainingWorkingDays;
-
+export const getEdenredMonthStats = (balance: number, now = new Date()) => {
+  const cycle = computePaydayCycle(now);
+  const perWorkingDay = Math.max(0, balance) / cycle.remainingWorkingDays;
   return {
-    totalWorkingDays,
-    remainingWorkingDays,
+    totalWorkingDays: cycle.totalWorkingDays,
+    remainingWorkingDays: cycle.remainingWorkingDays,
     perWorkingDay,
-    cycleStart,
-    cycleEndInclusive,
-    nextPayday,
-    cycleStartIso: toIsoDate(cycleStart),
+    cycleStart: cycle.cycleStart,
+    cycleEndInclusive: cycle.cycleEndInclusive,
+    nextPayday: cycle.nextPayday,
+    cycleStartIso: cycle.cycleStartIso,
+    nextPaydayIso: cycle.nextPaydayIso,
   };
 };
 
@@ -150,34 +52,26 @@ export const EdenredPaceCard = ({
   transactions: readonly Transaction[];
 }) => {
   const createTx = useCreateTransaction();
-  const [workdaysBeforeEnd, setWorkdaysBeforeEnd] = useState<string>(() =>
-    String(loadWorkdaysBeforeEnd()),
-  );
-  const parsedWorkdaysRule = useMemo(() => {
-    const n = Number(workdaysBeforeEnd);
-    return Number.isFinite(n) && n >= 1 && n <= 15 ? Math.round(n) : 4;
-  }, [workdaysBeforeEnd]);
+  const { cycle, config, updateConfig, setPickedPaydayDate } = usePaydayCycle();
 
-  const stats = useMemo(
-    () => getEdenredMonthStats(balance, new Date(), parsedWorkdaysRule),
-    [balance, parsedWorkdaysRule],
-  );
+  const perWorkingDay = Math.max(0, balance) / cycle.remainingWorkingDays;
 
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [dailyRate, setDailyRate] = useState(loadDailyRate);
   const [daysCount, setDaysCount] = useState(() =>
-    String(stats.totalWorkingDays),
+    String(cycle.totalWorkingDays),
   );
 
   const spentInCycle = useMemo(() => {
     let sum = 0;
     for (const tx of transactions) {
       if (tx.kind !== 'expense') continue;
-      if (tx.occurredAt.slice(0, 10) < stats.cycleStartIso) continue;
+      if (tx.occurredAt.slice(0, 10) < cycle.cycleStartIso) continue;
       sum += Math.abs(Number(tx.amount));
     }
     return sum;
-  }, [transactions, stats.cycleStartIso]);
+  }, [transactions, cycle.cycleStartIso]);
 
   const computedTopUp = useMemo(() => {
     const rate = Number(dailyRate.replace(',', '.'));
@@ -188,16 +82,11 @@ export const EdenredPaceCard = ({
     return Math.round(rate * days * 100) / 100;
   }, [dailyRate, daysCount]);
 
-  const handleRuleChange = (val: string) => {
-    setWorkdaysBeforeEnd(val);
-    const n = Number(val);
-    if (Number.isFinite(n) && n >= 1 && n <= 15) {
-      try {
-        localStorage.setItem(PAYDAY_WORKDAYS_KEY, String(Math.round(n)));
-      } catch {
-        // ignore storage errors
-      }
-    }
+  const handleModeSwitch = (mode: PaydayRuleMode) => {
+    updateConfig({
+      ...config,
+      mode,
+    });
   };
 
   const handleTopUp = () => {
@@ -232,13 +121,22 @@ export const EdenredPaceCard = ({
           <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Edenred Smart Pace
           </h2>
-          <p className="text-xs text-[var(--text-muted)]">
-            Cycle {shortDateFmt.format(stats.cycleStart)} –{' '}
-            {shortDateFmt.format(stats.cycleEndInclusive)} · Next top-up{' '}
-            <strong className="font-semibold text-[var(--text-strong)]">
-              {shortDateFmt.format(stats.nextPayday)}
-            </strong>
-          </p>
+          <button
+            type="button"
+            onClick={() => setCalendarOpen((v) => !v)}
+            className="tap mt-0.5 inline-flex items-center gap-1.5 text-left text-xs text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+          >
+            <span>
+              📅 {shortDateFmt.format(cycle.cycleStart)} –{' '}
+              {shortDateFmt.format(cycle.cycleEndInclusive)} · Next{' '}
+              <strong className="font-semibold text-[var(--text-strong)]">
+                {shortDateFmt.format(cycle.nextPayday)}
+              </strong>
+            </span>
+            <span className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+              {calendarOpen ? 'Done' : 'Edit date'}
+            </span>
+          </button>
         </div>
         <button
           type="button"
@@ -249,13 +147,77 @@ export const EdenredPaceCard = ({
         </button>
       </div>
 
+      {calendarOpen && (
+        <div className="page-enter flex flex-col gap-3 rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-sunken)] p-3.5">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                When did you receive? (Calendar)
+              </span>
+              <TextInput
+                type="date"
+                value={cycle.cycleStartIso}
+                onChange={(e) => {
+                  if (e.target.value) setPickedPaydayDate(e.target.value);
+                }}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Next payday (auto or custom)
+              </span>
+              <TextInput
+                type="date"
+                value={config.customNextDate ?? cycle.nextPaydayIso}
+                onChange={(e) =>
+                  updateConfig({
+                    ...config,
+                    customNextDate: e.target.value || null,
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Monthly auto-calculation rule
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('workdays_before_end')}
+                className={`tap rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  config.mode === 'workdays_before_end'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
+                    : 'neu-flat text-[var(--text-2)]'
+                }`}
+              >
+                {config.workdaysBeforeEnd} workdays before month-end
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('day_of_month')}
+                className={`tap rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  config.mode === 'day_of_month'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
+                    : 'neu-flat text-[var(--text-2)]'
+                }`}
+              >
+                Day {config.dayOfMonth} of every month (Fri if weekend)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-2">
         <div className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2">
           <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             Per workday
           </span>
           <span className="truncate text-sm font-bold text-[var(--positive)]">
-            <AmountInline value={stats.perWorkingDay} />
+            <AmountInline value={perWorkingDay} />
             <span className="text-[10px] font-normal text-[var(--text-muted)]">
               /d
             </span>
@@ -267,9 +229,9 @@ export const EdenredPaceCard = ({
             Workdays left
           </span>
           <span className="truncate text-sm font-bold tabular-nums text-[var(--text-strong)]">
-            {stats.remainingWorkingDays}{' '}
+            {cycle.remainingWorkingDays}{' '}
             <span className="text-[10px] font-normal text-[var(--text-muted)]">
-              / {stats.totalWorkingDays}d
+              / {cycle.totalWorkingDays}d
             </span>
           </span>
         </div>
@@ -286,10 +248,10 @@ export const EdenredPaceCard = ({
 
       {topUpOpen && (
         <div className="page-enter flex flex-col gap-3 rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-sunken)] p-3.5">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <div className="flex min-w-0 flex-col gap-1">
               <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                Daily (€)
+                Daily allowance (€)
               </span>
               <MoneyInput
                 value={dailyRate}
@@ -299,7 +261,7 @@ export const EdenredPaceCard = ({
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                Workdays
+                Working days
               </span>
               <TextInput
                 type="number"
@@ -307,21 +269,6 @@ export const EdenredPaceCard = ({
                 max={31}
                 value={daysCount}
                 onChange={(e) => setDaysCount(e.target.value)}
-              />
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <span
-                className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]"
-                title="Working days before the end of the month when allowance is paid"
-              >
-                Payday (-wd)
-              </span>
-              <TextInput
-                type="number"
-                min={1}
-                max={15}
-                value={workdaysBeforeEnd}
-                onChange={(e) => handleRuleChange(e.target.value)}
               />
             </div>
           </div>

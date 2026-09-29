@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { usePersistentState } from '@/app/usePersistentState';
 import type { Transaction } from '@/core/types';
 import { monthlyCashflow } from '@/core/analytics/cashflow';
 import {
@@ -7,18 +8,27 @@ import {
 } from '@/core/analytics/monthly';
 import type { SeriesPoint } from '@/core/analytics/series';
 import { toNumber } from '@/core/money/money';
+import { usePaydayCycle, type PaydayRuleMode } from '@/core/payday/paydayCycle';
 import { AmountInline } from '@/ui/Amount';
 import { Card } from '@/ui/Card';
+import { TextInput } from '@/ui/Field';
 import { pct0 } from '@/ui/format';
+
+const shortDateFmt = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+});
 
 const MiniDelta = ({
   current,
   previous,
+  show = true,
 }: {
   current: number;
   previous: number;
+  show?: boolean;
 }) => {
-  if (previous === 0 && current === 0) return null;
+  if (!show || (previous === 0 && current === 0)) return null;
   const diff = current - previous;
   if (Math.abs(diff) < 1) {
     return (
@@ -43,6 +53,13 @@ export const MonthlyPulseCard = ({
   liquidCash: number;
   snapshots?: readonly SeriesPoint[];
 }) => {
+  const [pulseMode, setPulseMode] = usePersistentState<'calendar' | 'paycycle'>(
+    'strata-pulse-mode',
+    'calendar',
+  );
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const { cycle, config, updateConfig, setPickedPaydayDate } = usePaydayCycle();
+
   const stats = useMemo(() => {
     const now = new Date();
     const year = now.getUTCFullYear();
@@ -60,8 +77,33 @@ export const MonthlyPulseCard = ({
     const rows = monthlyCashflow(transactions);
     const current = rows.find((r) => r.month === currentMonthKey);
 
-    const inflow = current ? toNumber(current.inflow) : currentSummary.income;
-    const outflow = current ? toNumber(current.outflow) : currentSummary.expenses;
+    let inflow = current ? toNumber(current.inflow) : currentSummary.income;
+    let outflow = current ? toNumber(current.outflow) : currentSummary.expenses;
+    let dividends = currentSummary.dividends;
+
+    if (pulseMode === 'paycycle') {
+      let cycIn = 0;
+      let cycOut = 0;
+      let cycDiv = 0;
+      for (const tx of transactions) {
+        if (tx.transferGroupId) continue;
+        const day = tx.occurredAt.slice(0, 10);
+        if (day < cycle.cycleStartIso || day > cycle.cycleEndIso) continue;
+        const amt = Number(tx.amount);
+        if (tx.kind === 'income' || tx.kind === 'interest') {
+          cycIn += Math.abs(amt);
+        } else if (tx.kind === 'dividend') {
+          cycIn += Math.abs(amt);
+          cycDiv += Math.abs(amt);
+        } else if (tx.kind === 'expense' || tx.kind === 'fee') {
+          cycOut += Math.abs(amt);
+        }
+      }
+      inflow = cycIn;
+      outflow = cycOut;
+      dividends = cycDiv;
+    }
+
     const net = inflow - outflow;
     const savingsRate = inflow > 0 ? net / inflow : null;
 
@@ -79,8 +121,11 @@ export const MonthlyPulseCard = ({
         ? liquidCash / avgMonthlyOutflow
         : null;
 
-    const dayOfMonth = Math.max(1, now.getDate());
-    const dailySpend = outflow > 0 ? outflow / dayOfMonth : 0;
+    const elapsedDays =
+      pulseMode === 'paycycle'
+        ? cycle.elapsedCalendarDays
+        : Math.max(1, now.getDate());
+    const dailySpend = outflow > 0 ? outflow / elapsedDays : 0;
 
     const monthName = now.toLocaleDateString('en-GB', { month: 'short' });
 
@@ -91,7 +136,7 @@ export const MonthlyPulseCard = ({
       prevInflow: prevSummary.income,
       prevOutflow: prevSummary.expenses,
       prevNet: prevSummary.net,
-      dividends: currentSummary.dividends,
+      dividends,
       netWorthChange,
       savingsRate,
       runwayMonths,
@@ -101,9 +146,18 @@ export const MonthlyPulseCard = ({
         inflow > 0 ||
         outflow > 0 ||
         currentSummary.dividends > 0 ||
-        rows.length > 0,
+        rows.length > 0 ||
+        transactions.length > 0,
     };
-  }, [transactions, liquidCash, snapshots]);
+  }, [
+    transactions,
+    liquidCash,
+    snapshots,
+    pulseMode,
+    cycle.cycleStartIso,
+    cycle.cycleEndIso,
+    cycle.elapsedCalendarDays,
+  ]);
 
   if (!stats.hasActivity) return null;
 
@@ -114,48 +168,139 @@ export const MonthlyPulseCard = ({
         ? 100
         : 0;
 
+  const handleModeSwitch = (mode: PaydayRuleMode) => {
+    updateConfig({ ...config, mode });
+  };
+
   return (
     <Card className="flex min-w-0 flex-col gap-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            {stats.monthName} pulse
-          </span>
-          {stats.savingsRate !== null && stats.savingsRate > 0 && (
-            <span className="rounded-full bg-[color-mix(in_srgb,var(--positive)_16%,transparent)] px-2 py-0.5 text-[10px] font-bold tabular-nums text-[var(--positive)]">
-              {pct0.format(stats.savingsRate)} saved
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {pulseMode === 'paycycle'
+                ? 'Payday cycle pulse'
+                : `${stats.monthName} pulse`}
             </span>
+            {stats.savingsRate !== null && stats.savingsRate > 0 && (
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--positive)_16%,transparent)] px-2 py-0.5 text-[10px] font-bold tabular-nums text-[var(--positive)]">
+                {pct0.format(stats.savingsRate)} saved
+              </span>
+            )}
+          </div>
+
+          {pulseMode === 'paycycle' && (
+            <button
+              type="button"
+              onClick={() => setCalendarOpen((v) => !v)}
+              className="tap inline-flex items-center gap-1.5 text-left text-[11px] text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+            >
+              <span>
+                📅 {shortDateFmt.format(cycle.cycleStart)} –{' '}
+                {shortDateFmt.format(cycle.cycleEndInclusive)} ·{' '}
+                {cycle.remainingCalendarDays}d left
+              </span>
+              <span className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                {calendarOpen ? 'Done' : 'Edit date'}
+              </span>
+            </button>
           )}
         </div>
-        <div className="flex items-center gap-2.5">
-          {stats.netWorthChange !== null && (
-            <span
-              className="text-[11px] font-semibold tabular-nums"
-              style={{
-                color:
-                  stats.netWorthChange >= 0
-                    ? 'var(--positive)'
-                    : 'var(--negative)',
+
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-sunken)] p-0.5 text-[10px] font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setPulseMode('calendar');
+                setCalendarOpen(false);
               }}
+              className={`tap rounded-full px-2 py-0.5 transition-colors ${
+                pulseMode === 'calendar'
+                  ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+              }`}
             >
-              <AmountInline value={stats.netWorthChange} signed /> NW
-            </span>
-          )}
-          {stats.runwayMonths !== null && (
-            <span
-              className="text-[11px] font-semibold tabular-nums text-[var(--text-muted)]"
-              title="Liquid cash divided by average monthly expenses"
+              Calendar
+            </button>
+            <button
+              type="button"
+              onClick={() => setPulseMode('paycycle')}
+              className={`tap rounded-full px-2 py-0.5 transition-colors ${
+                pulseMode === 'paycycle'
+                  ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+              }`}
             >
-              Runway{' '}
-              <strong className="text-[var(--text-strong)]">
-                {stats.runwayMonths >= 99
-                  ? '99+ mos'
-                  : `${stats.runwayMonths.toFixed(1)} mos`}
-              </strong>
-            </span>
-          )}
+              Pay cycle
+            </button>
+          </div>
         </div>
       </div>
+
+      {pulseMode === 'paycycle' && calendarOpen && (
+        <div className="page-enter flex flex-col gap-3 rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-sunken)] p-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Payday / Cycle start (Calendar)
+              </span>
+              <TextInput
+                type="date"
+                value={cycle.cycleStartIso}
+                onChange={(e) => {
+                  if (e.target.value) setPickedPaydayDate(e.target.value);
+                }}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Next payday (auto or custom)
+              </span>
+              <TextInput
+                type="date"
+                value={config.customNextDate ?? cycle.nextPaydayIso}
+                onChange={(e) =>
+                  updateConfig({
+                    ...config,
+                    customNextDate: e.target.value || null,
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Monthly auto-calculation rule
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('workdays_before_end')}
+                className={`tap rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                  config.mode === 'workdays_before_end'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
+                    : 'neu-flat text-[var(--text-2)]'
+                }`}
+              >
+                {config.workdaysBeforeEnd} workdays before month-end
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('day_of_month')}
+                className={`tap rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                  config.mode === 'day_of_month'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
+                    : 'neu-flat text-[var(--text-2)]'
+                }`}
+              >
+                Day {config.dayOfMonth} of every month (Fri if weekend)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-2">
         <div className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2">
@@ -165,7 +310,11 @@ export const MonthlyPulseCard = ({
           <span className="truncate text-sm font-bold text-[var(--positive)]">
             <AmountInline value={stats.inflow} />
           </span>
-          <MiniDelta current={stats.inflow} previous={stats.prevInflow} />
+          <MiniDelta
+            current={stats.inflow}
+            previous={stats.prevInflow}
+            show={pulseMode === 'calendar'}
+          />
         </div>
 
         <div className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2">
@@ -175,7 +324,11 @@ export const MonthlyPulseCard = ({
           <span className="truncate text-sm font-bold text-[var(--negative)]">
             <AmountInline value={stats.outflow} />
           </span>
-          <MiniDelta current={stats.outflow} previous={stats.prevOutflow} />
+          <MiniDelta
+            current={stats.outflow}
+            previous={stats.prevOutflow}
+            show={pulseMode === 'calendar'}
+          />
         </div>
 
         <div className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2">
@@ -190,7 +343,11 @@ export const MonthlyPulseCard = ({
           >
             <AmountInline value={stats.net} signed />
           </span>
-          <MiniDelta current={stats.net} previous={stats.prevNet} />
+          <MiniDelta
+            current={stats.net}
+            previous={stats.prevNet}
+            show={pulseMode === 'calendar'}
+          />
         </div>
       </div>
 
@@ -218,20 +375,29 @@ export const MonthlyPulseCard = ({
               Daily burn:{' '}
               <strong className="font-semibold text-[var(--text-2)]">
                 <AmountInline value={stats.dailySpend} />
-                /day
               </strong>
+              /day
             </span>
-            {stats.dividends > 0 ? (
-              <span>
-                Includes <AmountInline value={stats.dividends} /> in dividends
-              </span>
-            ) : (
-              stats.inflow > 0 && (
-                <span className="tabular-nums">
-                  {pct0.format(stats.outflow / stats.inflow)} of income spent
+            <div className="flex items-center gap-3">
+              {stats.dividends > 0 && (
+                <span>
+                  Dividends:{' '}
+                  <strong className="font-semibold text-[var(--positive)]">
+                    +<AmountInline value={stats.dividends} />
+                  </strong>
                 </span>
-              )
-            )}
+              )}
+              {stats.runwayMonths !== null && (
+                <span>
+                  Runway:{' '}
+                  <strong className="font-semibold text-[var(--text-2)]">
+                    {stats.runwayMonths >= 99
+                      ? '99+ mos'
+                      : `${stats.runwayMonths.toFixed(1)} mos`}
+                  </strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

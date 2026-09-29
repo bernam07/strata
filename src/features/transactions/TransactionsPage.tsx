@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Transaction } from '@/core/types';
+import { money, toNumber } from '@/core/money/money';
+import { usePaydayCycle } from '@/core/payday/paydayCycle';
 import { transactionsToCsv } from '@/core/transactions/exportCsv';
+import { AmountInline } from '@/ui/Amount';
 import { Button } from '@/ui/Button';
 import { BottomSheet } from '@/ui/BottomSheet';
 import { PageHeader } from '@/ui/PageHeader';
@@ -10,6 +13,10 @@ import { Collapsible } from '@/ui/Collapsible';
 import { Labelled, Select, TextInput } from '@/ui/Field';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
+import {
+  useAssignments,
+  useCategories,
+} from '@/features/expenses/api/useCategories';
 import { useInstruments } from '@/features/positions/api/usePositions';
 import {
   useDeleteTransaction,
@@ -24,13 +31,27 @@ import { TransactionList } from './components/TransactionList';
 import { RecurringManager } from './components/RecurringManager';
 
 type AddMode = 'none' | 'transaction' | 'transfer';
+type QuickKindFilter =
+  | 'all'
+  | 'expenses'
+  | 'uncategorized'
+  | 'income'
+  | 'transfers'
+  | 'investments';
+type DatePreset = 'all' | 'cycle' | 'month' | '30days' | 'custom';
 
 export const TransactionsPage = () => {
   const { data: accounts = [] } = useAccounts();
   const [filter, setFilter] = useState<TransactionFilter>({});
+  const [datePreset, setDatePresetState] = useState<DatePreset>('all');
+  const [quickKind, setQuickKind] = useState<QuickKindFilter>('all');
+  const [showCustomDates, setShowCustomDates] = useState(false);
   const [mode, setMode] = useState<AddMode>('none');
   const { data: transactions = [], isLoading } = useTransactions(filter);
   const { data: instruments } = useInstruments();
+  const { data: assignments } = useAssignments();
+  const { data: categories = [] } = useCategories();
+  const { cycle } = usePaydayCycle();
   const reverse = useReverseTransaction();
   const del = useDeleteTransaction();
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -100,29 +121,106 @@ export const TransactionsPage = () => {
 
   const noAccounts = accounts.length === 0;
 
+  const categoryNameById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c.name])),
+    [categories],
+  );
+
+  const uncategorizedCount = useMemo(
+    () =>
+      transactions.filter(
+        (tx) => tx.kind === 'expense' && !assignments?.get(tx.id),
+      ).length,
+    [transactions, assignments],
+  );
+
   const visibleTransactions = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return transactions;
     return transactions.filter((transaction) => {
+      if (quickKind === 'expenses') {
+        if (transaction.kind !== 'expense' && transaction.kind !== 'fee') {
+          return false;
+        }
+      } else if (quickKind === 'uncategorized') {
+        if (
+          transaction.kind !== 'expense' ||
+          Boolean(assignments?.get(transaction.id))
+        ) {
+          return false;
+        }
+      } else if (quickKind === 'income') {
+        if (
+          transaction.kind !== 'income' &&
+          transaction.kind !== 'dividend' &&
+          transaction.kind !== 'interest'
+        ) {
+          return false;
+        }
+      } else if (quickKind === 'transfers') {
+        if (
+          transaction.kind !== 'transfer' &&
+          transaction.transferGroupId === null
+        ) {
+          return false;
+        }
+      } else if (quickKind === 'investments') {
+        if (
+          transaction.kind !== 'buy' &&
+          transaction.kind !== 'sell' &&
+          transaction.instrumentId === null
+        ) {
+          return false;
+        }
+      }
+
+      if (!query) return true;
       const account = accounts.find((item) => item.id === transaction.accountId);
       const instrument = transaction.instrumentId
         ? instruments?.get(transaction.instrumentId)
         : undefined;
+      const catId = assignments?.get(transaction.id);
+      const catName = catId ? categoryNameById.get(catId) : undefined;
       return [
         transaction.note,
         transaction.kind,
         account?.name,
         instrument?.name,
         instrument?.ticker,
+        catName,
       ]
         .filter(Boolean)
         .some((value) => value!.toLocaleLowerCase().includes(query));
     });
-  }, [accounts, instruments, search, transactions]);
+  }, [
+    accounts,
+    assignments,
+    categoryNameById,
+    instruments,
+    quickKind,
+    search,
+    transactions,
+  ]);
 
-  const setDatePreset = (preset: 'month' | '30days' | 'all') => {
+  const filteredNet = useMemo(
+    () =>
+      visibleTransactions.reduce(
+        (acc, tx) => acc + toNumber(money(tx.amount)),
+        0,
+      ),
+    [visibleTransactions],
+  );
+
+  const applyDatePreset = (preset: 'all' | 'cycle' | 'month' | '30days') => {
+    setDatePresetState(preset);
     if (preset === 'all') {
       patchFilter({ from: undefined, to: undefined });
+      return;
+    }
+    if (preset === 'cycle') {
+      patchFilter({
+        from: new Date(`${cycle.cycleStartIso}T00:00:00`).toISOString(),
+        to: new Date(`${cycle.cycleEndIso}T23:59:59`).toISOString(),
+      });
       return;
     }
     const now = new Date();
@@ -151,26 +249,37 @@ export const TransactionsPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  const isFiltered =
+    quickKind !== 'all' ||
+    datePreset !== 'all' ||
+    Boolean(filter.accountId) ||
+    Boolean(search.trim());
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
-        title="Transactions"
+        title="Activity"
         subtitle="Every movement across your accounts."
         actions={
           <>
             {visibleTransactions.length > 0 && (
-              <Button variant="ghost" onClick={exportCsv}>
+              <Button size="sm" variant="ghost" onClick={exportCsv}>
                 Export
               </Button>
             )}
             <Button
+              size="sm"
               variant="ghost"
               onClick={() => setMode('transfer')}
               disabled={accounts.length < 2}
             >
               Transfer
             </Button>
-            <Button onClick={() => setMode('transaction')} disabled={noAccounts}>
+            <Button
+              size="sm"
+              onClick={() => setMode('transaction')}
+              disabled={noAccounts}
+            >
               New
             </Button>
           </>
@@ -224,67 +333,170 @@ export const TransactionsPage = () => {
       )}
 
       <Card>
-        <div className="flex flex-col gap-4">
-          <TextInput
-            value={search}
-            placeholder="Search notes, accounts or instruments"
-            aria-label="Search transactions"
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => setDatePreset('month')}>
-              This month
-            </Button>
-            <Button variant="ghost" onClick={() => setDatePreset('30days')}>
-              Last 30 days
-            </Button>
-            <Button variant="ghost" onClick={() => setDatePreset('all')}>
-              All time
-            </Button>
-          </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Labelled label="Account">
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_200px]">
+            <TextInput
+              value={search}
+              placeholder="Search notes, categories, accounts or stocks…"
+              aria-label="Search transactions"
+              onChange={(event) => setSearch(event.target.value)}
+            />
             <Select
+              aria-label="Filter by account"
               value={filter.accountId ?? ''}
               onChange={(event) =>
                 patchFilter({ accountId: event.target.value || undefined })
               }
             >
-              <option value="">All</option>
+              <option value="">All accounts</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
               ))}
             </Select>
-          </Labelled>
-          <Labelled label="From">
-            <TextInput
-              type="date"
-              value={filter.from?.slice(0, 10) ?? ''}
-              onChange={(event) =>
-                patchFilter({
-                  from: event.target.value
-                    ? new Date(`${event.target.value}T00:00:00`).toISOString()
-                    : undefined,
-                })
-              }
-            />
-          </Labelled>
-          <Labelled label="To">
-            <TextInput
-              type="date"
-              value={filter.to?.slice(0, 10) ?? ''}
-              onChange={(event) =>
-                patchFilter({
-                  to: event.target.value
-                    ? new Date(`${event.target.value}T23:59:59`).toISOString()
-                    : undefined,
-                })
-              }
-            />
-          </Labelled>
-        </div>
+          </div>
+
+          {/* Quick Kind / Uncategorized Chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { value: 'all', label: 'All' },
+                { value: 'expenses', label: 'Expenses' },
+                {
+                  value: 'uncategorized',
+                  label:
+                    uncategorizedCount > 0
+                      ? `Uncategorized (${uncategorizedCount})`
+                      : 'Uncategorized',
+                },
+                { value: 'income', label: 'Income' },
+                { value: 'transfers', label: 'Transfers' },
+                { value: 'investments', label: 'Investments' },
+              ] as const
+            ).map((chip) => {
+              const active = quickKind === chip.value;
+              return (
+                <button
+                  key={chip.value}
+                  type="button"
+                  onClick={() => setQuickKind(chip.value)}
+                  className={`tap rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    active
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
+                      : 'neu-flat text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Date Presets + Custom Dates Toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-2.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { value: 'all', label: 'All time' },
+                  { value: 'cycle', label: 'This pay cycle' },
+                  { value: 'month', label: 'This month' },
+                  { value: '30days', label: '30 days' },
+                ] as const
+              ).map((preset) => {
+                const active = datePreset === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => applyDatePreset(preset.value)}
+                    className={`tap rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                      active
+                        ? 'neu-sunken border border-[var(--accent)]/50 text-[var(--text-strong)]'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCustomDates((v) => !v)}
+              className="tap text-[11px] font-semibold text-[var(--accent)]"
+            >
+              {showCustomDates ? 'Hide dates' : 'Custom dates'}
+            </button>
+          </div>
+
+          {showCustomDates && (
+            <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
+              <Labelled label="From">
+                <TextInput
+                  type="date"
+                  value={filter.from?.slice(0, 10) ?? ''}
+                  onChange={(event) => {
+                    setDatePresetState('custom');
+                    patchFilter({
+                      from: event.target.value
+                        ? new Date(`${event.target.value}T00:00:00`).toISOString()
+                        : undefined,
+                    });
+                  }}
+                />
+              </Labelled>
+              <Labelled label="To">
+                <TextInput
+                  type="date"
+                  value={filter.to?.slice(0, 10) ?? ''}
+                  onChange={(event) => {
+                    setDatePresetState('custom');
+                    patchFilter({
+                      to: event.target.value
+                        ? new Date(`${event.target.value}T23:59:59`).toISOString()
+                        : undefined,
+                    });
+                  }}
+                />
+              </Labelled>
+            </div>
+          )}
+
+          {isFiltered && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3 py-2 text-xs">
+              <span className="text-[var(--text-muted)]">
+                Showing{' '}
+                <strong className="font-semibold text-[var(--text-strong)]">
+                  {visibleTransactions.length}
+                </strong>{' '}
+                {visibleTransactions.length === 1 ? 'movement' : 'movements'}
+              </span>
+              <div className="flex items-center gap-3">
+                <span
+                  className="font-bold tabular-nums"
+                  style={{
+                    color:
+                      filteredNet < 0 ? 'var(--negative)' : 'var(--positive)',
+                  }}
+                >
+                  Net: <AmountInline value={filteredNet} signed />
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickKind('all');
+                    setSearch('');
+                    setDatePresetState('all');
+                    setFilter({});
+                  }}
+                  className="tap font-semibold text-[var(--accent)]"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -302,8 +514,8 @@ export const TransactionsPage = () => {
             setEditing(transaction);
           }}
           emptyMessage={
-            search.trim()
-              ? 'No transactions match your search.'
+            search.trim() || quickKind !== 'all'
+              ? 'No transactions match your filter.'
               : transactions.length === 0 && noAccounts
                 ? 'No accounts yet. Create an account to start tracking activity.'
                 : 'No transactions for this filter.'

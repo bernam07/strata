@@ -3,6 +3,12 @@ import type { Account, Transaction } from '@/core/types';
 import { kindMeta } from '@/core/transactions/kinds';
 import { isNegative, money, toNumber } from '@/core/money/money';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
+import {
+  useAssignCategory,
+  useAssignments,
+  useCategories,
+} from '@/features/expenses/api/useCategories';
+import { tileStyle } from '@/features/expenses/categoryColors';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 import { AmountInline } from '@/ui/Amount';
 import {
@@ -20,6 +26,15 @@ const formatDayHeading = (dayKey: string): string => {
   if (Number.isNaN(parsed.getTime())) return dayKey;
   return dateFormatter.format(parsed);
 };
+
+interface DisplayItem {
+  transaction: Transaction;
+  pairedTransfer?: {
+    fromAccount: Account | undefined;
+    toAccount: Account | undefined;
+    magnitude: number;
+  };
+}
 
 export const TransactionList = ({
   transactions,
@@ -43,6 +58,18 @@ export const TransactionList = ({
   emptyMessage?: string;
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pickingCategoryTxId, setPickingCategoryTxId] = useState<string | null>(
+    null,
+  );
+
+  const { data: categories = [] } = useCategories();
+  const { data: assignments } = useAssignments();
+  const assignCategory = useAssignCategory();
+
+  const categoriesById = useMemo(
+    () => new Map(categories.map((cat) => [cat.id, cat])),
+    [categories],
+  );
 
   const accountsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -53,23 +80,76 @@ export const TransactionList = ({
     const groups: {
       dayKey: string;
       net: number;
-      items: Transaction[];
+      items: DisplayItem[];
     }[] = [];
-    const byDay = new Map<string, { dayKey: string; net: number; items: Transaction[] }>();
+    const byDay = new Map<
+      string,
+      { dayKey: string; net: number; rawItems: Transaction[]; items: DisplayItem[] }
+    >();
 
     for (const tx of transactions) {
       const dayKey = tx.occurredAt.slice(0, 10);
       let group = byDay.get(dayKey);
       if (!group) {
-        group = { dayKey, net: 0, items: [] };
+        group = { dayKey, net: 0, rawItems: [], items: [] };
         byDay.set(dayKey, group);
         groups.push(group);
       }
-      group.items.push(tx);
+      group.rawItems.push(tx);
       group.net += toNumber(money(tx.amount));
     }
+
+    for (const group of byDay.values()) {
+      if (!showAccount) {
+        group.items = group.rawItems.map((transaction) => ({ transaction }));
+        continue;
+      }
+
+      // Group transfer legs by transferGroupId when viewing all accounts together
+      const transferBuckets = new Map<string, Transaction[]>();
+      for (const tx of group.rawItems) {
+        if (tx.transferGroupId) {
+          const list = transferBuckets.get(tx.transferGroupId) ?? [];
+          list.push(tx);
+          transferBuckets.set(tx.transferGroupId, list);
+        }
+      }
+
+      const consumedTransferGroups = new Set<string>();
+      const mergedItems: DisplayItem[] = [];
+
+      for (const tx of group.rawItems) {
+        if (tx.transferGroupId) {
+          const legs = transferBuckets.get(tx.transferGroupId);
+          if (legs && legs.length >= 2) {
+            if (consumedTransferGroups.has(tx.transferGroupId)) continue;
+            consumedTransferGroups.add(tx.transferGroupId);
+
+            const negLeg =
+              legs.find((l) => Number(l.amount) < 0) ?? legs[0]!;
+            const posLeg =
+              legs.find((l) => Number(l.amount) > 0 && l.id !== negLeg.id) ??
+              legs[1]!;
+
+            mergedItems.push({
+              transaction: negLeg,
+              pairedTransfer: {
+                fromAccount: accountsById.get(negLeg.accountId),
+                toAccount: accountsById.get(posLeg.accountId),
+                magnitude: Math.abs(toNumber(money(negLeg.amount))),
+              },
+            });
+            continue;
+          }
+        }
+        mergedItems.push({ transaction: tx });
+      }
+
+      group.items = mergedItems;
+    }
+
     return groups;
-  }, [transactions]);
+  }, [transactions, showAccount, accountsById]);
 
   if (transactions.length === 0) {
     return (
@@ -100,16 +180,21 @@ export const TransactionList = ({
           </div>
 
           <ul className="flex flex-col gap-2">
-            {group.items.map((transaction) => {
+            {group.items.map(({ transaction, pairedTransfer }) => {
               const account = accountsById.get(transaction.accountId);
               const amount = money(transaction.amount);
               const negative = isNegative(amount);
-              const isManual =
+              const isManualSingle =
                 transaction.source === 'manual' &&
                 transaction.transferGroupId === null;
-              const canReverse = Boolean(onReverse && isManual);
-              const canDelete = Boolean(onDelete && isManual);
-              const canEdit = Boolean(onEdit && isManual);
+              const isManualTransfer =
+                transaction.source === 'manual' &&
+                transaction.transferGroupId !== null;
+              const canReverse = Boolean(onReverse && isManualSingle);
+              const canDelete = Boolean(
+                onDelete && (isManualSingle || isManualTransfer),
+              );
+              const canEdit = Boolean(onEdit && isManualSingle);
               const hasActions = canEdit || canReverse || canDelete;
               const isExpanded = expandedId === transaction.id;
 
@@ -117,23 +202,43 @@ export const TransactionList = ({
                 ? instruments?.get(transaction.instrumentId)
                 : undefined;
               const label = kindMeta[transaction.kind].label;
-              const title = instrument
-                ? instrument.name || instrument.ticker
-                : transaction.note || label;
+
+              const isMergedTransfer = Boolean(pairedTransfer);
+              const fromName =
+                pairedTransfer?.fromAccount?.name ?? 'Source account';
+              const toName =
+                pairedTransfer?.toAccount?.name ?? 'Target account';
+
+              const title = isMergedTransfer
+                ? `${fromName} → ${toName}`
+                : instrument
+                  ? instrument.name || instrument.ticker
+                  : transaction.note || label;
 
               const meta: string[] = [];
-              if (instrument && transaction.quantity !== null) {
-                meta.push(
-                  `${label} ${quantityFormatter.format(Math.abs(Number(transaction.quantity)))} sh`,
-                );
+              if (isMergedTransfer) {
+                meta.push('Internal transfer');
+                if (transaction.note) meta.push(transaction.note);
               } else {
-                meta.push(label);
+                if (instrument && transaction.quantity !== null) {
+                  meta.push(
+                    `${label} ${quantityFormatter.format(Math.abs(Number(transaction.quantity)))} sh`,
+                  );
+                } else {
+                  meta.push(label);
+                }
+                if (showAccount && account) meta.push(account.name);
               }
-              if (showAccount && account) meta.push(account.name);
 
-              let valueNumber = toNumber(amount);
+              let valueNumber = isMergedTransfer
+                ? pairedTransfer!.magnitude
+                : toNumber(amount);
               let valueSigned = false;
-              let valueColor = negative ? 'var(--negative)' : 'var(--positive)';
+              let valueColor = isMergedTransfer
+                ? 'var(--text-strong)'
+                : negative
+                  ? 'var(--negative)'
+                  : 'var(--positive)';
               if (instrumentView && transaction.kind === 'buy') {
                 valueNumber = Math.abs(valueNumber);
                 valueColor = 'var(--text-2)';
@@ -142,6 +247,21 @@ export const TransactionList = ({
                 valueSigned = true;
                 valueColor = 'var(--positive)';
               }
+
+              const isExpense =
+                !instrumentView &&
+                !isMergedTransfer &&
+                transaction.kind === 'expense';
+              const assignedCategoryId = isExpense
+                ? (assignments?.get(transaction.id) ?? null)
+                : null;
+              const assignedCategory = assignedCategoryId
+                ? categoriesById.get(assignedCategoryId)
+                : undefined;
+              const catStyle = assignedCategory
+                ? tileStyle(assignedCategory.color)
+                : null;
+              const isPickingCategory = pickingCategoryTxId === transaction.id;
 
               return (
                 <li
@@ -168,21 +288,92 @@ export const TransactionList = ({
                     }}
                     className={`flex w-full min-w-0 items-center gap-3.5 ${hasActions ? 'cursor-pointer' : ''}`}
                   >
-                    {showAccount && account && (
-                      <InstitutionLogo institutionId={account.institutionId} size={36} />
-                    )}
+                    {showAccount &&
+                      (pairedTransfer?.fromAccount ?? account) && (
+                        <div className="relative shrink-0">
+                          <InstitutionLogo
+                            institutionId={
+                              (pairedTransfer?.fromAccount ?? account)!
+                                .institutionId
+                            }
+                            size={36}
+                          />
+                          {isMergedTransfer && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--accent)] text-[9px] font-bold text-white shadow-sm"
+                            >
+                              ⇄
+                            </span>
+                          )}
+                        </div>
+                      )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
                         {title}
                       </p>
-                      <p className="truncate text-xs text-[var(--text-muted)]">
-                        {meta.join(' · ')}
-                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="truncate text-xs text-[var(--text-muted)]">
+                          {meta.join(' · ')}
+                        </p>
+                        {isExpense && categories.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPickingCategoryTxId((current) =>
+                                current === transaction.id
+                                  ? null
+                                  : transaction.id,
+                              );
+                            }}
+                            title={
+                              assignedCategory
+                                ? `Category: ${assignedCategory.name} (tap to change)`
+                                : 'Assign category'
+                            }
+                            className="tap inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-semibold transition"
+                            style={
+                              assignedCategory && catStyle
+                                ? {
+                                    background: catStyle.chipBackground,
+                                    color: catStyle.chipColor,
+                                    border: catStyle.border,
+                                  }
+                                : {
+                                    background: 'var(--surface-sunken)',
+                                    color: 'var(--text-muted)',
+                                    border: '1px dashed var(--line)',
+                                  }
+                            }
+                          >
+                            {assignedCategory && catStyle ? (
+                              <>
+                                <span
+                                  aria-hidden="true"
+                                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                  style={{ background: catStyle.dot }}
+                                />
+                                <span className="max-w-[110px] truncate">
+                                  {assignedCategory.name}
+                                </span>
+                              </>
+                            ) : (
+                              <span>+ Category</span>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <span
                       className="shrink-0 text-sm font-semibold tabular-nums"
                       style={{ color: valueColor }}
                     >
+                      {isMergedTransfer && (
+                        <span className="mr-1 text-xs font-normal text-[var(--text-muted)]">
+                          ⇄
+                        </span>
+                      )}
                       <AmountInline value={valueNumber} signed={valueSigned} />
                     </span>
 
@@ -238,6 +429,65 @@ export const TransactionList = ({
                       </div>
                     )}
                   </div>
+
+                  {isPickingCategory && (
+                    <div
+                      className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-[var(--line)] pt-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {categories.map((cat) => {
+                        const style = tileStyle(cat.color);
+                        const active = cat.id === assignedCategoryId;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              assignCategory.mutate({
+                                transactionId: transaction.id,
+                                categoryId: active ? null : cat.id,
+                              });
+                              setPickingCategoryTxId(null);
+                            }}
+                            className="tap inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition"
+                            style={{
+                              background: active
+                                ? style.chipBackground
+                                : 'var(--surface-sunken)',
+                              color: active
+                                ? style.chipColor
+                                : 'var(--text-strong)',
+                              border: active
+                                ? `1.5px solid ${style.dot}`
+                                : '1px solid var(--line)',
+                            }}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: style.dot }}
+                            />
+                            {cat.name}
+                          </button>
+                        );
+                      })}
+                      {assignedCategoryId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            assignCategory.mutate({
+                              transactionId: transaction.id,
+                              categoryId: null,
+                            });
+                            setPickingCategoryTxId(null);
+                          }}
+                          className="tap rounded-full px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {hasActions && isExpanded && (
                     <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-[var(--line)] pt-2.5 md:hidden">

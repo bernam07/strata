@@ -57,6 +57,7 @@ const Bars = ({
 
 export const PositionsPage = () => {
   const [sort, setSort] = useState<'value' | 'gain' | 'name'>('value');
+  const [metricMode, setMetricMode] = useState<'all' | 'today'>('all');
   const { data, isLoading } = usePositions();
   const { data: brokers } = useBrokerAccounts();
   const refresh = useRefreshPrices();
@@ -68,6 +69,10 @@ export const PositionsPage = () => {
   const totalCost = sum(positions.map((position) => position.costBasis));
   const totalGain = totalMarket.minus(totalCost);
   const gainNegative = isNegative(totalGain);
+  const totalDayChange = sum(
+    positions.map((position) => position.dayChange ?? zero()),
+  );
+  const dayNegative = isNegative(totalDayChange);
   const totalMarketNumber = totalMarket.toNumber();
 
   const allocation = positions
@@ -106,20 +111,29 @@ export const PositionsPage = () => {
         const nameB = data?.instruments.get(b.instrumentId)?.name ?? '';
         return nameA.localeCompare(nameB);
       }
-      if (sort === 'gain') return (b.unrealized?.toNumber() ?? 0) - (a.unrealized?.toNumber() ?? 0);
+      if (sort === 'gain') {
+        if (metricMode === 'today') {
+          return (
+            (b.dayChange?.toNumber() ?? -Infinity) -
+            (a.dayChange?.toNumber() ?? -Infinity)
+          );
+        }
+        return (b.unrealized?.toNumber() ?? 0) - (a.unrealized?.toNumber() ?? 0);
+      }
       return money(b.marketValue ?? b.costBasis)
         .minus(a.marketValue ?? a.costBasis)
         .toNumber();
     });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Portfolio"
         subtitle="Your holdings, performance and allocation."
         actions={
           positions.length > 0 && (
             <Button
+              size="sm"
               variant="ghost"
               onClick={() => refresh.mutate()}
               disabled={refresh.isPending}
@@ -178,33 +192,58 @@ export const PositionsPage = () => {
                 label="Cost basis"
                 value={<AmountInline value={toNumber(totalCost)} />}
               />
-              <Stat
-                label="Unrealized gain"
-                value={<AmountInline value={toNumber(totalGain)} signed />}
-                tone={
-                  totalGain.equals(zero())
-                    ? 'default'
-                    : gainNegative
-                      ? 'negative'
-                      : 'positive'
-                }
-              />
+              {metricMode === 'today' ? (
+                <Stat
+                  label="Today's change"
+                  value={<AmountInline value={toNumber(totalDayChange)} signed />}
+                  tone={
+                    totalDayChange.equals(zero())
+                      ? 'default'
+                      : dayNegative
+                        ? 'negative'
+                        : 'positive'
+                  }
+                />
+              ) : (
+                <Stat
+                  label="Unrealized gain"
+                  value={<AmountInline value={toNumber(totalGain)} signed />}
+                  tone={
+                    totalGain.equals(zero())
+                      ? 'default'
+                      : gainNegative
+                        ? 'negative'
+                        : 'positive'
+                  }
+                />
+              )}
             </div>
           </PageHero>
 
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <SectionTitle note={`${positions.length} held`}>Stocks</SectionTitle>
-              <SegmentedControl
-                value={sort}
-                onChange={setSort}
-                label="Sort positions"
-                segments={[
-                  { value: 'value', label: 'Value' },
-                  { value: 'gain', label: 'Gain' },
-                  { value: 'name', label: 'Name' },
-                ]}
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <SegmentedControl
+                  value={metricMode}
+                  onChange={setMetricMode}
+                  label="Return period"
+                  segments={[
+                    { value: 'all', label: 'All-time' },
+                    { value: 'today', label: 'Today' },
+                  ]}
+                />
+                <SegmentedControl
+                  value={sort}
+                  onChange={setSort}
+                  label="Sort positions"
+                  segments={[
+                    { value: 'value', label: 'Value' },
+                    { value: 'gain', label: 'Gain' },
+                    { value: 'name', label: 'Name' },
+                  ]}
+                />
+              </div>
             </div>
             {sortedPositions.map((position) => (
               <PositionRow
@@ -212,6 +251,7 @@ export const PositionsPage = () => {
                 position={position}
                 instrument={data?.instruments.get(position.instrumentId)}
                 weight={totalMarketNumber > 0 ? toNumber(position.marketValue ?? position.costBasis) / totalMarketNumber : undefined}
+                metricMode={metricMode}
               />
             ))}
           </div>

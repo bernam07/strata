@@ -58,7 +58,7 @@ export const TransferForm = ({
           Amount (EUR)
         </span>
         <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-[var(--text-muted)]">
+          <span className="pointer-events-none absolute left-4 top-3.5 text-lg font-semibold text-[var(--text-muted)]">
             €
           </span>
           <MoneyInput

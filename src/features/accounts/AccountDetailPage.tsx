@@ -13,6 +13,7 @@ import {
 import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
 import { getInstitution } from './institutions';
 import { InstitutionLogo } from './components/InstitutionLogo';
+import { AccountTargetCard } from './components/AccountTargetCard';
 import { EdenredPaceCard } from './components/EdenredPaceCard';
 import { ReconcileBalanceCard } from './components/ReconcileBalanceCard';
 import {
@@ -114,7 +115,7 @@ export const AccountDetailPage = () => {
   const negative = isNegative(balance);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <Link
         to="/accounts"
         className="tap text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
@@ -167,6 +168,13 @@ export const AccountDetailPage = () => {
         label={negative ? 'Owed' : 'Balance'}
         value={toNumber(balance)}
       />
+
+      {account && !isInvestment && account.institutionId !== 'edenred' && (
+        <AccountTargetCard
+          account={account}
+          currentBalance={toNumber(balance)}
+        />
+      )}
 
       {account && !isInvestment && (
         <ReconcileBalanceCard

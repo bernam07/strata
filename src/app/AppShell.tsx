@@ -30,7 +30,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/', label: 'Overview', icon: 'overview', end: true },
       { to: '/accounts', label: 'Accounts', icon: 'accounts' },
-      { to: '/transactions', label: 'Transactions', icon: 'transactions' },
+      { to: '/transactions', label: 'Activity', icon: 'transactions' },
     ],
   },
   {
@@ -43,9 +43,10 @@ const sections: NavSection[] = [
     ],
   },
   {
-    group: 'Spend',
+    group: 'Manage',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+      { to: '/integrations', label: 'Integrations', icon: 'sync' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -71,9 +72,19 @@ const secondarySections: NavSection[] = [
     group: 'Manage',
     items: [
       { to: '/expenses', label: 'Expenses', icon: 'expenses' },
+      { to: '/integrations', label: 'Integrations', icon: 'sync' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
+];
+
+const MORE_PREFIXES = [
+  '/expenses',
+  '/search',
+  '/crypto',
+  '/dividends',
+  '/settings',
+  '/integrations',
 ];
 
 const navItemClass = (isActive: boolean): string =>
@@ -231,7 +242,7 @@ const MoreSheet = ({
                     className={({ isActive }) =>
                       `tap flex items-center gap-2 rounded-[var(--radius-field)] px-2.5 py-3 text-xs font-semibold ${
                         isActive
-                          ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                          ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
                           : 'neu-flat text-[var(--text-2)]'
                       }`
                     }
@@ -265,9 +276,11 @@ const MoreSheet = ({
 
 const BottomBar = ({
   onMore,
+  moreActive = false,
   hidden = false,
 }: {
   onMore: () => void;
+  moreActive?: boolean;
   hidden?: boolean;
 }) => {
   return (
@@ -325,8 +338,15 @@ const BottomBar = ({
           height: 'var(--bottom-bar-item-h)',
           fontSize: 'var(--bottom-bar-font)',
         }}
-        className="tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-2)] transition-colors"
+        className={`tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold transition-colors ${
+          moreActive
+            ? 'text-[var(--accent)]'
+            : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
+        }`}
       >
+        {moreActive && (
+          <span className="absolute top-0 h-[2px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+        )}
         <span
           style={{
             width: 'var(--bottom-bar-icon)',
@@ -472,14 +492,21 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           ref={mainRef}
           className="flex-1 overflow-y-auto overscroll-contain overflow-x-clip"
         >
-          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:px-10 lg:pb-12">
+          <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pt-6 lg:px-10 lg:pb-12">
             <div key={location.pathname} className="page-enter">
               {children}
             </div>
           </div>
         </main>
       </div>
-      <BottomBar onMore={() => setMoreOpen(true)} hidden={keyboardOpen} />
+      <BottomBar
+        onMore={() => setMoreOpen((open) => !open)}
+        moreActive={
+          moreOpen ||
+          MORE_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))
+        }
+        hidden={keyboardOpen}
+      />
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       {!moreOpen && <QuickAdd hidden={keyboardOpen} />}

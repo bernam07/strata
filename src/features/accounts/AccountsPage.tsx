@@ -17,6 +17,8 @@ import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts'
 import { AccountForm } from './components/AccountForm';
 import { getEdenredMonthStats } from './components/EdenredPaceCard';
 import { InstitutionLogo } from './components/InstitutionLogo';
+import { PaydaySplitForm } from './components/PaydaySplitForm';
+import { useAccountTargets } from './accountTargets';
 import { getInstitution } from './institutions';
 import type { Account } from '@/core/types';
 
@@ -54,8 +56,10 @@ export const AccountsPage = () => {
   const { data: accounts, isLoading } = useAccounts();
   const { data: transactions = [] } = useTransactions();
   const { data: brokers } = useBrokerAccounts();
+  const { targets: accountTargets } = useAccountTargets();
   const [creating, setCreating] = useState(false);
   const [movingGroup, setMovingGroup] = useState<Group | null>(null);
+  const [splittingGroup, setSplittingGroup] = useState<Group | null>(null);
 
   const groups = useMemo<Group[]>(() => {
     const list = accounts ?? [];
@@ -101,12 +105,14 @@ export const AccountsPage = () => {
   }, [accounts, balanceById]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Accounts"
         subtitle="Every place your money lives."
         actions={
-          <Button onClick={() => setCreating(true)}>New account</Button>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            New account
+          </Button>
         }
       />
 
@@ -137,10 +143,29 @@ export const AccountsPage = () => {
         )}
       </BottomSheet>
 
+      <BottomSheet
+        open={splittingGroup !== null}
+        title={
+          splittingGroup
+            ? `Payday Split · ${getInstitution(splittingGroup.institutionId).displayName}`
+            : 'Payday Split'
+        }
+        subtitle="Distribute your paycheck across virtual buckets in one step."
+        onClose={() => setSplittingGroup(null)}
+      >
+        {splittingGroup && (
+          <PaydaySplitForm
+            institutionId={splittingGroup.institutionId}
+            accounts={splittingGroup.accounts}
+            onDone={() => setSplittingGroup(null)}
+          />
+        )}
+      </BottomSheet>
+
       {isLoading ? (
         <SkeletonRows count={4} />
       ) : accounts && accounts.length > 0 ? (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
           <PageHero
             label="Total balance"
             value={toNumber(netTotal)}
@@ -176,13 +201,22 @@ export const AccountsPage = () => {
                           </span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setMovingGroup(group)}
-                        className="tap shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-bold text-[var(--accent)]"
-                      >
-                        ⇄ Reallocate
-                      </button>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSplittingGroup(group)}
+                          className="tap shrink-0 rounded-full bg-[var(--positive)]/15 px-3 py-1 text-xs font-bold text-[var(--positive)]"
+                        >
+                          ＋ Payday Split
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMovingGroup(group)}
+                          className="tap shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-bold text-[var(--accent)]"
+                        >
+                          ⇄ Reallocate
+                        </button>
+                      </div>
                     </div>
 
                     {groupPositiveSum > 0 && (
@@ -253,6 +287,13 @@ export const AccountsPage = () => {
                       account.institutionId === 'edenred' && balNum > 0
                         ? getEdenredMonthStats(balNum)
                         : null;
+                    const target = accountTargets[account.id];
+                    const targetRatio =
+                      target && target.targetAmount > 0
+                        ? Math.max(0, balNum) / target.targetAmount
+                        : null;
+                    const barRatio =
+                      targetRatio !== null ? targetRatio : weight;
                     return (
                       <Link
                         key={account.id}
@@ -289,16 +330,29 @@ export const AccountsPage = () => {
                                   /workday · {edenredStats.remainingWorkingDays}d left
                                 </p>
                               )}
+                              {target && targetRatio !== null && (
+                                <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--accent)]">
+                                  🎯 {target.note ? `${target.note}: ` : 'Target: '}
+                                  <AmountInline value={Math.max(0, balNum)} /> /{' '}
+                                  <AmountInline value={target.targetAmount} /> (
+                                  {pct0.format(Math.min(1, targetRatio))})
+                                </p>
+                              )}
                             </div>
                             <Balance value={bal} />
                           </div>
-                          {weight > 0 && (
+                          {barRatio > 0 && (
                             <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]">
                               <div
                                 className="h-full rounded-full transition-all duration-300"
                                 style={{
-                                  width: `${Math.max(3, Math.min(100, weight * 100))}%`,
-                                  background: brand,
+                                  width: `${Math.max(3, Math.min(100, barRatio * 100))}%`,
+                                  background:
+                                    targetRatio !== null
+                                      ? targetRatio >= 1
+                                        ? 'var(--positive)'
+                                        : 'var(--accent)'
+                                      : brand,
                                 }}
                               />
                             </div>
