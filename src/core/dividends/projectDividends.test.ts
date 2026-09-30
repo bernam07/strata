@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   inferCadence,
   projectDividends,
+  projectPortfolioDividends,
   type ReceivedDividend,
 } from './projectDividends';
 
@@ -81,5 +82,55 @@ describe('projectDividends', () => {
         new Date('2026-06-01T00:00:00Z').getTime(),
       );
     }
+  });
+});
+
+describe('projectPortfolioDividends', () => {
+  it('projects future dates from market profile when no history exists', () => {
+    const holdings = [
+      {
+        instrumentId: 'apple',
+        marketValueEur: 2000,
+        quantity: 10,
+        profile: {
+          dividendDate: '2026-11-15',
+          exDividendDate: '2026-11-01',
+          dividendYield: 0.03,
+          dividendRate: 2.4,
+          currency: 'USD',
+        },
+      },
+    ];
+
+    const expected = projectPortfolioDividends([], holdings, 365, new Date('2026-10-01T00:00:00Z'));
+    expect(expected.length).toBeGreaterThanOrEqual(1);
+    expect(expected[0]!.instrumentId).toBe('apple');
+    expect(expected[0]!.confirmedDate).toBe(true);
+    expect(expected[0]!.expectedAt.slice(0, 10)).toBe('2026-11-15');
+    expect(expected[0]!.exDividendAt).toBe('2026-11-01');
+    expect(Number(expected[0]!.estimatedAmount)).toBeGreaterThan(0);
+  });
+
+  it('projects upcoming payouts for holding with only 1 historical payment', () => {
+    const history = [received('single', '12.50', '2026-08-01T00:00:00Z')];
+    const holdings = [
+      {
+        instrumentId: 'single',
+        marketValueEur: 1500,
+        quantity: 5,
+        profile: {
+          dividendDate: null,
+          exDividendDate: null,
+          dividendYield: 0.033,
+          dividendRate: 2.5,
+          currency: 'EUR',
+        },
+      },
+    ];
+
+    const expected = projectPortfolioDividends(history, holdings, 365, new Date('2026-10-01T00:00:00Z'));
+    expect(expected.length).toBeGreaterThanOrEqual(1);
+    expect(expected[0]!.instrumentId).toBe('single');
+    expect(expected[0]!.estimatedAmount).toBe('12.50');
   });
 });

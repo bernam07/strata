@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type {
   DividendCadence,
   ExpectedDividend,
@@ -16,6 +17,8 @@ interface HeatmapPayout {
   date: string;
   cadence?: DividendCadence;
   estimated: boolean;
+  exDividendAt?: string;
+  confirmedDate?: boolean;
 }
 
 interface HeatmapCell {
@@ -112,6 +115,8 @@ export const DividendsHeatmap = ({
           date: item.expectedAt,
           cadence: item.cadence,
           estimated: true,
+          exDividendAt: item.exDividendAt,
+          confirmedDate: item.confirmedDate,
         });
       }
     }
@@ -364,40 +369,56 @@ export const DividendsHeatmap = ({
             {activeCell.payouts.map((payout) => {
               const meta = instruments.get(payout.instrumentId);
               const name = meta?.name ?? meta?.ticker ?? 'Instrument';
-              return (
-                <li
-                  key={payout.id}
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-field)] bg-[var(--surface-raised)] px-3 py-2"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <StockAvatar
-                      ticker={meta?.ticker ?? payout.instrumentId}
-                      isin={meta?.isin}
-                      size={26}
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-[var(--text-strong)]">
-                        {name}
-                      </p>
-                      <p className="truncate text-[11px] text-[var(--text-muted)]">
-                        {shortDayFormat.format(new Date(payout.date))}
-                        {payout.estimated && (
-                          <>
-                            {' · '}
-                            <span className="text-[var(--accent)]">
-                              Ex-div ~{exDateEstimate(payout.date)}
-                            </span>
-                          </>
-                        )}
-                        {payout.cadence && ` · ${payout.cadence}`}
-                      </p>
-                    </div>
-                  </div>
+              const exDivDateText = payout.exDividendAt
+                ? shortDayFormat.format(new Date(payout.exDividendAt))
+                : exDateEstimate(payout.date);
 
-                  <span className="shrink-0 text-xs font-bold tabular-nums text-[var(--positive)]">
-                    {payout.estimated && '~'}
-                    <AmountInline value={payout.amount} />
-                  </span>
+              return (
+                <li key={payout.id}>
+                  <Link
+                    to={`/positions/${payout.instrumentId}`}
+                    className="tap flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-field)] bg-[var(--surface-raised)] px-3 py-2.5 transition hover:bg-[var(--surface-flat)]"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <StockAvatar
+                        ticker={meta?.ticker ?? payout.instrumentId}
+                        isin={meta?.isin}
+                        size={28}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-xs font-semibold text-[var(--text-strong)]">
+                            {name}
+                          </p>
+                          {payout.confirmedDate && (
+                            <span className="shrink-0 rounded bg-[color-mix(in_srgb,var(--positive)_18%,transparent)] px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-[var(--positive)]">
+                              Confirmed
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-[11px] text-[var(--text-muted)]">
+                          <span>{shortDayFormat.format(new Date(payout.date))}</span>
+                          {exDivDateText && (
+                            <>
+                              {' · '}
+                              <span className="text-[var(--accent)]">
+                                Ex-div {payout.exDividendAt ? exDivDateText : `~${exDivDateText}`}
+                              </span>
+                            </>
+                          )}
+                          {payout.cadence && ` · ${payout.cadence}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-xs font-bold tabular-nums text-[var(--positive)]">
+                        {payout.estimated && '~'}
+                        <AmountInline value={payout.amount} />
+                      </span>
+                      <span className="text-[11px] text-[var(--text-muted)]">→</span>
+                    </div>
+                  </Link>
                 </li>
               );
             })}

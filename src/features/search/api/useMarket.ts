@@ -1,6 +1,7 @@
 import {
   keepPreviousData,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -28,6 +29,39 @@ const invokeMarket = async <T>(body: Record<string, string>): Promise<T> => {
   const { data, error } = await supabase.functions.invoke('market', { body });
   if (error) throw error;
   return data as T;
+};
+
+// Bounded queue to avoid hitting Yahoo / Edge function concurrent rate limits
+let activeProfileFetches = 0;
+const profileFetchQueue: (() => void)[] = [];
+
+const enqueueProfileFetch = async <T>(fn: () => Promise<T>): Promise<T> => {
+  if (activeProfileFetches >= 4) {
+    await new Promise<void>((resolve) => profileFetchQueue.push(resolve));
+  }
+  activeProfileFetches += 1;
+  try {
+    return await fn();
+  } finally {
+    activeProfileFetches -= 1;
+    const next = profileFetchQueue.shift();
+    if (next) next();
+  }
+};
+
+export const fetchInstrumentProfile = async (instrument: {
+  isin: string | null;
+  ticker: string;
+  yahoo?: string | null;
+}): Promise<{ profile?: InstrumentProfile; error?: string }> => {
+  return enqueueProfileFetch(() =>
+    invokeMarket<{ profile?: InstrumentProfile; error?: string }>({
+      action: 'profile',
+      yahoo: instrument?.yahoo ?? '',
+      isin: instrument?.isin ?? '',
+      ticker: instrument?.ticker ?? '',
+    }),
+  );
 };
 
 export const useStockSearch = (query: string) =>
@@ -84,21 +118,46 @@ export const useInstrumentProfile = (
   useQuery<{ profile?: InstrumentProfile; error?: string }>({
     queryKey: [
       'instrument-profile',
-      instrument?.yahoo,
-      instrument?.isin,
+      instrument?.yahoo ?? null,
+      instrument?.isin ?? null,
       instrument?.ticker,
     ],
     enabled: instrument !== null,
     staleTime: 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
     retry: false,
     queryFn: () =>
-      invokeMarket<{ profile?: InstrumentProfile; error?: string }>({
-        action: 'profile',
-        yahoo: instrument?.yahoo ?? '',
-        isin: instrument?.isin ?? '',
-        ticker: instrument?.ticker ?? '',
-      }),
+      instrument ? fetchInstrumentProfile(instrument) : Promise.resolve({}),
   });
+
+export const useInstrumentProfiles = (
+  instruments: Array<{
+    id: string;
+    isin: string | null;
+    ticker: string;
+    yahoo_symbol?: string | null;
+  }>,
+) => {
+  return useQueries({
+    queries: instruments.map((inst) => ({
+      queryKey: [
+        'instrument-profile',
+        inst.yahoo_symbol ?? null,
+        inst.isin ?? null,
+        inst.ticker,
+      ],
+      queryFn: () =>
+        fetchInstrumentProfile({
+          yahoo: inst.yahoo_symbol,
+          isin: inst.isin,
+          ticker: inst.ticker,
+        }),
+      staleTime: 60 * 60 * 1000,
+      gcTime: 24 * 60 * 60 * 1000,
+      retry: false,
+    })),
+  });
+};
 
 export const useInstrumentQuote = (
   instrument:

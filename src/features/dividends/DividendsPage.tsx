@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { pct1 as percent } from '@/ui/format';
 import { money, sum, toNumber } from '@/core/money/money';
 import { AmountInline } from '@/ui/Amount';
@@ -31,6 +32,11 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
 });
 
+const shortDateFormat = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+});
+
 const cadenceLabel: Record<string, string> = {
   monthly: 'monthly',
   quarterly: 'quarterly',
@@ -47,9 +53,9 @@ const nameOf = (
   'Instrument';
 
 export const DividendsPage = () => {
-  const { data, isLoading } = useDividends();
+  const { data, isLoading, isLoadingProfiles } = useDividends();
   const positionsQuery = usePositions();
-  const [tab, setTab] = useState<Tab>('received');
+  const [tab, setTab] = useState<Tab>('expected');
 
   const received = data?.received ?? [];
   const expected = data?.expected ?? [];
@@ -138,6 +144,34 @@ export const DividendsPage = () => {
       .slice(0, 6);
   }, [received]);
 
+  const upcomingByMonth = useMemo(() => {
+    const sorted = expected
+      .slice()
+      .sort((a, b) => (a.expectedAt < b.expectedAt ? -1 : 1));
+    const groups = new Map<
+      string,
+      { key: string; label: string; total: number; payouts: typeof expected }
+    >();
+    for (const item of sorted) {
+      const key = item.expectedAt.slice(0, 7);
+      const [year, month] = key.split('-').map(Number);
+      const label = new Date(year!, month! - 1, 1).toLocaleDateString('en-GB', {
+        month: 'long',
+        year: 'numeric',
+      });
+      const group = groups.get(key) ?? {
+        key,
+        label,
+        total: 0,
+        payouts: [],
+      };
+      group.total += Number(item.estimatedAmount);
+      group.payouts.push(item);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  }, [expected]);
+
   const thisYear = new Date().getFullYear().toString();
   const thisYearTotal = sum(
     received
@@ -153,16 +187,23 @@ export const DividendsPage = () => {
         title="Dividends"
         subtitle="Income received and what's on the way."
         actions={
-          <SegmentedControl
-            value={tab}
-            onChange={setTab}
-            segments={[
-              { value: 'received', label: 'Received' },
-              { value: 'expected', label: 'Calendar' },
-            ]}
-            size="sm"
-            label="Dividend view"
-          />
+          <div className="flex items-center gap-2">
+            {isLoadingProfiles && (
+              <span className="hidden text-[11px] font-medium text-[var(--text-muted)] sm:inline">
+                Checking dates…
+              </span>
+            )}
+            <SegmentedControl
+              value={tab}
+              onChange={setTab}
+              segments={[
+                { value: 'expected', label: 'Upcoming Calendar' },
+                { value: 'received', label: 'Received' },
+              ]}
+              size="sm"
+              label="Dividend view"
+            />
+          </div>
         }
       />
 
@@ -170,6 +211,49 @@ export const DividendsPage = () => {
         <SkeletonRows count={4} />
       ) : tab === 'received' ? (
         <>
+          {expected.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-raised)] p-3.5 shadow-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <StockAvatar
+                  ticker={
+                    instruments.get(expected[0]!.instrumentId)?.ticker ??
+                    expected[0]!.instrumentId
+                  }
+                  isin={instruments.get(expected[0]!.instrumentId)?.isin}
+                  size={32}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">
+                      Next Payout
+                    </span>
+                    {expected[0]!.confirmedDate && (
+                      <span className="rounded bg-[color-mix(in_srgb,var(--positive)_18%,transparent)] px-1 py-0.2 text-[9px] font-bold uppercase text-[var(--positive)]">
+                        Confirmed
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs font-semibold text-[var(--text-strong)]">
+                    {nameOf(instruments, expected[0]!.instrumentId)} ·{' '}
+                    {dateFormat.format(new Date(expected[0]!.expectedAt))}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-extrabold tabular-nums text-[var(--positive)]">
+                  ~<AmountInline value={Number(expected[0]!.estimatedAmount)} />
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTab('expected')}
+                  className="tap rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)] hover:underline"
+                >
+                  View calendar →
+                </button>
+              </div>
+            </div>
+          )}
+
           <PageHero
             label="Total received"
             value={toNumber(receivedTotal)}
@@ -208,7 +292,11 @@ export const DividendsPage = () => {
               {topPayers.map((payer) => {
                 const meta = instruments.get(payer.instrumentId);
                 return (
-                  <div key={payer.instrumentId} className="flex items-center gap-3">
+                  <Link
+                    key={payer.instrumentId}
+                    to={`/positions/${payer.instrumentId}`}
+                    className="tap flex items-center gap-3 rounded-[var(--radius-field)] p-1 transition hover:bg-[var(--surface-flat)]"
+                  >
                     <StockAvatar
                       ticker={meta?.ticker ?? payer.instrumentId}
                       isin={meta?.isin}
@@ -220,7 +308,8 @@ export const DividendsPage = () => {
                     <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
                       <AmountInline value={payer.total} />
                     </span>
-                  </div>
+                    <span className="text-xs text-[var(--text-muted)]">→</span>
+                  </Link>
                 );
               })}
             </Card>
@@ -235,28 +324,37 @@ export const DividendsPage = () => {
               {received.map((item) => {
                 const meta = instruments.get(item.instrumentId);
                 return (
-                  <Surface
-                    key={item.id}
-                    elevation="flat"
-                    className="flex items-center gap-3.5 p-4"
-                  >
-                    <StockAvatar
-                      ticker={meta?.ticker ?? item.instrumentId}
-                      isin={meta?.isin}
-                      size={34}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
-                        {nameOf(instruments, item.instrumentId)}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {dateFormat.format(new Date(item.paidAt))}
-                      </p>
-                    </div>
-                    <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
-                      <AmountInline value={Number(item.amount)} />
-                    </span>
-                  </Surface>
+                  <li key={item.id}>
+                    <Link
+                      to={`/positions/${item.instrumentId}`}
+                      className="tap block"
+                    >
+                      <Surface
+                        elevation="flat"
+                        className="flex items-center gap-3.5 p-4 transition hover:bg-[var(--surface-flat)]"
+                      >
+                        <StockAvatar
+                          ticker={meta?.ticker ?? item.instrumentId}
+                          isin={meta?.isin}
+                          size={34}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                            {nameOf(instruments, item.instrumentId)}
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {dateFormat.format(new Date(item.paidAt))}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
+                            <AmountInline value={Number(item.amount)} />
+                          </span>
+                          <span className="text-xs text-[var(--text-muted)]">→</span>
+                        </div>
+                      </Surface>
+                    </Link>
+                  </li>
                 );
               })}
             </ul>
@@ -298,15 +396,21 @@ export const DividendsPage = () => {
 
           {forecastByHolding.length > 0 && (
             <Card className="flex flex-col gap-3">
-              <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Projected annual income
-              </h2>
-              {forecastByHolding.slice(0, 8).map((holding) => {
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Projected annual income by holding
+                </h2>
+                <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                  {forecastByHolding.length} payers
+                </span>
+              </div>
+              {forecastByHolding.slice(0, 10).map((holding) => {
                 const meta = instruments.get(holding.instrumentId);
                 return (
-                  <div
+                  <Link
                     key={holding.instrumentId}
-                    className="flex items-center gap-3"
+                    to={`/positions/${holding.instrumentId}`}
+                    className="tap flex items-center gap-3 rounded-[var(--radius-field)] p-1 transition hover:bg-[var(--surface-flat)]"
                   >
                     <StockAvatar
                       ticker={meta?.ticker ?? holding.instrumentId}
@@ -321,87 +425,147 @@ export const DividendsPage = () => {
                         {percent.format(holding.yieldOnCost)} YoC
                       </span>
                     )}
-                    <span className="w-20 text-right text-sm font-semibold tabular-nums text-[var(--positive)]">
-                      ~<AmountInline value={holding.income} />
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-right text-sm font-semibold tabular-nums text-[var(--positive)]">
+                        ~<AmountInline value={holding.income} />
+                      </span>
+                      <span className="text-xs text-[var(--text-muted)]">→</span>
+                    </div>
+                  </Link>
                 );
               })}
             </Card>
           )}
 
-          {expected.length === 0 ? (
-            <p className="text-sm text-[var(--text-muted)]">
-              Not enough history to project a calendar.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {expected
-                .slice()
-                .sort((a, b) =>
-                  a.expectedAt < b.expectedAt ? -1 : 1,
-                )
-                .map((item, index) => {
-                  const meta = instruments.get(item.instrumentId);
-                  const expectedDate = new Date(item.expectedAt);
-                  const now = new Date();
-                  const todayStart = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    now.getDate(),
-                  );
-                  const targetStart = new Date(
-                    expectedDate.getFullYear(),
-                    expectedDate.getMonth(),
-                    expectedDate.getDate(),
-                  );
-                  const diffDays = Math.round(
-                    (targetStart.getTime() - todayStart.getTime()) /
-                      (1000 * 60 * 60 * 24),
-                  );
-                  const relativeLabel =
-                    diffDays <= 0
-                      ? 'Today'
-                      : diffDays === 1
-                        ? 'Tomorrow'
-                        : `in ${diffDays}d`;
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Upcoming Payout Schedule
+                </h2>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Expected dividends grouped by month & payout date
+                </p>
+              </div>
+              <span className="text-xs font-bold tabular-nums text-[var(--accent)]">
+                {expected.length} total payments
+              </span>
+            </div>
 
-                  return (
-                    <Surface
-                      key={`${item.instrumentId}-${index}`}
-                      elevation="flat"
-                      className="flex items-center gap-3.5 border border-dashed border-[var(--text-muted)]/30 p-4 opacity-80"
-                    >
-                      <StockAvatar
-                        ticker={meta?.ticker ?? item.instrumentId}
-                        isin={meta?.isin}
-                        size={34}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
-                            {nameOf(instruments, item.instrumentId)}
-                          </p>
-                          <span className="rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                            estimated · {cadenceLabel[item.cadence]}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                          <span>{dateFormat.format(expectedDate)}</span>
-                          <span>·</span>
-                          <span className="font-semibold text-[var(--accent)]">
-                            {relativeLabel}
-                          </span>
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold tabular-nums text-[var(--text-muted)]">
-                        ~<AmountInline value={Number(item.estimatedAmount)} />
+            {upcomingByMonth.length === 0 ? (
+              <Card>
+                <p className="text-sm text-[var(--text-muted)]">
+                  No upcoming dividends detected in your active holdings.
+                </p>
+              </Card>
+            ) : (
+              upcomingByMonth.map((group) => (
+                <Card key={group.key} className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-[var(--text-strong)]">
+                        {group.label}
+                      </h3>
+                      <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-muted)]">
+                        {group.payouts.length}{' '}
+                        {group.payouts.length === 1 ? 'payout' : 'payouts'}
                       </span>
-                    </Surface>
-                  );
-                })}
-            </ul>
-          )}
+                    </div>
+                    <span className="text-sm font-bold tabular-nums text-[var(--positive)]">
+                      ~<AmountInline value={group.total} />
+                    </span>
+                  </div>
+
+                  <ul className="flex flex-col gap-2">
+                    {group.payouts.map((item, index) => {
+                      const meta = instruments.get(item.instrumentId);
+                      const expectedDate = new Date(item.expectedAt);
+                      const now = new Date();
+                      const todayStart = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        now.getDate(),
+                      );
+                      const targetStart = new Date(
+                        expectedDate.getFullYear(),
+                        expectedDate.getMonth(),
+                        expectedDate.getDate(),
+                      );
+                      const diffDays = Math.round(
+                        (targetStart.getTime() - todayStart.getTime()) /
+                          (1000 * 60 * 60 * 24),
+                      );
+                      const relativeLabel =
+                        diffDays <= 0
+                          ? 'Today'
+                          : diffDays === 1
+                            ? 'Tomorrow'
+                            : `in ${diffDays}d`;
+
+                      return (
+                        <li key={`${item.instrumentId}-${item.expectedAt}-${index}`}>
+                          <Link
+                            to={`/positions/${item.instrumentId}`}
+                            className="tap block"
+                          >
+                            <Surface
+                              elevation="flat"
+                              className="flex items-center gap-3.5 p-3.5 transition hover:bg-[var(--surface-flat)]"
+                            >
+                              <StockAvatar
+                                ticker={meta?.ticker ?? item.instrumentId}
+                                isin={meta?.isin}
+                                size={34}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                                    {nameOf(instruments, item.instrumentId)}
+                                  </p>
+                                  {item.confirmedDate && (
+                                    <span className="rounded bg-[color-mix(in_srgb,var(--positive)_18%,transparent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--positive)]">
+                                      Confirmed date
+                                    </span>
+                                  )}
+                                  <span className="rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                                    {cadenceLabel[item.cadence]}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                                  <span>{dateFormat.format(expectedDate)}</span>
+                                  <span>·</span>
+                                  <span className="font-semibold text-[var(--accent)]">
+                                    {relativeLabel}
+                                  </span>
+                                  {item.exDividendAt && (
+                                    <>
+                                      <span>·</span>
+                                      <span className="text-[var(--text-2)]">
+                                        Ex-div{' '}
+                                        {shortDateFormat.format(
+                                          new Date(item.exDividendAt),
+                                        )}
+                                      </span>
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
+                                  ~<AmountInline value={Number(item.estimatedAmount)} />
+                                </span>
+                                <span className="text-xs text-[var(--text-muted)]">→</span>
+                              </div>
+                            </Surface>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
+              ))
+            )}
+          </div>
         </>
       )}
     </div>

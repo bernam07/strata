@@ -392,7 +392,7 @@ const BottomBar = ({
             }}
             className={({ isActive }) => {
               const active = isActive || Boolean(isMatchedByPrefix);
-              return `tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold transition-colors ${
+              return `tap relative flex flex-1 flex-col items-center justify-center gap-1 rounded-xl font-semibold transition-colors ${
                 active
                   ? 'text-[var(--accent)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
@@ -404,7 +404,7 @@ const BottomBar = ({
               return (
                 <>
                   {active && (
-                    <span className="absolute top-0 h-[2px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                    <span className="absolute top-0 h-[2.5px] w-8 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
                   )}
                   <span
                     style={{
@@ -415,7 +415,7 @@ const BottomBar = ({
                   >
                     {icons[item.icon]}
                   </span>
-                  <span className="leading-none">{item.label}</span>
+                  <span className="leading-none tracking-tight">{item.label}</span>
                 </>
               );
             }}

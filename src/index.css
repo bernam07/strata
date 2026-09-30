@@ -27,16 +27,15 @@
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset,
     0 14px 34px -22px rgba(0, 0, 0, 0.95);
 
-  /* Responsive bottom bar sizing: sleek on iPhone 15 Pro (852px height + 34px safe-area),
-     comfortable on larger screens */
-  --bottom-bar-item-h: clamp(2.65rem, 5.2vh, 3.05rem);
-  --bottom-bar-pad-t: 0.25rem;
-  --bottom-bar-pad-b: max(0.35rem, calc(env(safe-area-inset-bottom, 0px) * 0.55));
+  /* Responsive bottom bar sizing: comfortable touch targets & legible labels */
+  --bottom-bar-item-h: clamp(3.15rem, 6.2vh, 3.55rem);
+  --bottom-bar-pad-t: 0.375rem;
+  --bottom-bar-pad-b: max(0.5rem, calc(env(safe-area-inset-bottom, 0px) * 0.72));
   --bottom-bar-total-h: calc(
     var(--bottom-bar-item-h) + var(--bottom-bar-pad-t) + var(--bottom-bar-pad-b)
   );
-  --bottom-bar-icon: 20px;
-  --bottom-bar-font: 10px;
+  --bottom-bar-icon: 23px;
+  --bottom-bar-font: 11px;
 }
 
 :root[data-accent='emerald'] {
@@ -64,14 +63,14 @@
   --radius-field: 12px;
   --surface-raised: #161412;
   --surface-flat: #1e1b18;
-  --bottom-bar-item-h: clamp(3rem, 5.8vh, 3.35rem);
-  --bottom-bar-pad-t: 0.35rem;
-  --bottom-bar-pad-b: max(0.45rem, env(safe-area-inset-bottom, 0px));
+  --bottom-bar-item-h: clamp(3.35rem, 6.5vh, 3.75rem);
+  --bottom-bar-pad-t: 0.45rem;
+  --bottom-bar-pad-b: max(0.55rem, env(safe-area-inset-bottom, 0px));
   --bottom-bar-total-h: calc(
     var(--bottom-bar-item-h) + var(--bottom-bar-pad-t) + var(--bottom-bar-pad-b)
   );
-  --bottom-bar-icon: 22px;
-  --bottom-bar-font: 10.5px;
+  --bottom-bar-icon: 24px;
+  --bottom-bar-font: 11.5px;
 }
 
 html,

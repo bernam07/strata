@@ -31,6 +31,12 @@ const nativeMoney = (value: number, currency: string): string =>
     maximumFractionDigits: 2,
   }).format(value);
 
+const dateFormat = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+
 export const InstrumentDetailPage = () => {
   const { id = '' } = useParams();
   const positionsQuery = usePositions();
@@ -280,19 +286,104 @@ export const InstrumentDetailPage = () => {
         />
       )}
 
-      {dividends.length > 0 && (
-        <Card className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Dividends received
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--positive)]">
-              <AmountInline value={toNumber(dividendTotal)} />
-            </p>
-          </div>
-          <p className="text-xs text-[var(--text-muted)]">{dividends.length} payments</p>
-        </Card>
-      )}
+      {(() => {
+        const prof = profile.data?.profile;
+        const hasHistory = dividends.length > 0;
+        const hasMarketYield =
+          (prof?.dividendYield ?? 0) > 0 || (prof?.dividendRate ?? 0) > 0;
+        const hasMarketDates =
+          Boolean(prof?.dividendDate) || Boolean(prof?.exDividendDate);
+
+        if (!hasHistory && !hasMarketYield && !hasMarketDates) return null;
+
+        const posMarketVal = position
+          ? toNumber(position.marketValue ?? position.costBasis)
+          : 0;
+        const annualEstEur =
+          (prof?.dividendYield ?? 0) > 0 && posMarketVal > 0
+            ? posMarketVal * prof!.dividendYield!
+            : 0;
+
+        const nextPayDate = prof?.dividendDate
+          ? new Date(`${prof.dividendDate}T00:00:00Z`)
+          : null;
+        const isFuturePayout =
+          nextPayDate && nextPayDate.getTime() >= Date.now() - 86_400_000;
+
+        return (
+          <Card className="flex flex-col gap-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Dividends & Income
+                </p>
+                {annualEstEur > 0 && (
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Est. ~<AmountInline value={annualEstEur} /> / yr (
+                    {percent.format(prof!.dividendYield!)} yield)
+                  </p>
+                )}
+              </div>
+              <Link
+                to="/dividends"
+                className="tap text-xs font-semibold text-[var(--accent)] hover:underline"
+              >
+                Dividend calendar →
+              </Link>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {hasHistory && (
+                <div className="flex flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat p-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Total Received
+                  </span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xl font-bold tabular-nums text-[var(--positive)]">
+                      <AmountInline value={toNumber(dividendTotal)} />
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {dividends.length}{' '}
+                      {dividends.length === 1 ? 'payment' : 'payments'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {isFuturePayout && (
+                <div className="flex flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      Next Scheduled Payout
+                    </span>
+                    <span className="rounded bg-[color-mix(in_srgb,var(--positive)_18%,transparent)] px-1.5 py-0.2 text-[9px] font-bold uppercase text-[var(--positive)]">
+                      Confirmed
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-bold text-[var(--text-strong)]">
+                      {dateFormat.format(nextPayDate)}
+                    </span>
+                    {annualEstEur > 0 && (
+                      <span className="text-sm font-bold tabular-nums text-[var(--positive)]">
+                        ~<AmountInline value={annualEstEur / 4} />
+                      </span>
+                    )}
+                  </div>
+                  {prof?.exDividendDate && (
+                    <span className="text-[11px] text-[var(--accent)]">
+                      Ex-div{' '}
+                      {dateFormat.format(
+                        new Date(`${prof.exDividendDate}T00:00:00Z`),
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        );
+      })()}
 
       <div className="flex flex-col gap-3">
         <h2 className="px-0.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
