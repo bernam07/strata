@@ -437,7 +437,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       )}
       <Sidebar onCommand={() => setPaletteOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <StrataMark size={26} />
           <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
           <div className="ml-auto flex items-center gap-2">

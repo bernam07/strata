@@ -360,6 +360,15 @@ WebKit fails to restore the viewport height after keyboard dismissal, leaving a
    the screen. Native Android (`isAndroid`) skips the DOM display toggle.
 5. `@supports (-webkit-touch-callout: none)` enforces `16px` font size on
    `input, textarea, select` so iOS WebKit never auto-zooms/pans on focus.
+6. Keep `<div class="ios-top-blur-fix" aria-hidden="true"></div>` in `index.html`
+   (styled under `@supports (-webkit-touch-callout: none)` in `src/index.css` with
+   `position: fixed; top: 0; height: 12px; background-color: var(--bg); background-clip: text`)
+   and `sticky top-0` on the mobile `<header>` in `src/app/AppShell.tsx`. On iOS
+   26/27 standalone PWAs and Safari, WebKit's `LocalFrameView::fixedContainerEdges()`
+   hit-tests `(viewportWidth / 2, 4px)` for a `fixed`/`sticky` element `> 10px` tall
+   with a solid `background-color` to decide `_shouldHideTopScrollPocket`; without
+   it, iOS overlays a system progressive blur + black gradient scrim over the top
+   half of the header logo and buttons.
 
 `html` paints `--bg` (not just `body`) so any sliver the viewport exposes is
 app-coloured rather than the system's black. That part is additive and stays.

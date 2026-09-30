@@ -90,10 +90,34 @@ html {
   background-color: var(--bg);
 }
 
+/* Suppress iOS 26/27 standalone PWA / Safari top progressive blur & dark gradient
+   scrim (WebKit LocalFrameView::fixedContainerEdges / _shouldHideTopScrollPocket).
+   WebKit hit-tests (viewportWidth / 2, 4px) for a fixed/sticky element with
+   width >= 90%, height > 10px (thinBorderWidth), opacity >= 0.1, and solid
+   background-color. Clipping background to text on an empty element satisfies
+   WebKit's computed-style check without painting any visible pixels. */
+.ios-top-blur-fix {
+  display: none;
+}
+
 /* Prevent iOS WebKit from auto-zooming or shifting the visualViewport when
    focusing inputs with font-size < 16px (applies only to iOS WebKit, leaving
    Android / Xiaomi 15T and desktop untouched). */
 @supports (-webkit-touch-callout: none) {
+  .ios-top-blur-fix {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    z-index: 2147483647;
+    pointer-events: none;
+    background-color: var(--bg);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
   input,
   textarea,
   select {
