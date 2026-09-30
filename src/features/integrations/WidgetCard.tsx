@@ -432,11 +432,6 @@ export const WidgetCard = () => {
               <code>OPEN_WITH = "shortcut"</code> at the top of the script to open
               the installed app instead.
             </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              The widget refreshes on iOS's own schedule — no app can force it —
-              but it reads live prices, so each refresh already shows your latest
-              “refresh prices”.
-            </p>
           </Surface>
 
           <div className="flex flex-wrap gap-2">
@@ -467,9 +462,120 @@ export const WidgetCard = () => {
               Regenerate
             </Button>
           </div>
+
+          {/* Automatic Widget Updates with iOS Shortcuts */}
+          <Surface elevation="flat" className="flex flex-col gap-2 rounded-[var(--radius-field)] p-4 border border-[var(--line)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-strong)]">
+                ⚡ Atualização Automática do Widget (Atalhos iOS)
+              </span>
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]">
+                Recomendado
+              </span>
+            </div>
+            <p className="text-xs text-[var(--text-2)]">
+              Por predefinição, o iOS atualiza os widgets a cada 15–45 min. Se quiseres que o widget fique <b>sempre atualizado</b>:
+            </p>
+            <ol className="ml-4 list-decimal text-xs text-[var(--text-muted)] space-y-1">
+              <li>Abre a app <b>Atalhos (Shortcuts)</b> no iPhone → separador <b>Automação</b>.</li>
+              <li>Toca em <b>+</b> (Nova Automação) e escolhe <b>App</b>.</li>
+              <li>Escolhe <b>Strata</b> (ou Trading 212 / Safari) e seleciona <b>Ao ser fechada</b>.</li>
+              <li>Marca <b>Executar Imediatamente</b> (Run Immediately).</li>
+              <li>Na ação, pesquisa por <b>Scriptable</b> → escolhe <b>Recarregar Todos os Widgets</b> (Reload All Widgets).</li>
+            </ol>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">
+              Dica: Também podes criar outra automação por <b>Hora do dia</b> (ex: 09:00, 13:00, 18:00, 22:00) para manter os números sempre frescos mesmo sem abrires a app.
+            </p>
+          </Surface>
+
+          {/* Apple Wallet / Apple Pay Purchases Automation */}
+          <Surface elevation="sunken" className="flex flex-col gap-3 rounded-[var(--radius-field)] p-4 border border-[var(--accent)]/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
+                  💳 Apple Wallet & Compras (Apple Pay)
+                </span>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Regista compras automaticamente no Strata sempre que pagares com o Apple Pay.
+                </p>
+              </div>
+            </div>
+
+            <ol className="ml-4 list-decimal text-xs text-[var(--text-2)] space-y-1.5">
+              <li>
+                Na app <b>Atalhos</b> do iPhone → <b>Automação</b> → toca em <b>+</b>.
+              </li>
+              <li>
+                Escolhe o gatilho <b>Transação</b> (Apple Pay) e seleciona o teu cartão (ou qualquer cartão).
+              </li>
+              <li>
+                Seleciona <b>Executar Imediatamente</b> (Run Immediately) sem perguntar.
+              </li>
+              <li>
+                Adiciona a ação <b>Obter Conteúdo do URL</b> (Get Contents of URL):
+                <ul className="ml-4 list-disc mt-1 text-[var(--text-muted)] space-y-0.5">
+                  <li><b>URL</b>: colar o teu Webhook URL (copia abaixo)</li>
+                  <li><b>Método</b>: <code>POST</code></li>
+                  <li><b>Cabeçalhos</b>: <code>Content-Type: application/json</code></li>
+                  <li>
+                    <b>Corpo do Pedido (JSON)</b>:
+                    <br />
+                    <code>amount</code> = Variável da Transação <i>(Quantia)</i>
+                    <br />
+                    <code>merchant</code> = Variável da Transação <i>(Comerciante)</i>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                Pronto! Cada compra feita no terminal com o iPhone ou Apple Watch entra automaticamente como despesa na tua conta à ordem!
+              </li>
+            </ol>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copy('webhook', endpoint)}
+              >
+                {copied === 'webhook' ? 'Copied ✓' : 'Copiar Webhook URL'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  copy(
+                    'payload',
+                    JSON.stringify(
+                      {
+                        amount: 12.5,
+                        merchant: 'Continente',
+                      },
+                      null,
+                      2,
+                    ),
+                  )
+                }
+              >
+                {copied === 'payload' ? 'Copied ✓' : 'Copiar JSON de Exemplo'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  copy(
+                    'quickadd',
+                    `${window.location.origin}/?add=true&amount=12.50&merchant=Loja`,
+                  )
+                }
+              >
+                {copied === 'quickadd' ? 'Copied ✓' : 'Copiar URL do Quick-Add'}
+              </Button>
+            </div>
+          </Surface>
+
           <p className="text-xs text-[var(--text-muted)]">
-            Keep the link private — anyone with it can see your holdings.
-            Regenerate to revoke it.
+            Mantém o link privado — quem o tiver pode ver os teus holdings ou registar despesas.
+            Clica em Regenerate caso precises de revogar o token.
           </p>
         </div>
       )}

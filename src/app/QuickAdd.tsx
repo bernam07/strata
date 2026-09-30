@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
 import { TransferForm } from '@/features/transactions/components/TransferForm';
@@ -10,6 +10,7 @@ import { SegmentedControl } from '@/ui/SegmentedControl';
 export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: accounts = [] } = useAccounts();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'transaction' | 'transfer'>('transaction');
@@ -27,6 +28,45 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
         : undefined,
     [accounts, activeAccountId],
   );
+
+  const urlPrefill = useMemo(() => {
+    const shouldOpen =
+      searchParams.get('quickAdd') === 'true' ||
+      searchParams.get('add') === 'true' ||
+      searchParams.has('amount');
+    if (!shouldOpen) return undefined;
+    return {
+      amount: searchParams.get('amount') ?? undefined,
+      note: searchParams.get('note') ?? searchParams.get('merchant') ?? undefined,
+      kind: 'expense' as const,
+      account: activeAccountId ?? searchParams.get('account') ?? undefined,
+    };
+  }, [searchParams, activeAccountId]);
+
+  useEffect(() => {
+    if (urlPrefill) {
+      setTab('transaction');
+      setOpen(true);
+    }
+  }, [urlPrefill]);
+
+  const handleClose = () => {
+    setOpen(false);
+    if (
+      searchParams.has('add') ||
+      searchParams.has('quickAdd') ||
+      searchParams.has('amount')
+    ) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('add');
+      next.delete('quickAdd');
+      next.delete('amount');
+      next.delete('note');
+      next.delete('merchant');
+      next.delete('account');
+      setSearchParams(next, { replace: true });
+    }
+  };
 
   return (
     <>
@@ -66,7 +106,7 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
 
       <BottomSheet
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         title={
           activeAccount
             ? `New movement · ${activeAccount.name}`
@@ -81,7 +121,7 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
             <Button
               size="sm"
               onClick={() => {
-                setOpen(false);
+                handleClose();
                 navigate('/accounts');
               }}
             >
@@ -105,15 +145,16 @@ export const QuickAdd = ({ hidden = false }: { hidden?: boolean }) => {
               <TransferForm
                 accounts={accounts}
                 defaultFromAccountId={activeAccountId}
-                onDone={() => setOpen(false)}
+                onDone={handleClose}
               />
             ) : (
               <TransactionForm
                 accounts={accounts}
                 prefill={
-                  activeAccountId ? { account: activeAccountId } : undefined
+                  urlPrefill ??
+                  (activeAccountId ? { account: activeAccountId } : undefined)
                 }
-                onDone={() => setOpen(false)}
+                onDone={handleClose}
               />
             )}
           </div>
