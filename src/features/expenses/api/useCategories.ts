@@ -157,3 +157,25 @@ export const useAssignCategory = () => {
     onSuccess: () => client.invalidateQueries({ queryKey: assignmentsKey }),
   });
 };
+
+export const useAssignCategoriesBulk = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      transactionIds: string[];
+      categoryId: string;
+    }) => {
+      if (input.transactionIds.length === 0) return;
+      const rows = input.transactionIds.map((transaction_id) => ({
+        transaction_id,
+        category_id: input.categoryId,
+      }));
+      const { error } = await supabase
+        .from('transaction_categories')
+        .upsert(rows, { onConflict: 'transaction_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: assignmentsKey }),
+  });
+};
+

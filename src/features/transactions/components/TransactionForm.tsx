@@ -11,6 +11,7 @@ import {
   useCategories,
   useCreateCategory,
 } from '@/features/expenses/api/useCategories';
+import { tileStyle } from '@/features/expenses/categoryColors';
 import {
   useCreateTransaction,
   useTransactions,
@@ -33,6 +34,7 @@ export interface TransactionPrefill {
   note?: string;
   account?: string;
   kind?: TransactionKind;
+  categoryId?: string;
 }
 
 const KindPicker = ({
@@ -138,6 +140,10 @@ export const TransactionForm = ({
     if (!prefill || editing) return;
     if (prefill.amount) setMagnitude(prefill.amount);
     if (prefill.kind) setKind(prefill.kind);
+    if (prefill.categoryId) {
+      setCategoryId(prefill.categoryId);
+      setCategoryTouched(true);
+    }
     if (prefill.account) {
       const q = prefill.account.trim().toLowerCase();
       const matchedAcc = accounts.find(
@@ -170,9 +176,9 @@ export const TransactionForm = ({
     [categories],
   );
 
-  // Build 1-tap frequent templates for the selected kind from past transactions
-  const quickTemplates = useMemo<QuickTemplate[]>(() => {
-    if (editing || history.length === 0) return [];
+  // Full index of past distinct notes for the selected kind (powers both top chips and live Note autocomplete)
+  const allNoteTemplates = useMemo<QuickTemplate[]>(() => {
+    if (editing) return [];
     const byKey = new Map<string, QuickTemplate>();
 
     for (const tx of history) {
@@ -202,10 +208,76 @@ export const TransactionForm = ({
       }
     }
 
-    return [...byKey.values()]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
-  }, [editing, history, kind, assignments, validAccountIds, accounts]);
+    // If user has very few expense templates yet, provide smart starter presets mapped to their accounts/categories
+    if (kind === 'expense' && byKey.size < 4 && accounts.length > 0) {
+      const edenredAcc = accounts.find((a) => a.institutionId === 'edenred');
+      const carAcc = accounts.find((a) =>
+        /carro|auto|fuel|via/i.test(a.name),
+      );
+      const spendAcc =
+        accounts.find((a) => /gasto|spend|pessoal|ordem|cgd/i.test(a.name)) ??
+        accounts[0]!;
+      const findCat = (re: RegExp) =>
+        categories.find((c) => re.test(c.name))?.id ?? '';
+
+      const starters: Array<{
+        label: string;
+        accountId: string;
+        categoryId: string;
+      }> = [
+        {
+          label: 'Continente',
+          accountId: (edenredAcc ?? spendAcc).id,
+          categoryId: findCat(/grocer|super|alimenta|comida/i),
+        },
+        {
+          label: 'Almoço',
+          accountId: (edenredAcc ?? spendAcc).id,
+          categoryId: findCat(/dining|restaur|almo|food|eat/i),
+        },
+        {
+          label: 'Combustível',
+          accountId: (carAcc ?? spendAcc).id,
+          categoryId: findCat(/transp|car|auto|fuel|combust/i),
+        },
+        {
+          label: 'Café',
+          accountId: spendAcc.id,
+          categoryId: findCat(/coffee|caf|dining|restaur/i),
+        },
+      ];
+
+      for (const s of starters) {
+        const k = s.label.toLowerCase();
+        if (!byKey.has(k)) {
+          byKey.set(k, {
+            key: k,
+            label: s.label,
+            accountId: s.accountId,
+            categoryId: s.categoryId,
+            lastAmount: '',
+            count: 0,
+          });
+        }
+      }
+    }
+
+    return [...byKey.values()].sort((a, b) => b.count - a.count);
+  }, [editing, history, kind, assignments, validAccountIds, accounts, categories]);
+
+  const quickTemplates = useMemo(
+    () => allNoteTemplates.slice(0, 6),
+    [allNoteTemplates],
+  );
+
+  const noteSuggestions = useMemo(() => {
+    if (editing) return [];
+    const q = note.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (q.length < 1) return [];
+    return allNoteTemplates
+      .filter((t) => t.key !== q && t.key.includes(q))
+      .slice(0, 4);
+  }, [editing, note, allNoteTemplates]);
 
   const applyTemplate = (tpl: QuickTemplate) => {
     setNote(tpl.label);
@@ -229,8 +301,8 @@ export const TransactionForm = ({
     const key = nextNote.trim().toLowerCase().replace(/\s+/g, ' ');
     if (key.length < 2) return;
     const match =
-      quickTemplates.find((t) => t.key === key) ??
-      quickTemplates.find((t) => t.key.startsWith(key));
+      allNoteTemplates.find((t) => t.key === key) ??
+      allNoteTemplates.find((t) => t.key.startsWith(key));
     if (!match) return;
 
     if (!accountTouched && match.accountId && validAccountIds.has(match.accountId)) {
@@ -395,7 +467,7 @@ export const TransactionForm = ({
       {!editing && quickTemplates.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Quick fill (auto-selects account & category)
+            Quick fill (1-tap merchant, account & category)
           </span>
           <div className="flex flex-wrap gap-1.5">
             {quickTemplates.map((tpl) => {
@@ -427,6 +499,11 @@ export const TransactionForm = ({
                   {catName && (
                     <span className="truncate text-[10px] font-normal text-[var(--text-muted)]">
                       · {catName}
+                    </span>
+                  )}
+                  {tpl.lastAmount && (
+                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-[var(--text-muted)]">
+                      €{Number(tpl.lastAmount).toFixed(2)}
                     </span>
                   )}
                 </button>
@@ -638,6 +715,38 @@ export const TransactionForm = ({
       {showCategory && (
         <Labelled label="Category">
           <div className="flex flex-col gap-2">
+            {categories.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pb-0.5">
+                {categories.map((cat) => {
+                  const style = tileStyle(cat.color);
+                  const active = categoryId === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => pickCategory(active ? '' : cat.id)}
+                      className="tap inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition"
+                      style={{
+                        background: active
+                          ? style.chipBackground
+                          : 'var(--surface-sunken)',
+                        color: active ? style.chipColor : 'var(--text-2)',
+                        border: active
+                          ? `1.5px solid ${style.dot}`
+                          : '1px solid var(--line)',
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: style.dot }}
+                      />
+                      <span>{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <Select
               value={categoryId}
               onChange={(event) => pickCategory(event.target.value)}
@@ -663,13 +772,49 @@ export const TransactionForm = ({
       )}
 
       <Labelled label="Note (optional)">
-        <TextInput
-          value={note}
-          placeholder={
-            kind === 'expense' ? 'Coffee, groceries, rent…' : 'Salary, refund…'
-          }
-          onChange={(event) => handleNoteChange(event.target.value)}
-        />
+        <div className="flex flex-col gap-2">
+          <TextInput
+            value={note}
+            placeholder={
+              kind === 'expense' ? 'Coffee, groceries, rent…' : 'Salary, refund…'
+            }
+            onChange={(event) => handleNoteChange(event.target.value)}
+          />
+          {!editing && noteSuggestions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Matches:
+              </span>
+              {noteSuggestions.map((tpl) => {
+                const acc = accountById.get(tpl.accountId);
+                const catName = tpl.categoryId
+                  ? categoryNameById.get(tpl.categoryId)
+                  : undefined;
+                return (
+                  <button
+                    key={tpl.key}
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    className="tap inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--surface-sunken)] px-2.5 py-1 text-xs font-semibold text-[var(--text-strong)] hover:border-[var(--accent)]"
+                  >
+                    {acc && (
+                      <InstitutionLogo
+                        institutionId={acc.institutionId}
+                        size={14}
+                      />
+                    )}
+                    <span>{tpl.label}</span>
+                    {catName && (
+                      <span className="text-[10px] font-normal text-[var(--text-muted)]">
+                        · {catName}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Labelled>
 
       <p className="text-xs text-[var(--text-muted)]">

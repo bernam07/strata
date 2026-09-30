@@ -9,6 +9,11 @@ import {
 import type { SeriesPoint } from '@/core/analytics/series';
 import { toNumber } from '@/core/money/money';
 import { usePaydayCycle, type PaydayRuleMode } from '@/core/payday/paydayCycle';
+import { useBudgets } from '@/features/expenses/api/useBudgets';
+import {
+  computeRecurringMetrics,
+  useRecurring,
+} from '@/features/transactions/api/useRecurring';
 import { AmountInline } from '@/ui/Amount';
 import { Card } from '@/ui/Card';
 import { TextInput } from '@/ui/Field';
@@ -59,6 +64,8 @@ export const MonthlyPulseCard = ({
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const { cycle, config, updateConfig, setPickedPaydayDate } = usePaydayCycle();
+  const { data: budgets = [] } = useBudgets();
+  const { data: recurringRules = [] } = useRecurring();
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -121,10 +128,46 @@ export const MonthlyPulseCard = ({
         ? liquidCash / avgMonthlyOutflow
         : null;
 
+    const daysInCalendarMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+    ).getDate();
     const elapsedDays =
       pulseMode === 'paycycle'
         ? cycle.elapsedCalendarDays
         : Math.max(1, now.getDate());
+    const remainingDays =
+      pulseMode === 'paycycle'
+        ? Math.max(1, cycle.remainingCalendarDays)
+        : Math.max(1, daysInCalendarMonth - now.getDate() + 1);
+
+    const periodEndIso =
+      pulseMode === 'paycycle'
+        ? cycle.cycleEndIso
+        : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(daysInCalendarMonth).padStart(2, '0')}`;
+
+    const upcomingRecurring = computeRecurringMetrics(
+      recurringRules,
+      periodEndIso,
+    ).dueBeforePayday;
+
+    const totalBudgetLimit = budgets.reduce(
+      (acc, b) => acc + (Number(b.limit) || 0),
+      0,
+    );
+
+    let safePool: number | null = null;
+    let safeBasis: 'budget' | 'income' | null = null;
+    if (totalBudgetLimit > 0) {
+      safePool = Math.max(0, totalBudgetLimit - outflow - upcomingRecurring);
+      safeBasis = 'budget';
+    } else if (inflow > 0) {
+      safePool = Math.max(0, inflow - outflow - upcomingRecurring);
+      safeBasis = 'income';
+    }
+
+    const safePerDay = safePool !== null ? safePool / remainingDays : null;
     const dailySpend = outflow > 0 ? outflow / elapsedDays : 0;
 
     const monthName = now.toLocaleDateString('en-GB', { month: 'short' });
@@ -141,6 +184,11 @@ export const MonthlyPulseCard = ({
       savingsRate,
       runwayMonths,
       dailySpend,
+      safePerDay,
+      safePool,
+      safeBasis,
+      remainingDays,
+      upcomingRecurring,
       monthName,
       hasActivity:
         inflow > 0 ||
@@ -157,6 +205,9 @@ export const MonthlyPulseCard = ({
     cycle.cycleStartIso,
     cycle.cycleEndIso,
     cycle.elapsedCalendarDays,
+    cycle.remainingCalendarDays,
+    budgets,
+    recurringRules,
   ]);
 
   if (!stats.hasActivity) return null;
@@ -371,13 +422,35 @@ export const MonthlyPulseCard = ({
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-muted)]">
-            <span>
-              Daily burn:{' '}
-              <strong className="font-semibold text-[var(--text-2)]">
-                <AmountInline value={stats.dailySpend} />
-              </strong>
-              /day
-            </span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>
+                Daily burn:{' '}
+                <strong className="font-semibold text-[var(--text-2)]">
+                  <AmountInline value={stats.dailySpend} />
+                </strong>
+                /day
+              </span>
+              {stats.safePerDay !== null && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[11px]">
+                  <span>Safe / day:</span>
+                  <strong
+                    className="font-bold tabular-nums"
+                    style={{
+                      color:
+                        stats.safePerDay > 0
+                          ? 'var(--positive)'
+                          : 'var(--negative)',
+                    }}
+                  >
+                    <AmountInline value={stats.safePerDay} />
+                  </strong>
+                  <span className="text-[10px] text-[var(--text-muted)]">
+                    ({stats.remainingDays}d left
+                    {stats.upcomingRecurring > 0 ? ' · after bills' : ''})
+                  </span>
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               {stats.dividends > 0 && (
                 <span>

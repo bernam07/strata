@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Account, Transaction } from '@/core/types';
 import { kindMeta } from '@/core/transactions/kinds';
 import { isNegative, money, toNumber } from '@/core/money/money';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
 import {
+  useAssignCategoriesBulk,
   useAssignCategory,
   useAssignments,
   useCategories,
@@ -15,6 +16,7 @@ import {
   dayMonthYear as dateFormatter,
   qty4 as quantityFormatter,
 } from '@/ui/format';
+import { toast } from '@/ui/toast';
 
 const formatDayHeading = (dayKey: string): string => {
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -45,6 +47,7 @@ export const TransactionList = ({
   onReverse,
   onDelete,
   onEdit,
+  onRepeat,
   emptyMessage = 'No transactions for this filter.',
 }: {
   transactions: Transaction[];
@@ -55,21 +58,77 @@ export const TransactionList = ({
   onReverse?: (transaction: Transaction) => void;
   onDelete?: (transaction: Transaction) => void;
   onEdit?: (transaction: Transaction) => void;
+  onRepeat?: (
+    transaction: Transaction,
+    pairedTransfer?: {
+      fromAccount: Account | undefined;
+      toAccount: Account | undefined;
+      magnitude: number;
+    },
+  ) => void;
   emptyMessage?: string;
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pickingCategoryTxId, setPickingCategoryTxId] = useState<string | null>(
     null,
   );
+  const [confirming, setConfirming] = useState<{
+    id: string;
+    action: 'delete' | 'reverse';
+  } | null>(null);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = window.setTimeout(() => setConfirming(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [confirming]);
 
   const { data: categories = [] } = useCategories();
   const { data: assignments } = useAssignments();
   const assignCategory = useAssignCategory();
+  const assignBulk = useAssignCategoriesBulk();
 
   const categoriesById = useMemo(
     () => new Map(categories.map((cat) => [cat.id, cat])),
     [categories],
   );
+
+  const handleAssignCategory = (
+    transaction: Transaction,
+    categoryId: string | null,
+  ) => {
+    if (categoryId === null) {
+      assignCategory.mutate({ transactionId: transaction.id, categoryId: null });
+      return;
+    }
+    const normalizedNote = transaction.note?.trim().toLowerCase() ?? '';
+    if (normalizedNote.length >= 2) {
+      const matchingIds = transactions
+        .filter(
+          (tx) =>
+            tx.kind === 'expense' &&
+            (tx.id === transaction.id || !assignments?.get(tx.id)) &&
+            (tx.note?.trim().toLowerCase() ?? '') === normalizedNote,
+        )
+        .map((tx) => tx.id);
+
+      if (matchingIds.length > 1) {
+        const catName = categoriesById.get(categoryId)?.name ?? 'Category';
+        assignBulk.mutate(
+          { transactionIds: matchingIds, categoryId },
+          {
+            onSuccess: () =>
+              toast(
+                `${catName} · categorized ${matchingIds.length} "${transaction.note!.trim()}" expenses`,
+                'success',
+              ),
+          },
+        );
+        return;
+      }
+    }
+    assignCategory.mutate({ transactionId: transaction.id, categoryId });
+  };
 
   const accountsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -163,7 +222,7 @@ export const TransactionList = ({
     <div className="flex flex-col gap-5">
       {dayGroups.map((group) => (
         <div key={group.dayKey} className="flex flex-col gap-2">
-          <div className="flex items-center justify-between px-1">
+          <div className="sticky top-0 z-10 -mx-1 flex items-center justify-between rounded-lg bg-[var(--bg)]/85 px-2 py-1 backdrop-blur-md">
             <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               {formatDayHeading(group.dayKey)}
             </span>
@@ -195,7 +254,10 @@ export const TransactionList = ({
                 onDelete && (isManualSingle || isManualTransfer),
               );
               const canEdit = Boolean(onEdit && isManualSingle);
-              const hasActions = canEdit || canReverse || canDelete;
+              const canRepeat = Boolean(
+                onRepeat && (isManualSingle || isManualTransfer),
+              );
+              const hasActions = canEdit || canRepeat || canReverse || canDelete;
               const isExpanded = expandedId === transaction.id;
 
               const instrument = transaction.instrumentId
@@ -365,23 +427,57 @@ export const TransactionList = ({
                         )}
                       </div>
                     </div>
-                    <span
-                      className="shrink-0 text-sm font-semibold tabular-nums"
-                      style={{ color: valueColor }}
-                    >
-                      {isMergedTransfer && (
-                        <span className="mr-1 text-xs font-normal text-[var(--text-muted)]">
-                          ⇄
-                        </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className="text-sm font-semibold tabular-nums"
+                        style={{ color: valueColor }}
+                      >
+                        {isMergedTransfer && (
+                          <span className="mr-1 text-xs font-normal text-[var(--text-muted)]">
+                            ⇄
+                          </span>
+                        )}
+                        <AmountInline value={valueNumber} signed={valueSigned} />
+                      </span>
+                      {hasActions && (
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          width="13"
+                          height="13"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`text-[var(--text-muted)]/60 transition-transform duration-150 md:hidden ${
+                            isExpanded ? 'rotate-180 text-[var(--accent)]' : ''
+                          }`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
                       )}
-                      <AmountInline value={valueNumber} signed={valueSigned} />
-                    </span>
+                    </div>
 
                     {hasActions && (
                       <div
                         className="hidden items-center gap-1 md:flex"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {canRepeat && onRepeat && (
+                          <button
+                            type="button"
+                            onClick={() => onRepeat(transaction, pairedTransfer)}
+                            title="Repeat today"
+                            aria-label="Repeat today"
+                            className="tap grid h-8 w-8 place-items-center rounded-[var(--radius-field)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--accent)]"
+                          >
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="11" height="11" rx="2" />
+                              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                            </svg>
+                          </button>
+                        )}
                         {canEdit && onEdit && (
                           <button
                             type="button"
@@ -399,31 +495,77 @@ export const TransactionList = ({
                         {canReverse && onReverse && (
                           <button
                             type="button"
-                            onClick={() => onReverse(transaction)}
+                            onClick={() => {
+                              if (
+                                confirming?.id === transaction.id &&
+                                confirming.action === 'reverse'
+                              ) {
+                                setConfirming(null);
+                                onReverse(transaction);
+                              } else {
+                                setConfirming({
+                                  id: transaction.id,
+                                  action: 'reverse',
+                                });
+                              }
+                            }}
                             title="Reverse this entry"
                             aria-label="Reverse this entry"
-                            className="tap grid h-8 w-8 place-items-center rounded-[var(--radius-field)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--negative)]"
+                            className={`tap flex h-8 items-center justify-center rounded-[var(--radius-field)] transition ${
+                              confirming?.id === transaction.id &&
+                              confirming.action === 'reverse'
+                                ? 'bg-[var(--negative)]/15 px-2.5 text-xs font-bold text-[var(--negative)]'
+                                : 'w-8 text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--negative)]'
+                            }`}
                           >
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M9 14L4 9l5-5" />
-                              <path d="M4 9h11a5 5 0 015 5v1" />
-                            </svg>
+                            {confirming?.id === transaction.id &&
+                            confirming.action === 'reverse' ? (
+                              'Confirm?'
+                            ) : (
+                              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 14L4 9l5-5" />
+                                <path d="M4 9h11a5 5 0 015 5v1" />
+                              </svg>
+                            )}
                           </button>
                         )}
                         {canDelete && onDelete && (
                           <button
                             type="button"
-                            onClick={() => onDelete(transaction)}
+                            onClick={() => {
+                              if (
+                                confirming?.id === transaction.id &&
+                                confirming.action === 'delete'
+                              ) {
+                                setConfirming(null);
+                                onDelete(transaction);
+                              } else {
+                                setConfirming({
+                                  id: transaction.id,
+                                  action: 'delete',
+                                });
+                              }
+                            }}
                             title="Delete this entry"
                             aria-label="Delete this entry"
-                            className="tap grid h-8 w-8 place-items-center rounded-[var(--radius-field)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--negative)]"
+                            className={`tap flex h-8 items-center justify-center rounded-[var(--radius-field)] transition ${
+                              confirming?.id === transaction.id &&
+                              confirming.action === 'delete'
+                                ? 'bg-[var(--negative)] px-2.5 text-xs font-bold text-white'
+                                : 'w-8 text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--negative)]'
+                            }`}
                           >
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M4 7h16" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M6 7l1 13h10l1-13" />
-                              <path d="M9 7V4h6v3" />
-                            </svg>
+                            {confirming?.id === transaction.id &&
+                            confirming.action === 'delete' ? (
+                              'Confirm?'
+                            ) : (
+                              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 7h16" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M6 7l1 13h10l1-13" />
+                                <path d="M9 7V4h6v3" />
+                              </svg>
+                            )}
                           </button>
                         )}
                       </div>
@@ -443,10 +585,10 @@ export const TransactionList = ({
                             key={cat.id}
                             type="button"
                             onClick={() => {
-                              assignCategory.mutate({
-                                transactionId: transaction.id,
-                                categoryId: active ? null : cat.id,
-                              });
+                              handleAssignCategory(
+                                transaction,
+                                active ? null : cat.id,
+                              );
                               setPickingCategoryTxId(null);
                             }}
                             className="tap inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition"
@@ -475,10 +617,7 @@ export const TransactionList = ({
                         <button
                           type="button"
                           onClick={() => {
-                            assignCategory.mutate({
-                              transactionId: transaction.id,
-                              categoryId: null,
-                            });
+                            handleAssignCategory(transaction, null);
                             setPickingCategoryTxId(null);
                           }}
                           className="tap rounded-full px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
@@ -490,7 +629,23 @@ export const TransactionList = ({
                   )}
 
                   {hasActions && isExpanded && (
-                    <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-[var(--line)] pt-2.5 md:hidden">
+                    <div className="mt-2.5 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--line)] pt-2.5 md:hidden">
+                      {canRepeat && onRepeat && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedId(null);
+                            onRepeat(transaction, pairedTransfer);
+                          }}
+                          className="tap flex items-center gap-1.5 rounded-full neu-sunken px-3 py-1.5 text-xs font-semibold text-[var(--accent)]"
+                        >
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="11" height="11" rx="2" />
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                          </svg>
+                          Repeat
+                        </button>
+                      )}
                       {canEdit && onEdit && (
                         <button
                           type="button"
@@ -511,26 +666,61 @@ export const TransactionList = ({
                         <button
                           type="button"
                           onClick={() => {
-                            setExpandedId(null);
-                            onReverse(transaction);
+                            if (
+                              confirming?.id === transaction.id &&
+                              confirming.action === 'reverse'
+                            ) {
+                              setConfirming(null);
+                              setExpandedId(null);
+                              onReverse(transaction);
+                            } else {
+                              setConfirming({
+                                id: transaction.id,
+                                action: 'reverse',
+                              });
+                            }
                           }}
-                          className="tap flex items-center gap-1.5 rounded-full neu-sunken px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
+                          className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                            confirming?.id === transaction.id &&
+                            confirming.action === 'reverse'
+                              ? 'bg-[var(--negative)]/15 font-bold text-[var(--negative)] ring-1 ring-[var(--negative)]/40'
+                              : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--negative)]'
+                          }`}
                         >
                           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 14L4 9l5-5" />
                             <path d="M4 9h11a5 5 0 015 5v1" />
                           </svg>
-                          Reverse
+                          {confirming?.id === transaction.id &&
+                          confirming.action === 'reverse'
+                            ? 'Confirm reverse?'
+                            : 'Reverse'}
                         </button>
                       )}
                       {canDelete && onDelete && (
                         <button
                           type="button"
                           onClick={() => {
-                            setExpandedId(null);
-                            onDelete(transaction);
+                            if (
+                              confirming?.id === transaction.id &&
+                              confirming.action === 'delete'
+                            ) {
+                              setConfirming(null);
+                              setExpandedId(null);
+                              onDelete(transaction);
+                            } else {
+                              setConfirming({
+                                id: transaction.id,
+                                action: 'delete',
+                              });
+                            }
                           }}
-                          className="tap flex items-center gap-1.5 rounded-full neu-sunken px-3 py-1.5 text-xs font-semibold text-[var(--negative)]"
+                          className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                            confirming?.id === transaction.id &&
+                            confirming.action === 'delete'
+                              ? 'bg-[var(--negative)] font-bold text-white'
+                              : 'neu-sunken text-[var(--negative)]'
+                          }`}
                         >
                           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M4 7h16" />
@@ -538,7 +728,10 @@ export const TransactionList = ({
                             <path d="M6 7l1 13h10l1-13" />
                             <path d="M9 7V4h6v3" />
                           </svg>
-                          Delete
+                          {confirming?.id === transaction.id &&
+                          confirming.action === 'delete'
+                            ? 'Confirm delete?'
+                            : 'Delete'}
                         </button>
                       )}
                     </div>

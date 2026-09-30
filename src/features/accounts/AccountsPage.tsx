@@ -272,7 +272,7 @@ export const AccountsPage = () => {
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {group.accounts.map((account) => {
+                  {group.accounts.map((account, idx) => {
                     const bal = balanceById(account.id);
                     const balNum = toNumber(bal);
                     const weight =
@@ -283,6 +283,9 @@ export const AccountsPage = () => {
                       institution.brandColor && institution.brandColor !== '#111111'
                         ? institution.brandColor
                         : 'var(--accent)';
+                    const bucketColor =
+                      SUB_ACCOUNT_PALETTE[idx % SUB_ACCOUNT_PALETTE.length]!;
+                    const accentColor = many ? bucketColor : brand;
                     const edenredStats =
                       account.institutionId === 'edenred' && balNum > 0
                         ? getEdenredMonthStats(balNum)
@@ -303,7 +306,7 @@ export const AccountsPage = () => {
                         <div
                           className="tap relative flex w-full min-w-0 flex-col gap-3 overflow-hidden rounded-[var(--radius-card)] p-4 sm:p-5 transition hover:border-[var(--accent)]"
                           style={{
-                            background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${brand} 13%, var(--surface-raised)) 0%, var(--surface-raised) 68%)`,
+                            background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${accentColor} 13%, var(--surface-raised)) 0%, var(--surface-raised) 68%)`,
                             border:
                               '1px solid color-mix(in srgb, var(--line) 86%, transparent)',
                             boxShadow: 'var(--shadow)',
@@ -314,9 +317,18 @@ export const AccountsPage = () => {
                               institutionId={account.institutionId}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate font-semibold text-[var(--text-strong)]">
-                                {account.name}
-                              </p>
+                              <div className="flex min-w-0 items-center gap-2">
+                                {many && (
+                                  <span
+                                    aria-hidden="true"
+                                    className="h-2 w-2 shrink-0 rounded-full"
+                                    style={{ background: bucketColor }}
+                                  />
+                                )}
+                                <p className="truncate font-semibold text-[var(--text-strong)]">
+                                  {account.name}
+                                </p>
+                              </div>
                               <p className="truncate text-xs text-[var(--text-muted)]">
                                 {institution.displayName} ·{' '}
                                 {typeLabel[account.type]}
@@ -351,8 +363,8 @@ export const AccountsPage = () => {
                                     targetRatio !== null
                                       ? targetRatio >= 1
                                         ? 'var(--positive)'
-                                        : 'var(--accent)'
-                                      : brand,
+                                        : accentColor
+                                      : accentColor,
                                 }}
                               />
                             </div>

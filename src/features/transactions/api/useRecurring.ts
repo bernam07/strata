@@ -85,6 +85,96 @@ export const useDeleteRecurring = () => {
   });
 };
 
+export interface UpdateRecurringInput extends NewRecurring {
+  id: string;
+  active?: boolean;
+}
+
+export const useUpdateRecurring = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateRecurringInput) => {
+      const { error } = await supabase
+        .from('recurring_transactions')
+        .update({
+          account_id: input.accountId,
+          kind: input.kind,
+          amount: Number(input.amount),
+          note: input.note,
+          category_id: input.categoryId,
+          cadence: input.cadence,
+          next_run: input.nextRun,
+          ...(input.active !== undefined ? { active: input.active } : {}),
+        })
+        .eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: recurringKey }),
+  });
+};
+
+export const useToggleRecurring = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from('recurring_transactions')
+        .update({ active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: recurringKey }),
+  });
+};
+
+export interface RecurringMetrics {
+  monthlyFixedOutflow: number;
+  yearlyFixedOutflow: number;
+  dueBeforePayday: number;
+  dueBeforePaydayCount: number;
+}
+
+const monthlyMultiplier: Record<Cadence, number> = {
+  weekly: 52 / 12,
+  monthly: 1,
+  quarterly: 1 / 3,
+  yearly: 1 / 12,
+};
+
+export const computeRecurringMetrics = (
+  rules: readonly RecurringRule[],
+  cycleEndIso: string,
+): RecurringMetrics => {
+  let monthlyFixedOutflow = 0;
+  let dueBeforePayday = 0;
+  let dueBeforePaydayCount = 0;
+
+  for (const rule of rules) {
+    if (!rule.active) continue;
+    const isOutflow = rule.kind === 'expense' || rule.kind === 'fee';
+    if (!isOutflow) continue;
+
+    const amt = Math.abs(Number(rule.amount)) || 0;
+    if (amt <= 0) continue;
+
+    monthlyFixedOutflow += amt * (monthlyMultiplier[rule.cadence] ?? 1);
+
+    if (rule.nextRun <= cycleEndIso) {
+      const { dates } = dueOccurrences(rule.nextRun, cycleEndIso, rule.cadence);
+      const count = Math.max(1, dates.length);
+      dueBeforePayday += amt * count;
+      dueBeforePaydayCount += count;
+    }
+  }
+
+  return {
+    monthlyFixedOutflow,
+    yearlyFixedOutflow: monthlyFixedOutflow * 12,
+    dueBeforePayday,
+    dueBeforePaydayCount,
+  };
+};
+
 // Posts any missed occurrences up to today and advances next_run. Safe to run
 // on every app load: once processed, next_run moves past today.
 export const processRecurring = async (): Promise<number> => {

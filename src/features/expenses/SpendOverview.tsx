@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   computePaydayCycle,
   usePaydayCycle,
   type PaydayConfig,
 } from '@/core/payday/paydayCycle';
 import type { Transaction } from '@/core/types';
+import { AmountInline } from '@/ui/Amount';
 import { PageHero } from '@/ui/PageHero';
 import { DeltaPill } from '@/ui/DeltaPill';
 import { SegmentedControl } from '@/ui/SegmentedControl';
@@ -32,12 +33,19 @@ const RANGES: { value: Range; label: string }[] = [
   { value: '6m', label: '6 months' },
 ];
 
+interface BucketItem {
+  id: string;
+  note: string;
+  amount: number;
+}
+
 interface Bucket {
   key: string;
   label: string;
   full: string;
   showLabel: boolean;
   total: number;
+  items: BucketItem[];
 }
 
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -54,7 +62,6 @@ const buildBuckets = (
   paydayConfig: PaydayConfig,
 ): Bucket[] => {
   const now = new Date();
-  const blank = { total: 0 };
 
   if (range === 'week') {
     const anchor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -67,7 +74,8 @@ const buildBuckets = (
         label: DAY_LETTER[date.getDay()]!,
         full: dayFull.format(date),
         showLabel: true,
-        ...blank,
+        total: 0,
+        items: [],
       };
     });
   }
@@ -93,7 +101,8 @@ const buildBuckets = (
         label: String(dayNum),
         full: dayFull.format(cursor),
         showLabel: idx === 0 || idx % 7 === 0,
-        ...blank,
+        total: 0,
+        items: [],
       });
       cursor.setDate(cursor.getDate() + 1);
       idx += 1;
@@ -118,7 +127,8 @@ const buildBuckets = (
         // A label under every day would be unreadable on a phone; mark out the
         // weeks instead.
         showLabel: dayNumber === 1 || dayNumber % 7 === 1,
-        ...blank,
+        total: 0,
+        items: [],
       };
     });
   }
@@ -134,7 +144,8 @@ const buildBuckets = (
       label: monthShort.format(date),
       full: monthLong.format(date),
       showLabel: true,
-      ...blank,
+      total: 0,
+      items: [],
     };
   });
 };
@@ -149,7 +160,18 @@ const fillBuckets = (
   for (const transaction of transactions) {
     if (transaction.kind !== 'expense' && transaction.kind !== 'fee') continue;
     const bucket = byKey.get(transaction.occurredAt.slice(0, sliceLength));
-    if (bucket) bucket.total += Math.abs(Number(transaction.amount));
+    if (bucket) {
+      const amount = Math.abs(Number(transaction.amount));
+      bucket.total += amount;
+      bucket.items.push({
+        id: transaction.id,
+        note: transaction.note || (transaction.kind === 'fee' ? 'Fee' : 'Expense'),
+        amount,
+      });
+    }
+  }
+  for (const bucket of buckets) {
+    bucket.items.sort((a, b) => b.amount - a.amount);
   }
   return buckets;
 };
@@ -172,10 +194,12 @@ const periodLabel = (range: Range, buckets: Bucket[]): string => {
 
 export const SpendOverview = ({
   transactions,
+  preferredRange,
 }: {
   transactions: Transaction[];
+  preferredRange?: 'cycle' | 'month';
 }) => {
-  const [range, setRange] = useState<Range>('week');
+  const [range, setRange] = useState<Range>(preferredRange ?? 'week');
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const { config: paydayConfig } = usePaydayCycle();
@@ -184,6 +208,13 @@ export const SpendOverview = ({
   // A drag selects as the finger moves; the click that follows pointerup would
   // otherwise toggle the same bar straight back off, so it is swallowed once.
   const dragged = useRef(false);
+
+  useEffect(() => {
+    if (!preferredRange) return;
+    setRange(preferredRange);
+    setOffset(0);
+    setSelected(null);
+  }, [preferredRange]);
 
   const model = useMemo(() => {
     const buckets = fillBuckets(
@@ -394,6 +425,29 @@ export const SpendOverview = ({
             </span>
           ))}
         </div>
+
+        {active && active.items.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[var(--line)] pt-2.5">
+            {active.items.slice(0, 4).map((item) => (
+              <span
+                key={item.id}
+                className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px]"
+              >
+                <span className="truncate font-semibold text-[var(--text-strong)]">
+                  {item.note}
+                </span>
+                <span className="shrink-0 font-bold tabular-nums text-[var(--negative)]">
+                  <AmountInline value={item.amount} />
+                </span>
+              </span>
+            ))}
+            {active.items.length > 4 && (
+              <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                +{active.items.length - 4} more
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </PageHero>
   );

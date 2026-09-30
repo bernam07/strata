@@ -18,6 +18,7 @@ import {
 } from '@/core/payday/paydayCycle';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { RecurringManager } from '@/features/transactions/components/RecurringManager';
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
 import { Button } from '@/ui/Button';
 import { BottomSheet } from '@/ui/BottomSheet';
@@ -27,7 +28,7 @@ import { Collapsible } from '@/ui/Collapsible';
 import { Surface } from '@/ui/Surface';
 import { AmountInline } from '@/ui/Amount';
 import { CardTitle, headingClass } from '@/ui/Heading';
-import { Select, TextInput } from '@/ui/Field';
+import { TextInput } from '@/ui/Field';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { dayMonth } from '@/ui/format';
 import { toast } from '@/ui/toast';
@@ -38,11 +39,13 @@ import { CategoryTiles, type CategoryTile } from './CategoryTiles';
 import { SpendOverview } from './SpendOverview';
 import { tileStyle } from './categoryColors';
 import {
+  useAssignCategoriesBulk,
   useAssignCategory,
   useAssignments,
   useCategories,
   useUpdateCategory,
 } from './api/useCategories';
+import { useBudgets } from './api/useBudgets';
 import { ColorSwatches } from './ColorSwatches';
 
 const monthLabel = (month: string): string => {
@@ -76,7 +79,9 @@ export const ExpensesPage = () => {
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: assignments } = useAssignments();
+  const { data: budgets = [] } = useBudgets();
   const assign = useAssignCategory();
+  const assignBulk = useAssignCategoriesBulk();
   const { cycle, config: paydayConfig } = usePaydayCycle();
   const [periodMode, setPeriodMode] = useState<'calendar' | 'cycle'>(() => {
     try {
@@ -89,11 +94,17 @@ export const ExpensesPage = () => {
   });
   const [adding, setAdding] = useState(false);
   const [managing, setManaging] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null,
+  );
   const [editingCategory, setEditingCategory] = useState<{
     id: string;
     name: string;
     color: string | null;
   } | null>(null);
+  const [categorizeFilter, setCategorizeFilter] = useState<
+    'uncategorized' | 'all'
+  >('uncategorized');
   const updateCategory = useUpdateCategory();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -218,6 +229,9 @@ export const ExpensesPage = () => {
 
   const categoryTiles = useMemo<CategoryTile[]>(() => {
     const byId = new Map(categories.map((c) => [c.id, c]));
+    const budgetByCat = new Map(
+      budgets.map((b) => [b.categoryId, Number(b.limit)]),
+    );
     const agg = new Map<string, { amount: number; count: number }>();
     for (const transaction of transactions) {
       if (transaction.kind !== 'expense') continue;
@@ -236,10 +250,11 @@ export const ExpensesPage = () => {
         color: byId.get(id)?.color ?? null,
         amount: value.amount,
         count: value.count,
+        budgetLimit: budgetByCat.get(id) ?? null,
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 6);
-  }, [transactions, categories, assignments, activePeriod]);
+  }, [transactions, categories, assignments, budgets, activePeriod]);
 
   // The comparison and summary rows key by category name, so colour has to be
   // looked up that way to carry through from the tiles.
@@ -253,7 +268,76 @@ export const ExpensesPage = () => {
     [transactions],
   );
 
-  const expenses = transactions.filter((t) => t.kind === 'expense');
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a.name])),
+    [accounts],
+  );
+
+  const expenses = useMemo(
+    () => transactions.filter((t) => t.kind === 'expense'),
+    [transactions],
+  );
+
+  const uncategorizedExpenses = useMemo(
+    () => expenses.filter((t) => !assignments?.get(t.id)),
+    [expenses, assignments],
+  );
+
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c.id === selectedCategoryId) ?? null,
+    [categories, selectedCategoryId],
+  );
+
+  const selectedCategoryExpenses = useMemo(() => {
+    if (!selectedCategoryId) return [];
+    return expenses.filter(
+      (t) =>
+        activePeriod.inCurrent(t.occurredAt) &&
+        assignments?.get(t.id) === selectedCategoryId,
+    );
+  }, [expenses, activePeriod, assignments, selectedCategoryId]);
+
+  const handleCategorize = (
+    tx: (typeof expenses)[number],
+    categoryId: string | null,
+  ) => {
+    if (categoryId === null) {
+      assign.mutate({ transactionId: tx.id, categoryId: null });
+      return;
+    }
+    const normalizedNote = tx.note?.trim().toLowerCase() ?? '';
+    if (normalizedNote.length >= 2) {
+      const matchingIds = expenses
+        .filter(
+          (item) =>
+            (item.id === tx.id || !assignments?.get(item.id)) &&
+            (item.note?.trim().toLowerCase() ?? '') === normalizedNote,
+        )
+        .map((item) => item.id);
+
+      if (matchingIds.length > 1) {
+        const catName =
+          categories.find((c) => c.id === categoryId)?.name ?? 'Category';
+        assignBulk.mutate(
+          { transactionIds: matchingIds, categoryId },
+          {
+            onSuccess: () =>
+              toast(
+                `${catName} · categorized ${matchingIds.length} "${tx.note!.trim()}" expenses`,
+                'success',
+              ),
+          },
+        );
+        return;
+      }
+    }
+    assign.mutate({ transactionId: tx.id, categoryId });
+  };
+
+  const categorizeList =
+    categorizeFilter === 'uncategorized' && uncategorizedExpenses.length > 0
+      ? uncategorizedExpenses
+      : expenses;
 
   return (
     <div className="flex flex-col gap-6">
@@ -294,7 +378,10 @@ export const ExpensesPage = () => {
         />
       </BottomSheet>
 
-      <SpendOverview transactions={transactions} />
+      <SpendOverview
+        transactions={transactions}
+        preferredRange={periodMode === 'cycle' ? 'cycle' : 'month'}
+      />
 
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3 px-0.5">
@@ -309,6 +396,7 @@ export const ExpensesPage = () => {
             onClick={() => {
               setManaging((open) => !open);
               setEditingCategory(null);
+              setSelectedCategoryId(null);
             }}
             className="tap text-xs font-semibold text-[var(--accent)]"
           >
@@ -318,20 +406,85 @@ export const ExpensesPage = () => {
 
         <CategoryTiles
           tiles={categoryTiles}
-          selectedId={editingCategory?.id ?? null}
+          totalSpend={comparison.reduce(
+            (sum, row) => sum + toNumber(row.current),
+            0,
+          )}
+          selectedId={selectedCategoryId}
           onSelect={(id) => {
             setManaging(false);
-            setEditingCategory((current) =>
-              current?.id === id
-                ? null
-                : {
-                    id,
-                    name: categories.find((c) => c.id === id)?.name ?? '',
-                    color: categories.find((c) => c.id === id)?.color ?? null,
-                  },
-            );
+            setEditingCategory(null);
+            setSelectedCategoryId((current) => (current === id ? null : id));
           }}
         />
+
+        {selectedCategory && !editingCategory && (
+          <Card className="page-enter flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ColorDot color={selectedCategory.color} />
+                <CardTitle>{selectedCategory.name}</CardTitle>
+                <span className="text-xs font-semibold tabular-nums text-[var(--text-muted)]">
+                  · {selectedCategoryExpenses.length} movement
+                  {selectedCategoryExpenses.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingCategory({
+                      id: selectedCategory.id,
+                      name: selectedCategory.name,
+                      color: selectedCategory.color,
+                    })
+                  }
+                  className="tap rounded-full neu-flat px-2.5 py-1 text-xs font-semibold text-[var(--accent)]"
+                >
+                  ✎ Edit name &amp; color
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryId(null)}
+                  className="tap rounded-full px-2 py-1 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {selectedCategoryExpenses.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">
+                No expenses in this category for {activePeriod.shortLabel}.
+              </p>
+            ) : (
+              <ul className="flex max-h-64 flex-col gap-1.5 overflow-y-auto pr-0.5">
+                {selectedCategoryExpenses.map((tx) => {
+                  const acctName = accountNameById.get(tx.accountId);
+                  return (
+                    <li
+                      key={tx.id}
+                      className="flex items-center justify-between gap-3 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3 py-2 text-xs"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-[var(--text-strong)]">
+                          {tx.note || 'Expense'}
+                        </p>
+                        <p className="truncate text-[11px] text-[var(--text-muted)]">
+                          {tx.occurredAt.slice(0, 10)}
+                          {acctName ? ` · ${acctName}` : ''}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-bold tabular-nums text-[var(--negative)]">
+                        <AmountInline value={Math.abs(Number(tx.amount))} />
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        )}
 
         {editingCategory && (
           <Card className="page-enter flex flex-col gap-3">
@@ -394,6 +547,12 @@ export const ExpensesPage = () => {
           periodLabel={activePeriod.label}
         />
       </Card>
+
+      {accounts.length > 0 && (
+        <Collapsible title="Fixed bills & subscriptions">
+          <RecurringManager accounts={accounts} />
+        </Collapsible>
+      )}
 
       {cashflow.length > 0 && (
         <Collapsible title="Cash flow">
@@ -503,53 +662,138 @@ export const ExpensesPage = () => {
         </Collapsible>
       )}
 
-      <Collapsible title="Categorize" badge={String(expenses.length)}>
+      <Collapsible
+        title="Categorize"
+        badge={
+          uncategorizedExpenses.length > 0
+            ? `${uncategorizedExpenses.length} uncategorized`
+            : 'All categorized'
+        }
+      >
         {expenses.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">No expenses.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {expenses.slice(0, 40).map((transaction) => (
-              <Surface
-                key={transaction.id}
-                elevation="flat"
-                className="flex flex-col gap-2 p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="min-w-0 truncate text-sm font-semibold text-[var(--text-strong)]">
-                    {transaction.note || 'Expense'}
-                  </p>
-                  <span className="shrink-0 text-sm font-semibold text-[var(--negative)]">
-                    <AmountInline value={Math.abs(Number(transaction.amount))} />
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
-                    {transaction.occurredAt.slice(0, 10)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <Select
-                      value={assignments?.get(transaction.id) ?? ''}
-                      onChange={(event) =>
-                        assign.mutate({
-                          transactionId: transaction.id,
-                          categoryId: event.target.value || null,
-                        })
-                      }
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-sunken)] p-0.5 text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setCategorizeFilter('uncategorized')}
+                  className={`tap rounded-full px-3 py-1 transition-colors ${
+                    categorizeFilter === 'uncategorized'
+                      ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  }`}
+                >
+                  Uncategorized ({uncategorizedExpenses.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategorizeFilter('all')}
+                  className={`tap rounded-full px-3 py-1 transition-colors ${
+                    categorizeFilter === 'all'
+                      ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  }`}
+                >
+                  All ({expenses.length})
+                </button>
+              </div>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                Auto-groups identical merchant notes
+              </span>
+            </div>
+
+            {categorizeFilter === 'uncategorized' &&
+            uncategorizedExpenses.length === 0 ? (
+              <p className="py-4 text-center text-xs font-semibold text-[var(--positive)]">
+                ✓ Every expense is categorized. Switch to &ldquo;All&rdquo; to
+                review or reassign.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {categorizeList.slice(0, 40).map((transaction) => {
+                  const currentCatId = assignments?.get(transaction.id) ?? null;
+                  const acctName = accountNameById.get(transaction.accountId);
+                  return (
+                    <Surface
+                      key={transaction.id}
+                      elevation="flat"
+                      className="flex flex-col gap-2 p-3"
                     >
-                      <option value="">Uncategorized</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
-              </Surface>
-            ))}
-          </ul>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                            {transaction.note || 'Expense'}
+                          </p>
+                          <p className="truncate text-[11px] tabular-nums text-[var(--text-muted)]">
+                            {transaction.occurredAt.slice(0, 10)}
+                            {acctName ? ` · ${acctName}` : ''}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-[var(--negative)]">
+                          <AmountInline
+                            value={Math.abs(Number(transaction.amount))}
+                          />
+                        </span>
+                      </div>
+                      {categories.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          {categories.map((cat) => {
+                            const style = tileStyle(cat.color);
+                            const active = currentCatId === cat.id;
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() =>
+                                  handleCategorize(
+                                    transaction,
+                                    active ? null : cat.id,
+                                  )
+                                }
+                                className="tap inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition"
+                                style={{
+                                  background: active
+                                    ? style.chipBackground
+                                    : 'var(--surface-sunken)',
+                                  color: active
+                                    ? style.chipColor
+                                    : 'var(--text-strong)',
+                                  border: active
+                                    ? `1.5px solid ${style.dot}`
+                                    : '1px solid var(--line)',
+                                }}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className="h-2 w-2 shrink-0 rounded-full"
+                                  style={{ background: style.dot }}
+                                />
+                                {cat.name}
+                              </button>
+                            );
+                          })}
+                          {currentCatId && (
+                            <button
+                              type="button"
+                              onClick={() => handleCategorize(transaction, null)}
+                              className="tap rounded-full px-2 py-1 text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </Surface>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         )}
       </Collapsible>
     </div>
   );
 };
+

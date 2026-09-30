@@ -489,6 +489,8 @@ export interface Database {
           active?: boolean;
         };
         Update: {
+          account_id?: string;
+          kind?: string;
           amount?: number;
           note?: string | null;
           category_id?: string | null;

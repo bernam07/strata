@@ -25,8 +25,11 @@ import {
   type TransactionFilter,
 } from './api/useTransactions';
 import { toast } from '@/ui/toast';
-import { TransactionForm } from './components/TransactionForm';
-import { TransferForm } from './components/TransferForm';
+import {
+  TransactionForm,
+  type TransactionPrefill,
+} from './components/TransactionForm';
+import { TransferForm, type TransferPrefill } from './components/TransferForm';
 import { TransactionList } from './components/TransactionList';
 import { RecurringManager } from './components/RecurringManager';
 
@@ -57,12 +60,9 @@ export const TransactionsPage = () => {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
-  const [prefill, setPrefill] = useState<{
-    amount?: string;
-    note?: string;
-    account?: string;
-    kind?: 'expense' | 'income';
-  } | null>(null);
+  const [prefill, setPrefill] = useState<TransactionPrefill | null>(null);
+  const [transferPrefill, setTransferPrefill] =
+    useState<TransferPrefill | null>(null);
 
   useEffect(() => {
     const add = searchParams.get('new');
@@ -97,26 +97,17 @@ export const TransactionsPage = () => {
     });
 
   const onReverse = (transaction: Transaction) => {
-    if (
-      window.confirm(
-        'Reverse this entry? A matching adjustment will be added — the original stays in the ledger.',
-      )
-    ) {
-      reverse.mutate(transaction);
-    }
+    reverse.mutate(transaction, {
+      onSuccess: () => toast('Reversal entry added'),
+      onError: () => toast("Couldn't reverse transaction", 'error'),
+    });
   };
 
   const onDelete = (transaction: Transaction) => {
-    if (
-      window.confirm(
-        "Delete this transaction for good? This can't be undone — use Reverse instead if you want to keep a record.",
-      )
-    ) {
-      del.mutate(transaction.id, {
-        onSuccess: () => toast('Transaction deleted'),
-        onError: () => toast("Couldn't delete transaction", 'error'),
-      });
-    }
+    del.mutate(transaction.id, {
+      onSuccess: () => toast('Transaction deleted'),
+      onError: () => toast("Couldn't delete transaction", 'error'),
+    });
   };
 
   const noAccounts = accounts.length === 0;
@@ -201,14 +192,39 @@ export const TransactionsPage = () => {
     transactions,
   ]);
 
-  const filteredNet = useMemo(
-    () =>
-      visibleTransactions.reduce(
-        (acc, tx) => acc + toNumber(money(tx.amount)),
-        0,
-      ),
-    [visibleTransactions],
-  );
+  const filteredStats = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    let net = 0;
+    let totalMagnitude = 0;
+    let count = 0;
+    const singleAccountView = Boolean(filter.accountId);
+
+    for (const tx of visibleTransactions) {
+      const val = toNumber(money(tx.amount));
+      net += val;
+      // Avoid counting internal transfer legs as income/expense when viewing all accounts
+      if (!singleAccountView && tx.transferGroupId !== null) {
+        if (val < 0) {
+          totalMagnitude += Math.abs(val);
+          count += 1;
+        }
+        continue;
+      }
+      if (val > 0) inflow += val;
+      else if (val < 0) outflow += Math.abs(val);
+      totalMagnitude += Math.abs(val);
+      count += 1;
+    }
+
+    return {
+      inflow,
+      outflow,
+      net,
+      avg: count > 0 ? totalMagnitude / count : 0,
+      count,
+    };
+  }, [visibleTransactions, filter.accountId]);
 
   const applyDatePreset = (preset: 'all' | 'cycle' | 'month' | '30days') => {
     setDatePresetState(preset);
@@ -320,10 +336,20 @@ export const TransactionsPage = () => {
 
       <BottomSheet
         open={mode === 'transfer' && !editing}
-        onClose={() => setMode('none')}
+        onClose={() => {
+          setMode('none');
+          setTransferPrefill(null);
+        }}
         title="Transfer between accounts"
       >
-        <TransferForm accounts={accounts} onDone={() => setMode('none')} />
+        <TransferForm
+          accounts={accounts}
+          prefill={transferPrefill ?? undefined}
+          onDone={() => {
+            setMode('none');
+            setTransferPrefill(null);
+          }}
+        />
       </BottomSheet>
 
       {accounts.length > 0 && (
@@ -464,23 +490,50 @@ export const TransactionsPage = () => {
           )}
 
           {isFiltered && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3 py-2 text-xs">
-              <span className="text-[var(--text-muted)]">
-                Showing{' '}
-                <strong className="font-semibold text-[var(--text-strong)]">
-                  {visibleTransactions.length}
-                </strong>{' '}
-                {visibleTransactions.length === 1 ? 'movement' : 'movements'}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-3 py-2 text-xs">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="text-[var(--text-muted)]">
+                  <strong className="font-semibold text-[var(--text-strong)]">
+                    {filteredStats.count}
+                  </strong>{' '}
+                  {filteredStats.count === 1 ? 'movement' : 'movements'}
+                </span>
+                {filteredStats.inflow > 0 && (
+                  <span className="tabular-nums text-[var(--text-muted)]">
+                    In:{' '}
+                    <strong className="font-semibold text-[var(--positive)]">
+                      <AmountInline value={filteredStats.inflow} signed />
+                    </strong>
+                  </span>
+                )}
+                {filteredStats.outflow > 0 && (
+                  <span className="tabular-nums text-[var(--text-muted)]">
+                    Out:{' '}
+                    <strong className="font-semibold text-[var(--negative)]">
+                      <AmountInline value={-filteredStats.outflow} signed />
+                    </strong>
+                  </span>
+                )}
+                {filteredStats.count > 1 && filteredStats.avg > 0 && (
+                  <span className="tabular-nums text-[var(--text-muted)]">
+                    Avg:{' '}
+                    <strong className="font-semibold text-[var(--text-strong)]">
+                      <AmountInline value={filteredStats.avg} />
+                    </strong>
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <span
                   className="font-bold tabular-nums"
                   style={{
                     color:
-                      filteredNet < 0 ? 'var(--negative)' : 'var(--positive)',
+                      filteredStats.net < 0
+                        ? 'var(--negative)'
+                        : 'var(--positive)',
                   }}
                 >
-                  Net: <AmountInline value={filteredNet} signed />
+                  Net: <AmountInline value={filteredStats.net} signed />
                 </span>
                 <button
                   type="button"
@@ -512,6 +565,27 @@ export const TransactionsPage = () => {
           onEdit={(transaction) => {
             setMode('none');
             setEditing(transaction);
+          }}
+          onRepeat={(transaction, pairedTransfer) => {
+            setEditing(null);
+            if (pairedTransfer?.fromAccount && pairedTransfer?.toAccount) {
+              setTransferPrefill({
+                fromAccountId: pairedTransfer.fromAccount.id,
+                toAccountId: pairedTransfer.toAccount.id,
+                amount: String(pairedTransfer.magnitude),
+                note: transaction.note ?? undefined,
+              });
+              setMode('transfer');
+              return;
+            }
+            setPrefill({
+              account: transaction.accountId,
+              kind: transaction.kind,
+              amount: money(transaction.amount).abs().toString(),
+              note: transaction.note ?? undefined,
+              categoryId: assignments?.get(transaction.id) ?? undefined,
+            });
+            setMode('transaction');
           }}
           emptyMessage={
             search.trim() || quickKind !== 'all'

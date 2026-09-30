@@ -165,8 +165,12 @@ body {
 
 @utility tap {
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease,
-    border-color 0.15s ease;
+  transition: transform 0.12s cubic-bezier(0.2, 0.7, 0.2, 1), background 0.15s ease,
+    color 0.15s ease, border-color 0.15s ease;
+}
+
+.tap:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 @utility skeleton-shimmer {

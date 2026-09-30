@@ -59,17 +59,75 @@ export const NetWorthDonut = ({
 }) => {
   const ref = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState<number | null>(null);
+  const [groupMode, setGroupMode] = useState<'account' | 'institution'>('account');
+  const [showAll, setShowAll] = useState(false);
+
+  const hasGroupedInstitutions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of netWorth.assets) {
+      if (entry.balance.abs().toNumber() <= 0) continue;
+      counts.set(
+        entry.account.institutionId,
+        (counts.get(entry.account.institutionId) ?? 0) + 1,
+      );
+    }
+    return [...counts.values()].some((count) => count > 1);
+  }, [netWorth.assets]);
 
   const segments = useMemo<Segment[]>(() => {
+    const rawAssets =
+      groupMode === 'institution' && hasGroupedInstitutions
+        ? (() => {
+            const byInst = new Map<
+              string,
+              {
+                id: string;
+                name: string;
+                institutionId: string;
+                balance: Money;
+                to: string;
+                count: number;
+              }
+            >();
+            for (const entry of netWorth.assets) {
+              const instId = entry.account.institutionId;
+              const existing = byInst.get(instId);
+              if (!existing) {
+                byInst.set(instId, {
+                  id: `inst-${instId}`,
+                  name: entry.account.name,
+                  institutionId: instId,
+                  balance: entry.balance,
+                  to: `/accounts/${entry.account.id}`,
+                  count: 1,
+                });
+              } else {
+                existing.balance = existing.balance.plus(entry.balance);
+                existing.count += 1;
+                existing.name = `${getInstitution(instId).displayName} (${existing.count})`;
+                existing.to = '/accounts';
+              }
+            }
+            return [...byInst.values()].map((item) => ({
+              id: item.id,
+              name: item.name,
+              institutionId: item.institutionId,
+              balance: item.balance,
+              to: item.to,
+              liability: false,
+            }));
+          })()
+        : netWorth.assets.map((entry) => ({
+            id: entry.account.id,
+            name: entry.account.name,
+            institutionId: entry.account.institutionId,
+            balance: entry.balance,
+            to: `/accounts/${entry.account.id}`,
+            liability: false,
+          }));
+
     const raw = [
-      ...netWorth.assets.map((entry) => ({
-        id: entry.account.id,
-        name: entry.account.name,
-        institutionId: entry.account.institutionId,
-        balance: entry.balance,
-        to: `/accounts/${entry.account.id}`,
-        liability: false,
-      })),
+      ...rawAssets,
       ...netWorth.liabilities.map((entry) => ({
         id: entry.account.id,
         name: entry.account.name,
@@ -93,16 +151,28 @@ export const NetWorthDonut = ({
 
     const total = raw.reduce((sum, item) => sum + item.magnitude, 0) || 1;
     let assetIndex = 0;
+    const usedBrandInstitutions = new Set<string>();
+
     return raw.map((item) => {
       const brand = item.institutionId
         ? getInstitution(item.institutionId).brandColor
         : '';
-      const color = item.liability
-        ? 'var(--negative)'
-        : brand && luminance(brand) > 0.16
-          ? brand
-          : assetPalette[assetIndex % assetPalette.length]!;
-      if (!item.liability) assetIndex += 1;
+      const canUseBrand =
+        Boolean(brand) &&
+        luminance(brand) > 0.16 &&
+        !usedBrandInstitutions.has(item.institutionId);
+
+      let color: string;
+      if (item.liability) {
+        color = 'var(--negative)';
+      } else if (canUseBrand) {
+        color = brand;
+        usedBrandInstitutions.add(item.institutionId);
+      } else {
+        color = assetPalette[assetIndex % assetPalette.length]!;
+        assetIndex += 1;
+      }
+
       return {
         id: item.id,
         name: item.name,
@@ -115,7 +185,7 @@ export const NetWorthDonut = ({
         weight: item.magnitude / total,
       };
     });
-  }, [netWorth, extra]);
+  }, [netWorth, extra, groupMode, hasGroupedInstitutions]);
 
   const centerNet = net ?? netWorth.net;
 
@@ -157,11 +227,13 @@ export const NetWorthDonut = ({
   };
 
   const current = active !== null ? segments[active] : null;
+  const visibleSegments =
+    showAll || segments.length <= 5 ? segments : segments.slice(0, 5);
 
   let cursor = 0;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
         <div className="relative mx-auto aspect-square w-full max-w-[220px] shrink-0 sm:mx-0 sm:w-[200px]">
           <svg
@@ -241,7 +313,45 @@ export const NetWorthDonut = ({
         </div>
 
         <div className="flex w-full min-w-0 flex-1 flex-col gap-1.5">
-          {segments.map((segment, index) => (
+          {hasGroupedInstitutions && (
+            <div className="mb-1 flex items-center justify-between px-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Breakdown
+              </span>
+              <div className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-sunken)] p-0.5 text-[10px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroupMode('account');
+                    setActive(null);
+                  }}
+                  className={`tap rounded-full px-2 py-0.5 transition-colors ${
+                    groupMode === 'account'
+                      ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  }`}
+                >
+                  By bucket
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroupMode('institution');
+                    setActive(null);
+                  }}
+                  className={`tap rounded-full px-2 py-0.5 transition-colors ${
+                    groupMode === 'institution'
+                      ? 'bg-[var(--surface-raised)] text-[var(--text-strong)] shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  }`}
+                >
+                  By bank
+                </button>
+              </div>
+            </div>
+          )}
+
+          {visibleSegments.map((segment, index) => (
             <Link
               key={segment.id}
               to={segment.to ?? '/positions'}
@@ -274,6 +384,18 @@ export const NetWorthDonut = ({
               </span>
             </Link>
           ))}
+
+          {segments.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="tap mt-1 self-start px-2 text-xs font-semibold text-[var(--accent)]"
+            >
+              {showAll
+                ? 'Show top 5'
+                : `Show all (${segments.length} accounts)`}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -7,19 +7,41 @@ import { useCreateTransfer } from '../api/useTransactions';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+export interface TransferPrefill {
+  fromAccountId?: string;
+  toAccountId?: string;
+  amount?: string;
+  note?: string;
+}
+
 export const TransferForm = ({
   accounts,
+  defaultFromAccountId,
+  prefill,
   onDone,
 }: {
   accounts: Account[];
+  defaultFromAccountId?: string;
+  prefill?: TransferPrefill;
   onDone: () => void;
 }) => {
   const create = useCreateTransfer();
-  const [fromAccountId, setFrom] = useState(accounts[0]?.id ?? '');
-  const [toAccountId, setTo] = useState(accounts[1]?.id ?? accounts[0]?.id ?? '');
-  const [amount, setAmount] = useState('');
+  const initialFrom =
+    prefill?.fromAccountId ??
+    (defaultFromAccountId && accounts.some((a) => a.id === defaultFromAccountId)
+      ? defaultFromAccountId
+      : accounts[0]?.id ?? '');
+  const initialTo =
+    prefill?.toAccountId ??
+    accounts.find((a) => a.id !== initialFrom)?.id ??
+    accounts[0]?.id ??
+    '';
+
+  const [fromAccountId, setFrom] = useState(initialFrom);
+  const [toAccountId, setTo] = useState(initialTo);
+  const [amount, setAmount] = useState(prefill?.amount ?? '');
   const [date, setDate] = useState(today());
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(prefill?.note ?? '');
 
   const sameAccount = fromAccountId === toAccountId;
 
