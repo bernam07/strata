@@ -22,18 +22,27 @@ export const CryptoManager = () => {
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<CoinHit | null>(null);
+  const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [quantity, setQuantity] = useState('');
   const [avgCost, setAvgCost] = useState('');
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => setQuery(text), 300);
     return () => clearTimeout(id);
   }, [text]);
 
+  useEffect(() => {
+    if (!confirmingRemove) return;
+    const timer = window.setTimeout(() => setConfirmingRemove(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [confirmingRemove]);
+
   const { data: coins = [], isFetching } = useCoinSearch(query);
 
   const reset = () => {
     setSelected(null);
+    setIsEditingExisting(false);
     setText('');
     setQuery('');
     setQuantity('');
@@ -42,6 +51,7 @@ export const CryptoManager = () => {
 
   const submit = () => {
     if (!selected || !quantity) return;
+    const wasEditing = isEditingExisting;
     add.mutate(
       {
         coinId: selected.id,
@@ -54,9 +64,9 @@ export const CryptoManager = () => {
       {
         onSuccess: () => {
           reset();
-          toast('Holding added', 'success');
+          toast(wasEditing ? 'Holding updated' : 'Holding added', 'success');
         },
-        onError: () => toast("Couldn't add holding", 'error'),
+        onError: () => toast("Couldn't save holding", 'error'),
       },
     );
   };
@@ -69,6 +79,7 @@ export const CryptoManager = () => {
         <ul className="flex flex-col gap-2">
           {holdings.map((holding) => {
             const base = holding.symbol;
+            const isConfirming = confirmingRemove === holding.symbol;
             return (
               <li
                 key={holding.symbol}
@@ -81,6 +92,12 @@ export const CryptoManager = () => {
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
                     {qtyFmt.format(holding.quantity)} {base}
+                    {holding.averagePrice > 0 && (
+                      <>
+                        {' · '}
+                        <AmountInline value={holding.averagePrice} /> avg
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="text-right">
@@ -102,18 +119,52 @@ export const CryptoManager = () => {
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    remove.mutate(holding.symbol, {
-                      onSuccess: () => toast('Holding removed'),
-                    })
-                  }
-                  aria-label={`Remove ${holding.name}`}
-                  className="tap text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected({
+                        id: holding.coinId ?? holding.symbol.toLowerCase(),
+                        symbol: holding.symbol,
+                        name: holding.name,
+                        rank: null,
+                        image: holding.imageUrl,
+                      });
+                      setQuantity(String(holding.quantity));
+                      setAvgCost(
+                        holding.averagePrice > 0
+                          ? String(holding.averagePrice)
+                          : '',
+                      );
+                      setIsEditingExisting(true);
+                    }}
+                    aria-label={`Edit ${holding.name}`}
+                    className="tap rounded-full px-2 py-1 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--accent)]"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isConfirming) {
+                        setConfirmingRemove(null);
+                        remove.mutate(holding.symbol, {
+                          onSuccess: () => toast('Holding removed'),
+                        });
+                      } else {
+                        setConfirmingRemove(holding.symbol);
+                      }
+                    }}
+                    aria-label={`Remove ${holding.name}`}
+                    className={`tap rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      isConfirming
+                        ? 'bg-[var(--negative)] font-bold text-white'
+                        : 'text-[var(--text-muted)] hover:text-[var(--negative)]'
+                    }`}
+                  >
+                    {isConfirming ? 'Confirm?' : 'Remove'}
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -127,7 +178,7 @@ export const CryptoManager = () => {
           holdings.length > 0 ? 'border-t border-[var(--line)] pt-5' : ''
         }`}
       >
-        <CardTitle>Add a coin</CardTitle>
+        <CardTitle>{isEditingExisting ? 'Edit holding' : 'Add a coin'}</CardTitle>
 
         {selected ? (
           <div className="flex flex-col gap-3">
@@ -139,13 +190,15 @@ export const CryptoManager = () => {
                 </p>
                 <p className="text-xs text-[var(--text-muted)]">{selected.symbol}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="tap text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
-              >
-                Change
-              </button>
+              {!isEditingExisting && (
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="tap text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+                >
+                  Change
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <MoneyInput
@@ -161,7 +214,11 @@ export const CryptoManager = () => {
             </div>
             <div className="flex gap-2">
               <Button onClick={submit} disabled={!quantity || add.isPending}>
-                {add.isPending ? 'Adding…' : 'Add holding'}
+                {add.isPending
+                  ? 'Saving…'
+                  : isEditingExisting
+                    ? 'Save changes'
+                    : 'Add holding'}
               </Button>
               <Button variant="ghost" onClick={reset}>
                 Cancel

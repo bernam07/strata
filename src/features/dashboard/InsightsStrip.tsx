@@ -49,16 +49,30 @@ export const InsightsStrip = ({
         Insights
       </h2>
       <ul className="flex flex-col gap-2.5">
-        {insights.map((insight) => (
-          <li key={insight.id} className="flex items-start gap-2.5">
-            <span
-              className="mt-[7px] h-2 w-2 shrink-0 rounded-full"
-              style={{ background: dotColor[insight.tone] }}
-            />
-            <span className="text-sm text-[var(--text-2)]">{insight.text}</span>
-          </li>
-        ))}
+        {insights.map((insight) => {
+          const parts = insight.text.split(/([+-]?€[\d,.\s]+|\d+(?:\.\d+)?%)/g);
+          return (
+            <li key={insight.id} className="flex items-start gap-2.5">
+              <span
+                className="mt-[7px] h-2 w-2 shrink-0 rounded-full"
+                style={{ background: dotColor[insight.tone] }}
+              />
+              <span className="text-sm text-[var(--text-2)]">
+                {parts.map((part, idx) =>
+                  idx % 2 === 1 ? (
+                    <span key={idx} className="font-semibold tabular-nums text-[var(--text-strong)]">
+                      {part}
+                    </span>
+                  ) : (
+                    part
+                  ),
+                )}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </Card>
   );
 };
+

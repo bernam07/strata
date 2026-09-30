@@ -18,6 +18,7 @@ import { useRefreshPrices } from '@/features/search/api/useMarket';
 import { RebalancePanel } from './RebalancePanel';
 import { PositionRow } from './components/PositionRow';
 import { SegmentedControl } from '@/ui/SegmentedControl';
+import { TextInput } from '@/ui/Field';
 
 const AnalyticsView = lazy(() =>
   import('@/features/analytics/AnalyticsView').then((module) => ({
@@ -58,6 +59,7 @@ const Bars = ({
 export const PositionsPage = () => {
   const [sort, setSort] = useState<'value' | 'gain' | 'name'>('value');
   const [metricMode, setMetricMode] = useState<'all' | 'today'>('all');
+  const [search, setSearch] = useState('');
   const { data, isLoading } = usePositions();
   const { data: brokers } = useBrokerAccounts();
   const refresh = useRefreshPrices();
@@ -74,6 +76,12 @@ export const PositionsPage = () => {
   );
   const dayNegative = isNegative(totalDayChange);
   const totalMarketNumber = totalMarket.toNumber();
+  const totalCostNumber = totalCost.toNumber();
+  const totalGainPct =
+    totalCostNumber > 0 ? totalGain.toNumber() / totalCostNumber : null;
+  const prevMarketNumber = totalMarketNumber - totalDayChange.toNumber();
+  const totalDayPct =
+    prevMarketNumber > 0 ? totalDayChange.toNumber() / prevMarketNumber : null;
 
   const allocation = positions
     .map((position) => ({
@@ -103,8 +111,15 @@ export const PositionsPage = () => {
   const hasCash = freeCash.greaterThan(0);
   const totalWithCash = totalMarket.plus(freeCash);
 
+  const query = search.trim().toLowerCase();
   const sortedPositions = positions
-    .slice()
+    .filter((position) => {
+      if (!query) return true;
+      const meta = data?.instruments.get(position.instrumentId);
+      return [meta?.name, meta?.ticker, meta?.sector]
+        .filter(Boolean)
+        .some((v) => v!.toLowerCase().includes(query));
+    })
     .sort((a, b) => {
       if (sort === 'name') {
         const nameA = data?.instruments.get(a.instrumentId)?.name ?? '';
@@ -196,6 +211,11 @@ export const PositionsPage = () => {
                 <Stat
                   label="Today's change"
                   value={<AmountInline value={toNumber(totalDayChange)} signed />}
+                  hint={
+                    totalDayPct !== null && !totalDayChange.equals(zero())
+                      ? `${dayNegative ? '−' : '+'}${percent.format(Math.abs(totalDayPct))}`
+                      : undefined
+                  }
                   tone={
                     totalDayChange.equals(zero())
                       ? 'default'
@@ -208,6 +228,11 @@ export const PositionsPage = () => {
                 <Stat
                   label="Unrealized gain"
                   value={<AmountInline value={toNumber(totalGain)} signed />}
+                  hint={
+                    totalGainPct !== null && !totalGain.equals(zero())
+                      ? `${gainNegative ? '−' : '+'}${percent.format(Math.abs(totalGainPct))} return`
+                      : undefined
+                  }
                   tone={
                     totalGain.equals(zero())
                       ? 'default'
@@ -245,6 +270,13 @@ export const PositionsPage = () => {
                 />
               </div>
             </div>
+            {positions.length > 5 && (
+              <TextInput
+                value={search}
+                placeholder="Filter holdings by name, ticker or sector…"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            )}
             {sortedPositions.map((position) => (
               <PositionRow
                 key={position.instrumentId}
@@ -254,6 +286,11 @@ export const PositionsPage = () => {
                 metricMode={metricMode}
               />
             ))}
+            {sortedPositions.length === 0 && query && (
+              <p className="py-4 text-center text-xs text-[var(--text-muted)]">
+                No holdings match &ldquo;{search}&rdquo;.
+              </p>
+            )}
           </div>
 
           {allocation.length > 1 && (

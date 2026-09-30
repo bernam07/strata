@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
@@ -8,6 +9,7 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { StockAvatar } from '@/features/positions/components/StockAvatar';
 import { PriceChart } from '@/features/positions/PriceChart';
 import { RangeTabs } from '@/features/positions/RangeTabs';
+import { usePositions } from '@/features/positions/api/usePositions';
 import { AlertForm, AlertsList } from '@/features/alerts/Alerts';
 import { usePriceAlerts } from '@/features/alerts/api/useAlerts';
 import { usePersistentState } from '@/app/usePersistentState';
@@ -20,6 +22,16 @@ import {
   useWatchlist,
   type MiniQuote,
 } from './api/useMarket';
+
+interface HeldMatch {
+  instrumentId: string;
+  shares: number;
+}
+
+const formatShares = (shares: number): string =>
+  shares >= 10
+    ? shares.toFixed(shares % 1 === 0 ? 0 : 1)
+    : Number(shares.toFixed(4)).toString();
 
 const PriceTag = ({ quote }: { quote: MiniQuote | undefined }) => {
   if (!quote) return <span className="text-[var(--text-muted)]">›</span>;
@@ -51,10 +63,12 @@ const PriceTag = ({ quote }: { quote: MiniQuote | undefined }) => {
 const QuotePanel = ({
   symbol,
   name,
+  held,
   onBack,
 }: {
   symbol: string;
   name: string;
+  held?: HeldMatch;
   onBack: () => void;
 }) => {
   const [range, setRange] = usePersistentState('chart-range', '1y');
@@ -90,7 +104,22 @@ const QuotePanel = ({
             <h1 className="truncate text-lg font-bold text-[var(--text-strong)]">
               {name}
             </h1>
-            <p className="text-xs text-[var(--text-muted)]">{symbol}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <p className="text-xs text-[var(--text-muted)]">{symbol}</p>
+              {held && (
+                <Link
+                  to={`/positions/${held.instrumentId}`}
+                  className="tap inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent-ink)]"
+                >
+                  <span>Held</span>
+                  <span>·</span>
+                  <span className="tabular-nums">
+                    {formatShares(held.shares)} sh
+                  </span>
+                  <span>→</span>
+                </Link>
+              )}
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -163,6 +192,38 @@ export const SearchPage = () => {
   const { data: results = [], isLoading, isError, error } = useStockSearch(query);
   const { data: watchlist = [] } = useWatchlist();
   const { data: alerts = [] } = usePriceAlerts();
+  const positionsQuery = usePositions();
+
+  const heldBySymbol = useMemo(() => {
+    const map = new Map<string, HeldMatch>();
+    const positions = positionsQuery.data?.positions ?? [];
+    const instruments = positionsQuery.data?.instruments;
+    if (!instruments) return map;
+
+    for (const pos of positions) {
+      const shares = pos.quantity.toNumber();
+      if (shares <= 0) continue;
+      const meta = instruments.get(pos.instrumentId);
+      if (!meta) continue;
+      const match: HeldMatch = { instrumentId: pos.instrumentId, shares };
+      const rawTicker = meta.ticker.trim().toUpperCase();
+      map.set(rawTicker, match);
+      const baseTicker = rawTicker.split('.')[0]?.split('_')[0];
+      if (baseTicker) map.set(baseTicker, match);
+      if (meta.yahoo_symbol) {
+        const ySym = meta.yahoo_symbol.trim().toUpperCase();
+        map.set(ySym, match);
+        const yBase = ySym.split('.')[0];
+        if (yBase) map.set(yBase, match);
+      }
+    }
+    return map;
+  }, [positionsQuery.data]);
+
+  const findHeld = (symbol: string): HeldMatch | undefined => {
+    const upper = symbol.trim().toUpperCase();
+    return heldBySymbol.get(upper) ?? heldBySymbol.get(upper.split('.')[0] ?? upper);
+  };
 
   const showWatchlist = useMemo(
     () => query.trim().length < 2,
@@ -183,6 +244,7 @@ export const SearchPage = () => {
       <QuotePanel
         symbol={selected.symbol}
         name={selected.name}
+        held={findHeld(selected.symbol)}
         onBack={() => setSelected(null)}
       />
     );
@@ -207,25 +269,41 @@ export const SearchPage = () => {
           {watchlist.length > 0 ? (
             <section className="flex flex-col gap-3">
               <SectionTitle>Watchlist</SectionTitle>
-              {watchlist.map((item) => (
-              <button
-                key={item.symbol}
-                type="button"
-                className="tap flex w-full items-center gap-4 rounded-[var(--radius-card)] neu-flat p-4 text-left hover:border-[var(--accent)]"
-                onClick={() =>
-                  setSelected({ symbol: item.symbol, name: item.name })
-                }
-              >
-                <StockAvatar ticker={item.symbol} size={36} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[var(--text-strong)]">
-                    {item.name}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">{item.symbol}</p>
-                </div>
-                <PriceTag quote={quotes[item.symbol]} />
-              </button>
-            ))}
+              {watchlist.map((item) => {
+                const held = findHeld(item.symbol);
+                return (
+                  <button
+                    key={item.symbol}
+                    type="button"
+                    className="tap flex w-full items-center gap-4 rounded-[var(--radius-card)] neu-flat p-4 text-left hover:border-[var(--accent)]"
+                    onClick={() =>
+                      setSelected({ symbol: item.symbol, name: item.name })
+                    }
+                  >
+                    <StockAvatar ticker={item.symbol} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-semibold text-[var(--text-strong)]">
+                          {item.name}
+                        </p>
+                        {held && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent-ink)]">
+                            <span>Held</span>
+                            <span>·</span>
+                            <span className="tabular-nums">
+                              {formatShares(held.shares)} sh
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {item.symbol}
+                      </p>
+                    </div>
+                    <PriceTag quote={quotes[item.symbol]} />
+                  </button>
+                );
+              })}
             </section>
           ) : (
             <p className="text-sm text-[var(--text-muted)]">
@@ -244,27 +322,41 @@ export const SearchPage = () => {
         <p className="text-sm text-[var(--text-muted)]">No matches.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {results.map((result) => (
-            <button
-              key={result.symbol}
-              type="button"
-              className="tap flex w-full items-center gap-4 rounded-[var(--radius-card)] neu-flat p-4 text-left hover:border-[var(--accent)]"
-              onClick={() =>
-                setSelected({ symbol: result.symbol, name: result.name })
-              }
-            >
-              <StockAvatar ticker={result.symbol} size={36} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-[var(--text-strong)]">
-                  {result.name}
-                </p>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {result.symbol} · {result.exchange}
-                </p>
-              </div>
-              <PriceTag quote={quotes[result.symbol]} />
-            </button>
-          ))}
+          {results.map((result) => {
+            const held = findHeld(result.symbol);
+            return (
+              <button
+                key={result.symbol}
+                type="button"
+                className="tap flex w-full items-center gap-4 rounded-[var(--radius-card)] neu-flat p-4 text-left hover:border-[var(--accent)]"
+                onClick={() =>
+                  setSelected({ symbol: result.symbol, name: result.name })
+                }
+              >
+                <StockAvatar ticker={result.symbol} size={36} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-semibold text-[var(--text-strong)]">
+                      {result.name}
+                    </p>
+                    {held && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent-ink)]">
+                        <span>Held</span>
+                        <span>·</span>
+                        <span className="tabular-nums">
+                          {formatShares(held.shares)} sh
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {result.symbol} · {result.exchange}
+                  </p>
+                </div>
+                <PriceTag quote={quotes[result.symbol]} />
+              </button>
+            );
+          })}
         </ul>
       )}
     </div>

@@ -229,25 +229,33 @@ export const DividendsPage = () => {
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {received.map((item) => (
-                <Surface
-                  key={item.id}
-                  elevation="flat"
-                  className="flex items-center justify-between p-4"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-strong)]">
-                      {nameOf(instruments, item.instrumentId)}
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {dateFormat.format(new Date(item.paidAt))}
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
-                    <AmountInline value={Number(item.amount)} />
-                  </span>
-                </Surface>
-              ))}
+              {received.map((item) => {
+                const meta = instruments.get(item.instrumentId);
+                return (
+                  <Surface
+                    key={item.id}
+                    elevation="flat"
+                    className="flex items-center gap-3.5 p-4"
+                  >
+                    <StockAvatar
+                      ticker={meta?.ticker ?? item.instrumentId}
+                      isin={meta?.isin}
+                      size={34}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                        {nameOf(instruments, item.instrumentId)}
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {dateFormat.format(new Date(item.paidAt))}
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--positive)]">
+                      <AmountInline value={Number(item.amount)} />
+                    </span>
+                  </Surface>
+                );
+              })}
             </ul>
           )}
         </>
@@ -330,28 +338,65 @@ export const DividendsPage = () => {
                 .sort((a, b) =>
                   a.expectedAt < b.expectedAt ? -1 : 1,
                 )
-                .map((item, index) => (
-                  <Surface
-                    key={`${item.instrumentId}-${index}`}
-                    elevation="flat"
-                    className="flex items-center justify-between border border-dashed border-[var(--text-muted)]/30 p-4 opacity-60"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text-strong)]">
-                        {nameOf(instruments, item.instrumentId)}
-                        <span className="ml-2 rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                          estimated · {cadenceLabel[item.cadence]}
-                        </span>
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {dateFormat.format(new Date(item.expectedAt))}
-                      </p>
-                    </div>
-                    <span className="text-sm font-semibold tabular-nums text-[var(--text-muted)]">
-                      ~<AmountInline value={Number(item.estimatedAmount)} />
-                    </span>
-                  </Surface>
-                ))}
+                .map((item, index) => {
+                  const meta = instruments.get(item.instrumentId);
+                  const expectedDate = new Date(item.expectedAt);
+                  const now = new Date();
+                  const todayStart = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    now.getDate(),
+                  );
+                  const targetStart = new Date(
+                    expectedDate.getFullYear(),
+                    expectedDate.getMonth(),
+                    expectedDate.getDate(),
+                  );
+                  const diffDays = Math.round(
+                    (targetStart.getTime() - todayStart.getTime()) /
+                      (1000 * 60 * 60 * 24),
+                  );
+                  const relativeLabel =
+                    diffDays <= 0
+                      ? 'Today'
+                      : diffDays === 1
+                        ? 'Tomorrow'
+                        : `in ${diffDays}d`;
+
+                  return (
+                    <Surface
+                      key={`${item.instrumentId}-${index}`}
+                      elevation="flat"
+                      className="flex items-center gap-3.5 border border-dashed border-[var(--text-muted)]/30 p-4 opacity-80"
+                    >
+                      <StockAvatar
+                        ticker={meta?.ticker ?? item.instrumentId}
+                        isin={meta?.isin}
+                        size={34}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                            {nameOf(instruments, item.instrumentId)}
+                          </p>
+                          <span className="rounded-full neu-sunken px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                            estimated · {cadenceLabel[item.cadence]}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                          <span>{dateFormat.format(expectedDate)}</span>
+                          <span>·</span>
+                          <span className="font-semibold text-[var(--accent)]">
+                            {relativeLabel}
+                          </span>
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold tabular-nums text-[var(--text-muted)]">
+                        ~<AmountInline value={Number(item.estimatedAmount)} />
+                      </span>
+                    </Surface>
+                  );
+                })}
             </ul>
           )}
         </>

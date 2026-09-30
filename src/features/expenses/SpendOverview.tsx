@@ -352,7 +352,7 @@ export const SpendOverview = ({
                 borderColor: 'color-mix(in srgb, var(--accent) 55%, transparent)',
               }}
             >
-              <span className="absolute right-0 top-[-9px] bg-[var(--surface-raised)] px-1 text-[9.5px] font-bold text-[var(--accent)]">
+              <span className="absolute right-0 top-[-9px] bg-[var(--surface-raised)] px-1 text-[9.5px] font-bold tabular-nums text-[var(--accent)]">
                 {grouped.format(Math.round(model.average))} € avg
               </span>
             </div>

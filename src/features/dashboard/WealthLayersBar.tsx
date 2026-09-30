@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { AmountInline } from '@/ui/Amount';
 import { Card } from '@/ui/Card';
 import { pctMax1 } from '@/ui/format';
@@ -7,6 +8,7 @@ interface LayerItem {
   label: string;
   value: number;
   color: string;
+  to: string;
 }
 
 export const WealthLayersBar = ({
@@ -26,24 +28,28 @@ export const WealthLayersBar = ({
       label: 'Investments',
       value: Math.max(0, investments),
       color: 'var(--accent)',
+      to: '/positions',
     },
     {
       id: 'cash',
       label: 'Liquid cash',
       value: Math.max(0, cash),
       color: '#4fb286',
+      to: '/accounts',
     },
     {
       id: 'meal',
       label: 'Meal card',
       value: Math.max(0, meal),
       color: '#F72717',
+      to: '/accounts',
     },
     {
       id: 'crypto',
       label: 'Crypto',
       value: Math.max(0, crypto),
       color: '#7c8bff',
+      to: '/crypto',
     },
   ].filter((item) => item.value > 0);
 
@@ -82,9 +88,10 @@ export const WealthLayersBar = ({
         {raw.map((layer) => {
           const weight = layer.value / total;
           return (
-            <div
+            <Link
               key={layer.id}
-              className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2"
+              to={layer.to}
+              className="tap flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-field)] neu-flat px-3 py-2 hover:border-[var(--accent)]"
             >
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex min-w-0 items-center gap-1.5">
@@ -104,7 +111,7 @@ export const WealthLayersBar = ({
               <span className="text-sm font-bold text-[var(--text-strong)]">
                 <AmountInline value={layer.value} />
               </span>
-            </div>
+            </Link>
           );
         })}
       </div>
