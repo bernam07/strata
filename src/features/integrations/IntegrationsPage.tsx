@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { icons } from '@/app/icons';
 import { Button } from '@/ui/Button';
+import { SettingsNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { TextInput } from '@/ui/Field';
@@ -223,13 +223,9 @@ export const IntegrationsPage = () => {
   const running = runs.data?.some((run) => run.status === 'running') ?? false;
 
   return (
-    <div className="flex flex-col gap-8">
-      <Link
-        to="/settings"
-        className="tap -mb-4 self-start text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
-      >
-        ← Settings
-      </Link>
+    <div className="flex flex-col gap-6">
+      <SettingsNav />
+
       <PageHeader
         title="Integrations"
         subtitle="Connect Trading 212 and set up your iPhone widget."

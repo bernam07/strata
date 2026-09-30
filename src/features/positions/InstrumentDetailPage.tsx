@@ -19,7 +19,7 @@ import {
   useInstrumentPrices,
   useHolding,
 } from './api/usePositions';
-import { PriceChart } from './PriceChart';
+import { PriceChart, type ChartTradeMarker } from './PriceChart';
 import { RangeTabs } from './RangeTabs';
 import { StockAvatar } from './components/StockAvatar';
 import { InstrumentFacts } from './components/InstrumentFacts';
@@ -86,6 +86,36 @@ export const InstrumentDetailPage = () => {
       (liveQuote.isError && liveQuote.error instanceof Error
         ? liveQuote.error.message
         : null);
+
+  const chartAveragePrice = useMemo(() => {
+    const candidate =
+      holding && holding.currency === chartCurrency && holding.averagePrice > 0
+        ? holding.averagePrice
+        : position && chartCurrency === 'EUR'
+          ? toNumber(position.averageCost)
+          : refAvgPrice;
+    if (!candidate || candidate <= 0 || chartPoints.length === 0) return null;
+    const latestChartVal = chartPoints[chartPoints.length - 1]!.value;
+    return isSanePrice(candidate, latestChartVal) ? candidate : null;
+  }, [holding, position, chartCurrency, refAvgPrice, chartPoints]);
+
+  const tradeMarkers = useMemo<ChartTradeMarker[]>(() => {
+    return transactions
+      .filter((t) => t.kind === 'buy' || t.kind === 'sell')
+      .map((t) => {
+        const qty = Math.abs(Number(t.quantity ?? 0));
+        const amt = Math.abs(Number(t.amount ?? 0));
+        const unitPrice = qty > 0 ? amt / qty : 0;
+        return {
+          id: t.id,
+          date: t.occurredAt,
+          kind: t.kind as 'buy' | 'sell',
+          quantity: qty,
+          price: unitPrice,
+          amount: amt,
+        };
+      });
+  }, [transactions]);
 
   const instrumentsMap = positionsQuery.data?.instruments;
   const dividends = transactions.filter((t) => t.kind === 'dividend');
@@ -219,7 +249,12 @@ export const InstrumentDetailPage = () => {
               {usingLive ? 'live' : 'stored'}
             </p>
           </div>
-          <PriceChart points={chartPoints} currency={chartCurrency} />
+          <PriceChart
+            points={chartPoints}
+            currency={chartCurrency}
+            averagePrice={chartAveragePrice}
+            markers={tradeMarkers}
+          />
           {usingLive && <RangeTabs value={range} onChange={setRange} />}
           {liveError && (
             <p className="text-[11px] text-[var(--text-muted)]">

@@ -7,6 +7,7 @@ import { transactionsToCsv } from '@/core/transactions/exportCsv';
 import { AmountInline } from '@/ui/Amount';
 import { Button } from '@/ui/Button';
 import { BottomSheet } from '@/ui/BottomSheet';
+import { CashflowNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
@@ -273,6 +274,8 @@ export const TransactionsPage = () => {
 
   return (
     <div className="flex flex-col gap-6">
+      <CashflowNav />
+
       <PageHeader
         title="Activity"
         subtitle="Every movement across your accounts."

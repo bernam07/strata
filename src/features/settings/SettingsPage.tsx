@@ -16,6 +16,7 @@ import { toast } from '@/ui/toast';
 import { NotificationsCard } from '@/features/notifications/NotificationsCard';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { SettingsNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { CardTitle } from '@/ui/Heading';
 
@@ -249,7 +250,9 @@ export const SettingsPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <SettingsNav />
+
       <PageHeader title="Settings" subtitle="Preferences, privacy and backups." />
 
       <Card className="flex items-center justify-between gap-3">

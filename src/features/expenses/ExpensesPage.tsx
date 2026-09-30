@@ -22,6 +22,7 @@ import { RecurringManager } from '@/features/transactions/components/RecurringMa
 import { TransactionForm } from '@/features/transactions/components/TransactionForm';
 import { Button } from '@/ui/Button';
 import { BottomSheet } from '@/ui/BottomSheet';
+import { CashflowNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { Collapsible } from '@/ui/Collapsible';
@@ -341,8 +342,10 @@ export const ExpensesPage = () => {
 
   return (
     <div className="flex flex-col gap-6">
+      <CashflowNav />
+
       <PageHeader
-        title="Expenses"
+        title="Spending"
         subtitle="Where your money goes each period."
         actions={
           <>

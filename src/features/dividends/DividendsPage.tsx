@@ -7,6 +7,7 @@ import {
   expectedByMonth,
 } from '@/core/dividends/forecast';
 import { Card } from '@/ui/Card';
+import { PortfolioNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { PageHero } from '@/ui/PageHero';
 import { Stat } from '@/ui/Stat';
@@ -145,22 +146,24 @@ export const DividendsPage = () => {
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <PortfolioNav />
+
       <PageHeader
         title="Dividends"
         subtitle="Income received and what's on the way."
-      />
-
-      <SegmentedControl
-        value={tab}
-        onChange={setTab}
-        segments={[
-          { value: 'received', label: 'Received' },
-          { value: 'expected', label: 'Calendar' },
-        ]}
-        size="md"
-        className="self-start"
-        label="Dividend view"
+        actions={
+          <SegmentedControl
+            value={tab}
+            onChange={setTab}
+            segments={[
+              { value: 'received', label: 'Received' },
+              { value: 'expected', label: 'Calendar' },
+            ]}
+            size="sm"
+            label="Dividend view"
+          />
+        }
       />
 
       {isLoading ? (

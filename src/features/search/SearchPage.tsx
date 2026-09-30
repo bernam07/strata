@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
+import { PortfolioNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
 import { toast } from '@/ui/toast';
@@ -241,20 +242,25 @@ export const SearchPage = () => {
 
   if (selected) {
     return (
-      <QuotePanel
-        symbol={selected.symbol}
-        name={selected.name}
-        held={findHeld(selected.symbol)}
-        onBack={() => setSelected(null)}
-      />
+      <div className="flex flex-col gap-6">
+        <PortfolioNav />
+        <QuotePanel
+          symbol={selected.symbol}
+          name={selected.name}
+          held={findHeld(selected.symbol)}
+          onBack={() => setSelected(null)}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <PortfolioNav />
+
       <PageHeader
-        title="Search"
-        subtitle="Look up any stock or ETF — even ones you don't own."
+        title="Markets"
+        subtitle="Look up any stock or ETF, manage your watchlist and price alerts."
       />
 
       <TextInput

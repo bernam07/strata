@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { PortfolioNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { AmountInline } from '@/ui/Amount';
 import { PageHero } from '@/ui/PageHero';
@@ -40,12 +41,15 @@ export const CryptoPage = () => {
 
   return (
     <div className="flex flex-col gap-6">
+      <PortfolioNav />
+
       <PageHeader
         title="Crypto"
         subtitle="Coins you hold, tracked alongside the rest of your wealth."
         actions={
           holdings.length > 0 && (
             <Button
+              size="sm"
               variant="ghost"
               onClick={() => refresh.mutate()}
               disabled={refresh.isPending}

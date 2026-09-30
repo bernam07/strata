@@ -1,10 +1,24 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { deriveBalances } from '@/core/balances/deriveBalances';
+import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
+import { money, sum, toNumber, type Money } from '@/core/money/money';
+import { useAccounts } from '@/features/accounts/api/useAccounts';
+import {
+  applyBrokerBalances,
+  useBrokerAccounts,
+} from '@/features/accounts/api/useBrokerAccounts';
+import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { usePositions } from '@/features/positions/api/usePositions';
+import { useCrypto } from '@/features/crypto/api/useCrypto';
+import { useWatchlist } from '@/features/search/api/useMarket';
+import { useT212Connection } from '@/features/integrations/api/useT212';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { BiometricGate } from '@/features/auth/BiometricGate';
 import { lockApp, useBiometricLock } from '@/features/auth/biometricLock';
 import { useProcessRecurring } from '@/features/transactions/api/useRecurring';
 import { CommandPalette } from '@/features/command/CommandPalette';
+import { AmountInline } from '@/ui/Amount';
 import { QuickAdd } from './QuickAdd';
 import { useGlobalSync } from './useGlobalSync';
 import { useViewportHeal } from './useViewportHeal';
@@ -17,6 +31,9 @@ interface NavEntry {
   label: string;
   icon: IconName;
   end?: boolean;
+  badge?: number;
+  dot?: boolean;
+  matchPrefixes?: string[];
 }
 
 interface NavSection {
@@ -24,81 +41,165 @@ interface NavSection {
   items: NavEntry[];
 }
 
-const sections: NavSection[] = [
-  {
-    group: 'Ledger',
-    items: [
-      { to: '/', label: 'Overview', icon: 'overview', end: true },
-      { to: '/accounts', label: 'Accounts', icon: 'accounts' },
-      { to: '/transactions', label: 'Activity', icon: 'transactions' },
-    ],
-  },
-  {
-    group: 'Invest',
-    items: [
-      { to: '/positions', label: 'Portfolio', icon: 'positions' },
-      { to: '/search', label: 'Search', icon: 'search' },
-      { to: '/crypto', label: 'Crypto', icon: 'crypto' },
-      { to: '/dividends', label: 'Dividends', icon: 'dividends' },
-    ],
-  },
-  {
-    group: 'Manage',
-    items: [
-      { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-      { to: '/integrations', label: 'Integrations', icon: 'sync' },
-      { to: '/settings', label: 'Settings', icon: 'settings' },
-    ],
-  },
-];
-
-const primaryTabs: NavEntry[] = [
-  { to: '/', label: 'Overview', icon: 'overview', end: true },
-  { to: '/accounts', label: 'Accounts', icon: 'accounts' },
-  { to: '/transactions', label: 'Activity', icon: 'transactions' },
-  { to: '/positions', label: 'Portfolio', icon: 'positions' },
-];
-
-const secondarySections: NavSection[] = [
-  {
-    group: 'Explore',
-    items: [
-      { to: '/search', label: 'Search', icon: 'search' },
-      { to: '/crypto', label: 'Crypto', icon: 'crypto' },
-      { to: '/dividends', label: 'Dividends', icon: 'dividends' },
-    ],
-  },
-  {
-    group: 'Manage',
-    items: [
-      { to: '/expenses', label: 'Expenses', icon: 'expenses' },
-      { to: '/integrations', label: 'Integrations', icon: 'sync' },
-      { to: '/settings', label: 'Settings', icon: 'settings' },
-    ],
-  },
-];
-
-const MORE_PREFIXES = [
-  '/expenses',
-  '/search',
-  '/crypto',
-  '/dividends',
-  '/settings',
-  '/integrations',
-];
+const PORTFOLIO_PREFIXES = ['/positions', '/dividends', '/crypto', '/search'];
+const SETTINGS_PREFIXES = ['/settings', '/integrations'];
 
 const navItemClass = (isActive: boolean): string =>
-  `tap flex items-center gap-3 rounded-[var(--radius-field)] px-2.5 py-2.5 text-sm font-medium ${
+  `tap flex items-center gap-3 rounded-[var(--radius-field)] px-2.5 py-2 text-sm font-medium transition-colors ${
     isActive
       ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_2px_0_0_var(--accent)]'
       : 'text-[var(--text-2)] hover:bg-[var(--surface-flat)] hover:text-[var(--text-strong)]'
   }`;
 
+const SidebarNetWorth = () => {
+  const accountsQuery = useAccounts();
+  const transactionsQuery = useTransactions();
+  const brokersQuery = useBrokerAccounts();
+  const positionsQuery = usePositions();
+  const { data: crypto = [] } = useCrypto();
+
+  const summary = useMemo(() => {
+    const accounts = accountsQuery.data ?? [];
+    const transactions = transactionsQuery.data ?? [];
+    const brokers = brokersQuery.data ?? new Map();
+    const balances = applyBrokerBalances(
+      deriveBalances(transactions),
+      accounts,
+      brokers,
+    );
+    const netWorth =
+      accounts.length === 0
+        ? emptyNetWorth()
+        : computeNetWorth(accounts, balances);
+    const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
+    const cryptoDay = crypto.reduce(
+      (total, item) => total + item.dayChangeEur,
+      0,
+    );
+    const net = toNumber(netWorth.net.plus(money(cryptoTotal)));
+
+    const positions = positionsQuery.data?.positions ?? [];
+    const changes = positions
+      .map((position) => position.dayChange)
+      .filter((change): change is Money => change !== null);
+    const todayPl =
+      changes.length === 0 && cryptoDay === 0
+        ? null
+        : toNumber(sum(changes).plus(money(cryptoDay)));
+
+    return { net, todayPl, hasData: accounts.length > 0 || crypto.length > 0 };
+  }, [
+    accountsQuery.data,
+    transactionsQuery.data,
+    brokersQuery.data,
+    positionsQuery.data,
+    crypto,
+  ]);
+
+  if (!summary.hasData) return null;
+
+  const dayUp = (summary.todayPl ?? 0) >= 0;
+
+  return (
+    <Link
+      to="/"
+      className="tap flex flex-col gap-1 rounded-[var(--radius-field)] neu-sunken px-3 py-2.5 transition-colors hover:border-[var(--line)]"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          Net worth
+        </span>
+        {summary.todayPl !== null && summary.todayPl !== 0 && (
+          <span
+            className="text-[11px] font-semibold tabular-nums"
+            style={{
+              color: dayUp ? 'var(--positive)' : 'var(--negative)',
+            }}
+          >
+            <AmountInline value={summary.todayPl} signed /> today
+          </span>
+        )}
+      </div>
+      <div className="text-base font-extrabold tracking-tight tabular-nums text-[var(--text-strong)]">
+        <AmountInline value={summary.net} />
+      </div>
+    </Link>
+  );
+};
+
 const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   const { signOut } = useAuth();
+  const { data: accounts = [] } = useAccounts();
+  const { data: positionsData } = usePositions();
+  const { data: crypto = [] } = useCrypto();
+  const { data: watchlist = [] } = useWatchlist();
+  const connection = useT212Connection();
+
+  const holdingsCount = (positionsData?.positions.length ?? 0) + crypto.length;
+  const t212Connected =
+    connection.data !== null && connection.data !== undefined;
+
+  const sections: NavSection[] = [
+    {
+      group: 'Wealth',
+      items: [
+        { to: '/', label: 'Overview', icon: 'overview', end: true },
+        {
+          to: '/positions',
+          label: 'Portfolio',
+          icon: 'positions',
+          badge: holdingsCount > 0 ? holdingsCount : undefined,
+        },
+        {
+          to: '/accounts',
+          label: 'Accounts',
+          icon: 'accounts',
+          badge: accounts.length > 0 ? accounts.length : undefined,
+        },
+      ],
+    },
+    {
+      group: 'Cashflow',
+      items: [
+        { to: '/expenses', label: 'Spending', icon: 'expenses' },
+        { to: '/transactions', label: 'Activity', icon: 'transactions' },
+      ],
+    },
+    {
+      group: 'Investing',
+      items: [
+        { to: '/dividends', label: 'Dividends', icon: 'dividends' },
+        {
+          to: '/crypto',
+          label: 'Crypto',
+          icon: 'crypto',
+          badge: crypto.length > 0 ? crypto.length : undefined,
+        },
+        {
+          to: '/search',
+          label: 'Markets',
+          icon: 'search',
+          badge: watchlist.length > 0 ? watchlist.length : undefined,
+        },
+      ],
+    },
+    {
+      group: 'System',
+      items: [
+        {
+          to: '/integrations',
+          label: 'Integrations',
+          icon: 'sync',
+          dot: t212Connected,
+        },
+        { to: '/settings', label: 'Settings', icon: 'settings' },
+      ],
+    },
+  ];
+
   return (
-    <aside className="hidden h-full w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
-      <div className="flex items-center gap-2.5 px-2">
+    <aside className="hidden h-full w-60 shrink-0 flex-col gap-3.5 overflow-y-auto border-r border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--bg)] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] lg:flex">
+      <Link to="/" className="tap flex items-center gap-2.5 px-2">
         <StrataMark />
         <div>
           <div className="text-[15px] font-extrabold tracking-[0.14em]">STRATA</div>
@@ -106,12 +207,14 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
             Your wealth, layer by layer
           </div>
         </div>
-      </div>
+      </Link>
+
+      <SidebarNetWorth />
 
       <button
         type="button"
         onClick={onCommand}
-        className="tap mt-1 flex items-center gap-2.5 rounded-[var(--radius-field)] neu-sunken px-2.5 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-2)]"
+        className="tap flex items-center gap-2.5 rounded-[var(--radius-field)] neu-sunken px-2.5 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-2)]"
       >
         <span className="h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
           {icons.search}
@@ -122,10 +225,10 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
         </kbd>
       </button>
 
-      <nav className="flex flex-col gap-0.5">
+      <nav aria-label="Main navigation" className="flex flex-col gap-0.5">
         {sections.map((section) => (
           <div key={section.group}>
-            <p className="px-2.5 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
+            <p className="px-2.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
               {section.group}
             </p>
             {section.items.map((item) => (
@@ -135,10 +238,21 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
                 end={item.end}
                 className={({ isActive }) => navItemClass(isActive)}
               >
-                <span className="h-[18px] w-[18px] [&>svg]:h-full [&>svg]:w-full">
+                <span className="h-[18px] w-[18px] shrink-0 [&>svg]:h-full [&>svg]:w-full">
                   {icons[item.icon]}
                 </span>
-                {item.label}
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.badge !== undefined && (
+                  <span className="rounded-full bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-[var(--text-muted)]">
+                    {item.badge}
+                  </span>
+                )}
+                {item.dot && (
+                  <span
+                    title="Connected"
+                    className="h-2 w-2 shrink-0 rounded-full bg-[var(--positive)]"
+                  />
+                )}
               </NavLink>
             ))}
           </div>
@@ -213,79 +327,47 @@ const SidebarSyncButton = () => {
   );
 };
 
-const MoreSheet = ({
-  onClose,
-}: {
-  onClose: () => void;
-}) => {
-  const { signOut } = useAuth();
-  return (
-    <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-[var(--line)] bg-[var(--surface-raised)] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--line)]" />
-        <div className="flex flex-col gap-4">
-          {secondarySections.map((section) => (
-            <div key={section.group}>
-              <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--text-muted)]">
-                {section.group}
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      `tap flex items-center gap-2 rounded-[var(--radius-field)] px-2.5 py-3 text-xs font-semibold ${
-                        isActive
-                          ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent)]'
-                          : 'neu-flat text-[var(--text-2)]'
-                      }`
-                    }
-                  >
-                    <span className="h-4 w-4 shrink-0 [&>svg]:h-full [&>svg]:w-full">
-                      {icons[item.icon]}
-                    </span>
-                    <span className="truncate">{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-5 flex items-center justify-end border-t border-[var(--line)] pt-4">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              void signOut();
-            }}
-            className="tap text-sm font-semibold text-[var(--text-muted)]"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const BottomBar = ({
-  onMore,
-  moreActive = false,
+  portfolioTarget,
   hidden = false,
 }: {
-  onMore: () => void;
-  moreActive?: boolean;
+  portfolioTarget: string;
   hidden?: boolean;
 }) => {
+  const location = useLocation();
+
+  const tabs: NavEntry[] = [
+    { to: '/', label: 'Overview', icon: 'overview', end: true },
+    {
+      to: portfolioTarget,
+      label: 'Portfolio',
+      icon: 'positions',
+      matchPrefixes: PORTFOLIO_PREFIXES,
+    },
+    {
+      to: '/expenses',
+      label: 'Spending',
+      icon: 'expenses',
+      matchPrefixes: ['/expenses'],
+    },
+    {
+      to: '/transactions',
+      label: 'Activity',
+      icon: 'transactions',
+      matchPrefixes: ['/transactions'],
+    },
+    {
+      to: '/accounts',
+      label: 'Accounts',
+      icon: 'accounts',
+      matchPrefixes: ['/accounts'],
+    },
+  ];
+
   return (
     <nav
       id="app-bottom-bar"
+      aria-label="Primary mobile navigation"
       style={{
         height: 'var(--bottom-bar-total-h)',
         paddingTop: 'var(--bottom-bar-pad-t)',
@@ -295,80 +377,62 @@ const BottomBar = ({
         hidden ? 'invisible opacity-0 pointer-events-none' : 'visible opacity-100'
       }`}
     >
-      {primaryTabs.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          style={{
-            height: 'var(--bottom-bar-item-h)',
-            fontSize: 'var(--bottom-bar-font)',
-          }}
-          className={({ isActive }) =>
-            `tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold transition-colors ${
-              isActive
-                ? 'text-[var(--accent)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              {isActive && (
-                <span className="absolute top-0 h-[2px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
-              )}
-              <span
-                style={{
-                  width: 'var(--bottom-bar-icon)',
-                  height: 'var(--bottom-bar-icon)',
-                }}
-                className="[&>svg]:h-full [&>svg]:w-full"
-              >
-                {icons[item.icon]}
-              </span>
-              <span className="leading-none">{item.label}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
-      <button
-        type="button"
-        onClick={onMore}
-        style={{
-          height: 'var(--bottom-bar-item-h)',
-          fontSize: 'var(--bottom-bar-font)',
-        }}
-        className={`tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold transition-colors ${
-          moreActive
-            ? 'text-[var(--accent)]'
-            : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
-        }`}
-      >
-        {moreActive && (
-          <span className="absolute top-0 h-[2px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
-        )}
-        <span
-          style={{
-            width: 'var(--bottom-bar-icon)',
-            height: 'var(--bottom-bar-icon)',
-          }}
-          className="[&>svg]:h-full [&>svg]:w-full"
-        >
-          {icons.more}
-        </span>
-        <span className="leading-none">More</span>
-      </button>
+      {tabs.map((item) => {
+        const isMatchedByPrefix = item.matchPrefixes?.some((prefix) =>
+          location.pathname.startsWith(prefix),
+        );
+        return (
+          <NavLink
+            key={item.label}
+            to={item.to}
+            end={item.end}
+            style={{
+              height: 'var(--bottom-bar-item-h)',
+              fontSize: 'var(--bottom-bar-font)',
+            }}
+            className={({ isActive }) => {
+              const active = isActive || Boolean(isMatchedByPrefix);
+              return `tap relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl font-semibold transition-colors ${
+                active
+                  ? 'text-[var(--accent)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-2)]'
+              }`;
+            }}
+          >
+            {({ isActive }) => {
+              const active = isActive || Boolean(isMatchedByPrefix);
+              return (
+                <>
+                  {active && (
+                    <span className="absolute top-0 h-[2px] w-7 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                  )}
+                  <span
+                    style={{
+                      width: 'var(--bottom-bar-icon)',
+                      height: 'var(--bottom-bar-icon)',
+                    }}
+                    className="[&>svg]:h-full [&>svg]:w-full"
+                  >
+                    {icons[item.icon]}
+                  </span>
+                  <span className="leading-none">{item.label}</span>
+                </>
+              );
+            }}
+          </NavLink>
+        );
+      })}
     </nav>
   );
 };
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
-  const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [offline, setOffline] = useState(
     () => typeof navigator !== 'undefined' && !navigator.onLine,
   );
   const location = useLocation();
+  const lastPortfolioPath = useRef('/positions');
   const recurring = useProcessRecurring();
   const ranRecurring = useRef(false);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -376,10 +440,26 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const globalSync = useGlobalSync();
   const biometric = useBiometricLock();
   const privacyOn = usePrivacy();
+  const connection = useT212Connection();
   const { keyboardOpen, healViewport, scheduleHeal } = useViewportHeal(
     shellRef,
     mainRef,
   );
+
+  const inPortfolioHub = PORTFOLIO_PREFIXES.some((prefix) =>
+    location.pathname.startsWith(prefix),
+  );
+  const inSettingsHub = SETTINGS_PREFIXES.some((prefix) =>
+    location.pathname.startsWith(prefix),
+  );
+  const t212Connected =
+    connection.data !== null && connection.data !== undefined;
+
+  useEffect(() => {
+    if (inPortfolioHub) {
+      lastPortfolioPath.current = location.pathname;
+    }
+  }, [inPortfolioHub, location.pathname]);
 
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0);
@@ -388,12 +468,11 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
 
   const prevOverlay = useRef(false);
   useEffect(() => {
-    const anyOpen = moreOpen || paletteOpen;
-    if (prevOverlay.current && !anyOpen) {
+    if (prevOverlay.current && !paletteOpen) {
       scheduleHeal();
     }
-    prevOverlay.current = anyOpen;
-  }, [moreOpen, paletteOpen, scheduleHeal]);
+    prevOverlay.current = paletteOpen;
+  }, [paletteOpen, scheduleHeal]);
 
   useEffect(() => {
     if (ranRecurring.current) return;
@@ -424,6 +503,12 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // When already inside the Portfolio hub, tapping Portfolio returns to /positions;
+  // otherwise it restores the last visited Portfolio sub-tab.
+  const portfolioTarget = inPortfolioHub
+    ? '/positions'
+    : lastPortfolioPath.current;
+
   return (
     <div
       id="app-shell"
@@ -437,10 +522,25 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       )}
       <Sidebar onCommand={() => setPaletteOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2.5 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
-          <StrataMark size={26} />
-          <span className="text-sm font-extrabold tracking-[0.14em]">STRATA</span>
-          <div className="ml-auto flex items-center gap-2">
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--bg)] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
+          <Link to="/" className="tap flex items-center gap-2">
+            <StrataMark size={26} />
+            <span className="text-sm font-extrabold tracking-[0.14em]">
+              STRATA
+            </span>
+          </Link>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Quick search and commands"
+              title="Quick search (⌘K)"
+              className="tap flex h-8 w-8 items-center justify-center rounded-[var(--radius-field)] border border-[var(--line)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-strong)]"
+            >
+              <span className="h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                {icons.search}
+              </span>
+            </button>
             <button
               type="button"
               onClick={togglePrivacy}
@@ -484,8 +584,30 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
               >
                 {icons.sync}
               </span>
-              <span>{globalSync.isPending ? 'Syncing…' : 'Sync'}</span>
+              <span className="hidden xs:inline">
+                {globalSync.isPending ? 'Syncing…' : 'Sync'}
+              </span>
             </button>
+            <NavLink
+              to="/settings"
+              aria-label="Settings and integrations"
+              title="Settings & Integrations"
+              className={`tap relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-field)] border transition ${
+                inSettingsHub
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  : 'border-[var(--line)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-strong)]'
+              }`}
+            >
+              <span className="h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                {icons.settings}
+              </span>
+              {t212Connected && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--positive)] ring-2 ring-[var(--bg)]"
+                />
+              )}
+            </NavLink>
           </div>
         </header>
         <main
@@ -499,17 +621,9 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           </div>
         </main>
       </div>
-      <BottomBar
-        onMore={() => setMoreOpen((open) => !open)}
-        moreActive={
-          moreOpen ||
-          MORE_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))
-        }
-        hidden={keyboardOpen}
-      />
-      {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
+      <BottomBar portfolioTarget={portfolioTarget} hidden={keyboardOpen} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      {!moreOpen && <QuickAdd hidden={keyboardOpen} />}
+      <QuickAdd hidden={keyboardOpen} />
       <BiometricGate />
       <Toaster />
     </div>
