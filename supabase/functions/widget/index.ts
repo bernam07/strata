@@ -44,6 +44,27 @@ Deno.serve(async (req) => {
     .maybeSingle<{ user_id: string }>();
   if (!owner) return json({ error: 'invalid token' }, 401);
 
+  // Auto-correct any legacy/erroneous positive expense amounts for this user
+  try {
+    const { data: positiveExpenses } = await db
+      .from('transactions')
+      .select('id, amount')
+      .eq('user_id', owner.user_id)
+      .eq('kind', 'expense')
+      .gt('amount', 0);
+
+    if (positiveExpenses && positiveExpenses.length > 0) {
+      for (const tx of positiveExpenses) {
+        await db
+          .from('transactions')
+          .update({ amount: -Math.abs(Number(tx.amount)) })
+          .eq('id', tx.id);
+      }
+    }
+  } catch {
+    // Non-critical auto-heal
+  }
+
   // POST endpoint: log expense automatically from Apple Shortcuts / Wallet / webhook
   if (req.method === 'POST') {
     let body: Record<string, unknown> = {};
@@ -57,6 +78,10 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
       return json({ error: 'invalid or missing amount' }, 400);
     }
+
+    const kind = String(body.kind ?? 'expense').toLowerCase();
+    const isOutflow = ['expense', 'withdrawal', 'fee', 'buy'].includes(kind);
+    const signedAmount = isOutflow ? -rawAmount : rawAmount;
 
     const merchant = String(
       body.merchant ?? body.note ?? body.description ?? '',
@@ -101,8 +126,8 @@ Deno.serve(async (req) => {
       .insert({
         user_id: owner.user_id,
         account_id: targetAccount.id,
-        kind: 'expense',
-        amount: rawAmount,
+        kind,
+        amount: signedAmount,
         currency: targetAccount.currency || 'EUR',
         fx_rate: 1,
         occurred_at: occurredAt,
@@ -117,12 +142,63 @@ Deno.serve(async (req) => {
       return json({ error: insertError.message }, 500);
     }
 
+    // Optional auto-categorization
+    if (inserted?.id) {
+      try {
+        const catQuery = String(body.category ?? '').toLowerCase().trim();
+        const { data: userCategories } = await db
+          .from('categories')
+          .select('id, name')
+          .eq('user_id', owner.user_id);
+
+        let matchedCat =
+          catQuery && userCategories
+            ? userCategories.find((c) => c.name.toLowerCase() === catQuery)
+            : undefined;
+
+        if (!matchedCat && note && note !== 'Apple Pay / Wallet') {
+          const { data: prior } = await db
+            .from('transactions')
+            .select('id')
+            .eq('user_id', owner.user_id)
+            .eq('note', note)
+            .neq('id', inserted.id)
+            .limit(5);
+
+          if (prior && prior.length > 0) {
+            const priorIds = prior.map((p) => p.id);
+            const { data: priorCat } = await db
+              .from('transaction_categories')
+              .select('category_id')
+              .in('transaction_id', priorIds)
+              .limit(1);
+
+            if (priorCat && priorCat[0]) {
+              matchedCat = userCategories?.find(
+                (c) => c.id === priorCat[0]!.category_id,
+              );
+            }
+          }
+        }
+
+        if (matchedCat) {
+          await db.from('transaction_categories').insert({
+            transaction_id: inserted.id,
+            user_id: owner.user_id,
+            category_id: matchedCat.id,
+          });
+        }
+      } catch {
+        // Non-critical auto-categorization
+      }
+    }
+
     return json({
       ok: true,
-      message: `Expense logged in ${targetAccount.name}`,
+      message: `Expense of €${rawAmount.toFixed(2)} logged in ${targetAccount.name}`,
       transaction: inserted,
       account: targetAccount.name,
-      amount: rawAmount,
+      amount: signedAmount,
     });
   }
 
