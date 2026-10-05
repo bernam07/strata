@@ -114,12 +114,35 @@ Deno.serve(async (req) => {
         )
       : undefined;
 
+    // If card wasn't explicitly matched, try to infer account from user's transaction history for this merchant
+    if (!targetAccount && note && note !== 'Apple Pay / Wallet') {
+      try {
+        const { data: pastMerchantTx } = await db
+          .from('transactions')
+          .select('account_id')
+          .eq('user_id', owner.user_id)
+          .ilike('note', note)
+          .order('occurred_at', { ascending: false })
+          .limit(1);
+
+        if (pastMerchantTx && pastMerchantTx.length > 0 && pastMerchantTx[0]?.account_id) {
+          targetAccount = accounts.find((a) => a.id === pastMerchantTx[0].account_id);
+        }
+      } catch {
+        // Non-critical auto-account detection
+      }
+    }
+
     // Otherwise, pick the primary cash account, or the first account
     if (!targetAccount) {
       targetAccount = accounts.find((a) => a.type === 'cash') ?? accounts[0]!;
     }
 
-    const externalId = body.transactionId ? String(body.transactionId) : null;
+    const isExplicitlyConfirmed = body.pending === false || body.confirmed === true;
+    const rawExternalId = body.transactionId ? String(body.transactionId) : crypto.randomUUID();
+    const externalId = isExplicitlyConfirmed
+      ? `wallet:confirmed:${rawExternalId}`
+      : `wallet:pending:${rawExternalId}`;
 
     const { data: inserted, error: insertError } = await db
       .from('transactions')
@@ -135,7 +158,7 @@ Deno.serve(async (req) => {
         source: 'manual',
         external_id: externalId,
       })
-      .select('id, amount, note, occurred_at')
+      .select('id, amount, note, occurred_at, external_id')
       .single();
 
     if (insertError) {
@@ -199,6 +222,7 @@ Deno.serve(async (req) => {
       transaction: inserted,
       account: targetAccount.name,
       amount: signedAmount,
+      pending: !isExplicitlyConfirmed,
     });
   }
 

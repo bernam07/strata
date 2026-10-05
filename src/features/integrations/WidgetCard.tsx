@@ -523,11 +523,13 @@ export const WidgetCard = () => {
                     <code>amount</code> = Variável da Transação <i>(Quantia)</i>
                     <br />
                     <code>merchant</code> = Variável da Transação <i>(Comerciante)</i>
+                    <br />
+                    <code>card</code> <i>(opcional)</i> = Nome da conta no Strata <i>(ex: Edenred, Pessoal, CGD, ActivoBank)</i>
                   </li>
                 </ul>
               </li>
               <li>
-                Pronto! Cada compra feita no terminal com o iPhone ou Apple Watch entra automaticamente como despesa na tua conta à ordem!
+                Pronto! As compras entram identificadas como <b>Apple Pay</b> e surgem na secção <b>Por Rever</b> para poderes confirmar ou trocar a conta/categoria com 1 toque. Se comprares no mesmo comerciante habitualmente, o Strata memoriza a conta e categoria automaticamente!
               </li>
             </ol>
 
@@ -549,6 +551,7 @@ export const WidgetCard = () => {
                       {
                         amount: 12.5,
                         merchant: 'Continente',
+                        card: 'Edenred',
                       },
                       null,
                       2,

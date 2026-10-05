@@ -118,28 +118,79 @@ export const useCreateTransfer = () => {
 
 export interface EditTransaction {
   id: string;
+  accountId?: string;
   kind: TransactionKind;
   amount: string;
   occurredAt: string;
   note: string | null;
+  externalId?: string | null;
 }
 
 export const useUpdateTransaction = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (input: EditTransaction) => {
+      const patch: {
+        account_id?: string;
+        kind: TransactionKind;
+        amount: string;
+        occurred_at: string;
+        note: string | null;
+        external_id?: string | null;
+      } = {
+        kind: input.kind,
+        amount: input.amount,
+        occurred_at: input.occurredAt,
+        note: input.note,
+      };
+      if (input.accountId !== undefined) {
+        patch.account_id = input.accountId;
+      }
+      if (input.externalId !== undefined) {
+        patch.external_id = input.externalId;
+      }
       const { error } = await supabase
         .from('transactions')
-        .update({
-          kind: input.kind,
-          amount: input.amount,
-          occurred_at: input.occurredAt,
-          note: input.note,
-        })
+        .update(patch)
         .eq('id', input.id);
       if (error) throw error;
     },
-    onSuccess: () => client.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['transactions'] });
+      client.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
+
+export const useConfirmWalletTransaction = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      accountId,
+    }: {
+      id: string;
+      accountId?: string;
+    }) => {
+      const patch: {
+        external_id: string;
+        account_id?: string;
+      } = {
+        external_id: 'wallet:confirmed',
+      };
+      if (accountId) {
+        patch.account_id = accountId;
+      }
+      const { error } = await supabase
+        .from('transactions')
+        .update(patch)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['transactions'] });
+      client.invalidateQueries({ queryKey: ['accounts'] });
+    },
   });
 };
 

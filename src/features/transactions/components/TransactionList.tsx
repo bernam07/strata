@@ -17,6 +17,7 @@ import {
   qty4 as quantityFormatter,
 } from '@/ui/format';
 import { toast } from '@/ui/toast';
+import { useConfirmWalletTransaction } from '../api/useTransactions';
 
 const formatDayHeading = (dayKey: string): string => {
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -87,6 +88,7 @@ export const TransactionList = ({
   const { data: assignments } = useAssignments();
   const assignCategory = useAssignCategory();
   const assignBulk = useAssignCategoriesBulk();
+  const confirmWallet = useConfirmWalletTransaction();
 
   const categoriesById = useMemo(
     () => new Map(categories.map((cat) => [cat.id, cat])),
@@ -257,7 +259,9 @@ export const TransactionList = ({
               const canRepeat = Boolean(
                 onRepeat && (isManualSingle || isManualTransfer),
               );
-              const hasActions = canEdit || canRepeat || canReverse || canDelete;
+              const isPendingWallet = transaction.externalId?.startsWith('wallet:pending');
+              const isConfirmedWallet = transaction.externalId?.startsWith('wallet:confirmed');
+              const hasActions = canEdit || canRepeat || canReverse || canDelete || isPendingWallet;
               const isExpanded = expandedId === transaction.id;
 
               const instrument = transaction.instrumentId
@@ -371,9 +375,22 @@ export const TransactionList = ({
                         </div>
                       )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
-                        {title}
-                      </p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
+                          {title}
+                        </p>
+                        {isPendingWallet && (
+                          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)] border border-[var(--accent)]/30">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                            Apple Pay · Pendente
+                          </span>
+                        )}
+                        {isConfirmedWallet && (
+                          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[9.5px] font-semibold text-[var(--text-muted)] border border-[var(--line)]">
+                            💳 Apple Pay
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <p className="truncate text-xs text-[var(--text-muted)]">
                           {meta.join(' · ')}
@@ -464,6 +481,28 @@ export const TransactionList = ({
                         className="hidden items-center gap-1 md:flex"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {isPendingWallet && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              confirmWallet.mutate(
+                                { id: transaction.id },
+                                {
+                                  onSuccess: () =>
+                                    toast('Transação confirmada ✓'),
+                                },
+                              )
+                            }
+                            disabled={confirmWallet.isPending}
+                            title="Confirmar transação do Apple Pay"
+                            className="tap flex h-8 items-center gap-1.5 rounded-[var(--radius-field)] bg-[var(--accent-soft)] px-2.5 text-xs font-bold text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition shadow-sm"
+                          >
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>Confirmar</span>
+                          </button>
+                        )}
                         {canRepeat && onRepeat && (
                           <button
                             type="button"
@@ -630,6 +669,28 @@ export const TransactionList = ({
 
                   {hasActions && isExpanded && (
                     <div className="mt-2.5 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--line)] pt-2.5 md:hidden">
+                      {isPendingWallet && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedId(null);
+                            confirmWallet.mutate(
+                              { id: transaction.id },
+                              {
+                                onSuccess: () =>
+                                  toast('Transação confirmada ✓'),
+                              },
+                            );
+                          }}
+                          disabled={confirmWallet.isPending}
+                          className="tap flex items-center gap-1.5 rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm"
+                        >
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span>Confirmar</span>
+                        </button>
+                      )}
                       {canRepeat && onRepeat && (
                         <button
                           type="button"

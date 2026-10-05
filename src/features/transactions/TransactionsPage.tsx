@@ -20,9 +20,11 @@ import {
 } from '@/features/expenses/api/useCategories';
 import { useInstruments } from '@/features/positions/api/usePositions';
 import {
+  useConfirmWalletTransaction,
   useDeleteTransaction,
   useReverseTransaction,
   useTransactions,
+  useUpdateTransaction,
   type TransactionFilter,
 } from './api/useTransactions';
 import { toast } from '@/ui/toast';
@@ -37,6 +39,7 @@ import { RecurringManager } from './components/RecurringManager';
 type AddMode = 'none' | 'transaction' | 'transfer';
 type QuickKindFilter =
   | 'all'
+  | 'pending'
   | 'expenses'
   | 'uncategorized'
   | 'income'
@@ -58,6 +61,8 @@ export const TransactionsPage = () => {
   const { cycle } = usePaydayCycle();
   const reverse = useReverseTransaction();
   const del = useDeleteTransaction();
+  const updateTx = useUpdateTransaction();
+  const confirmWallet = useConfirmWalletTransaction();
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,10 +131,22 @@ export const TransactionsPage = () => {
     [transactions, assignments],
   );
 
+  const pendingWalletTransactions = useMemo(
+    () =>
+      transactions.filter((tx) =>
+        tx.externalId?.startsWith('wallet:pending'),
+      ),
+    [transactions],
+  );
+
   const visibleTransactions = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return transactions.filter((transaction) => {
-      if (quickKind === 'expenses') {
+      if (quickKind === 'pending') {
+        if (!transaction.externalId?.startsWith('wallet:pending')) {
+          return false;
+        }
+      } else if (quickKind === 'expenses') {
         if (transaction.kind !== 'expense' && transaction.kind !== 'fee') {
           return false;
         }
@@ -361,6 +378,142 @@ export const TransactionsPage = () => {
         </Collapsible>
       )}
 
+      {pendingWalletTransactions.length > 0 && (
+        <Card className="flex flex-col gap-3 border border-[var(--accent)]/30 bg-[color-mix(in_srgb,var(--accent)_4%,var(--surface-sunken))] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--accent-soft)] text-sm shadow-sm">
+                💳
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-[var(--text-strong)]">
+                    Apple Pay · {pendingWalletTransactions.length}{' '}
+                    {pendingWalletTransactions.length === 1
+                      ? 'compra para rever'
+                      : 'compras para rever'}
+                  </h3>
+                  <span className="rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]">
+                    Pendente
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Verifica a conta e categoria das compras antes de confirmar.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col divide-y divide-[var(--line)] rounded-[var(--radius-field)] neu-flat">
+            {pendingWalletTransactions.map((tx) => {
+              const assignedCatId = assignments?.get(tx.id);
+              const assignedCat = assignedCatId
+                ? categoryNameById.get(assignedCatId)
+                : undefined;
+              return (
+                <div
+                  key={tx.id}
+                  className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-[var(--text-strong)] truncate">
+                        {tx.note || 'Apple Pay'}
+                      </span>
+                      <span className="font-bold text-sm tabular-nums text-[var(--negative)]">
+                        −€{Math.abs(Number(tx.amount)).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                      {/* Account Selector Pill */}
+                      <div className="inline-flex items-center gap-1">
+                        <span className="text-[11px] text-[var(--text-muted)]">
+                          Conta:
+                        </span>
+                        <div className="relative inline-flex items-center">
+                          <select
+                            aria-label="Conta atribuída"
+                            value={tx.accountId}
+                            onChange={(e) => {
+                              const newAccId = e.target.value;
+                              updateTx.mutate({
+                                id: tx.id,
+                                accountId: newAccId,
+                                kind: tx.kind,
+                                amount: tx.amount,
+                                occurredAt: tx.occurredAt,
+                                note: tx.note,
+                              });
+                            }}
+                            className="tap appearance-none rounded-full neu-sunken py-0.5 pl-2.5 pr-6 text-[11px] font-bold text-[var(--accent)] border border-[var(--accent)]/30 focus:border-[var(--accent)] outline-none cursor-pointer"
+                          >
+                            {accounts.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="pointer-events-none absolute right-2 text-[8px] text-[var(--accent)]">
+                            ▼
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Category */}
+                      <div className="inline-flex items-center gap-1">
+                        <span className="text-[11px] text-[var(--text-muted)]">
+                          Categoria:
+                        </span>
+                        {assignedCat ? (
+                          <span className="rounded-full bg-[var(--surface-sunken)] border border-[var(--line)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-2)]">
+                            🏷️ {assignedCat}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditing(tx)}
+                            className="tap rounded-full border border-dashed border-[var(--line)] px-2 py-0.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+                          >
+                            + Atribuir
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() =>
+                        confirmWallet.mutate(
+                          { id: tx.id },
+                          {
+                            onSuccess: () =>
+                              toast('Transação da Wallet confirmada ✓'),
+                          },
+                        )
+                      }
+                      disabled={confirmWallet.isPending}
+                    >
+                      Confirmar ✓
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditing(tx)}
+                    >
+                      Editar
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_200px]">
@@ -390,19 +543,27 @@ export const TransactionsPage = () => {
           <div className="flex flex-wrap items-center gap-1.5">
             {(
               [
-                { value: 'all', label: 'All' },
-                { value: 'expenses', label: 'Expenses' },
+                { value: 'all' as const, label: 'All' },
+                ...(pendingWalletTransactions.length > 0
+                  ? [
+                      {
+                        value: 'pending' as const,
+                        label: `💳 Apple Pay (${pendingWalletTransactions.length})`,
+                      },
+                    ]
+                  : []),
+                { value: 'expenses' as const, label: 'Expenses' },
                 {
-                  value: 'uncategorized',
+                  value: 'uncategorized' as const,
                   label:
                     uncategorizedCount > 0
                       ? `Uncategorized (${uncategorizedCount})`
                       : 'Uncategorized',
                 },
-                { value: 'income', label: 'Income' },
-                { value: 'transfers', label: 'Transfers' },
-                { value: 'investments', label: 'Investments' },
-              ] as const
+                { value: 'income' as const, label: 'Income' },
+                { value: 'transfers' as const, label: 'Transfers' },
+                { value: 'investments' as const, label: 'Investments' },
+              ]
             ).map((chip) => {
               const active = quickKind === chip.value;
               return (

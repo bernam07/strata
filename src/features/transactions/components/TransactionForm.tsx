@@ -372,10 +372,14 @@ export const TransactionForm = ({
       if (editing) {
         await update.mutateAsync({
           id: existing.id,
+          accountId,
           kind,
           amount,
           occurredAt,
           note: baseNote || null,
+          externalId: existing.externalId?.startsWith('wallet:pending')
+            ? existing.externalId.replace('wallet:pending', 'wallet:confirmed')
+            : existing.externalId,
         });
         if (categoryTouched) {
           const category = await resolveCategory();
@@ -684,13 +688,12 @@ export const TransactionForm = ({
               <button
                 key={account.id}
                 type="button"
-                disabled={editing}
                 onClick={() => {
                   setAccountId(account.id);
                   setReimburseAccountId(account.id);
                   setAccountTouched(true);
                 }}
-                className={`tap flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
+                className={`tap flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                   active
                     ? 'neu-sunken border border-[var(--accent)] text-[var(--text-strong)] shadow-[0_0_12px_-4px_var(--accent)]'
                     : 'neu-flat text-[var(--text-muted)] hover:text-[var(--text-strong)]'

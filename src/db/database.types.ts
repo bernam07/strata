@@ -118,10 +118,12 @@ export interface Database {
           instrument_id?: string | null;
         };
         Update: {
+          account_id?: string;
           kind?: TransactionKind;
           amount?: string;
           occurred_at?: string;
           note?: string | null;
+          external_id?: string | null;
         };
         Relationships: [
           {

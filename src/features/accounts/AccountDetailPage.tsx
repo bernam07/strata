@@ -206,7 +206,7 @@ export const AccountDetailPage = () => {
       >
         {account && editingTx && (
           <TransactionForm
-            accounts={[account]}
+            accounts={accounts}
             existing={editingTx}
             onDone={() => setEditingTx(null)}
           />
