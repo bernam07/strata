@@ -32,18 +32,20 @@ const POKEMON_CONDITIONS = [
 ];
 
 const LEGO_CONDITIONS = [
-  { value: 'Selado de Fábrica (MISB)', label: 'Selado de Fábrica (MISB)' },
-  { value: 'Selado c/ Danos Caixa', label: 'Selado c/ Danos na Caixa' },
-  { value: 'Montado Completo c/ Caixa & Manual', label: 'Montado Completo c/ Caixa & Manual' },
-  { value: 'Montado Completo sem Caixa', label: 'Montado Completo sem Caixa' },
-  { value: 'Incompleto / Peças', label: 'Incompleto / Peças' },
+  { value: 'Factory Sealed (MISB)', label: 'Factory Sealed (MISB)' },
+  { value: 'Sealed w/ Box Wear', label: 'Sealed w/ Box Wear' },
+  { value: 'Complete w/ Box & Manual', label: 'Complete w/ Box & Manual' },
+  { value: 'Complete without Box', label: 'Complete without Box' },
+  { value: 'Minifigure Mint / Complete', label: 'Minifigure Mint / Complete' },
+  { value: 'Loose / Parts', label: 'Loose / Parts' },
 ];
 
 const GENERIC_CONDITIONS = [
-  { value: 'Novo / Mint', label: 'Novo / Mint' },
-  { value: 'Excelente', label: 'Excelente' },
-  { value: 'Bom estado', label: 'Bom estado' },
-  { value: 'Usado / Vintage', label: 'Usado / Vintage' },
+  { value: 'Brand New / Mint', label: 'Brand New / Mint' },
+  { value: 'Near Mint / Excellent', label: 'Near Mint / Excellent' },
+  { value: 'Very Good', label: 'Very Good' },
+  { value: 'Good / Used', label: 'Good / Used' },
+  { value: 'Vintage / Worn', label: 'Vintage / Worn' },
 ];
 
 export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleModalProps) => {
@@ -82,7 +84,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast('Indica o nome do ativo', 'error');
+      toast('Please specify asset name', 'error');
       return;
     }
 
@@ -106,11 +108,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
       },
       {
         onSuccess: () => {
-          toast('Ativo atualizado', 'success');
+          toast('Asset updated successfully', 'success');
           onClose();
         },
         onError: (err) => {
-          toast(err instanceof Error ? err.message : 'Falha ao atualizar ativo', 'error');
+          toast(err instanceof Error ? err.message : 'Failed to update asset', 'error');
         },
       },
     );
@@ -124,11 +126,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
 
     remove.mutate(collectible.id, {
       onSuccess: () => {
-        toast('Ativo removido do portfólio', 'success');
+        toast('Asset removed from portfolio', 'success');
         onClose();
       },
       onError: (err) => {
-        toast(err instanceof Error ? err.message : 'Falha ao remover ativo', 'error');
+        toast(err instanceof Error ? err.message : 'Failed to remove asset', 'error');
       },
     });
   };
@@ -136,7 +138,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
   return (
     <BottomSheet
       open={Boolean(collectible)}
-      title="Editar Ativo"
+      title="Edit Alternative Asset"
       subtitle={collectible.name}
       onClose={onClose}
     >
@@ -147,13 +149,13 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             <img
               src={imageUrl}
               alt={name}
-              className="max-h-40 rounded-md object-contain shadow-sm"
+              className="max-h-36 rounded-md object-contain shadow-sm"
             />
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Labelled label="Categoria">
+          <Labelled label="Category">
             <Select
               value={category}
               onChange={(e) => setCategory(e.target.value as CollectibleCategory)}
@@ -166,9 +168,9 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             </Select>
           </Labelled>
 
-          <Labelled label="Condição / Estado">
+          <Labelled label="Condition / Grade">
             <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
-              <option value="">Não especificado</option>
+              <option value="">Unspecified</option>
               {(category === 'pokemon'
                 ? POKEMON_CONDITIONS
                 : category === 'lego'
@@ -183,7 +185,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
           </Labelled>
 
           <div className="sm:col-span-2">
-            <Labelled label="Nome do Ativo">
+            <Labelled label="Asset Name">
               <TextInput
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -192,14 +194,14 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             </Labelled>
           </div>
 
-          <Labelled label="Identificador / Ref">
+          <Labelled label="Identifier / Reference">
             <TextInput
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
             />
           </Labelled>
 
-          <Labelled label="Qtd">
+          <Labelled label="Quantity">
             <TextInput
               type="number"
               min="1"
@@ -212,14 +214,14 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Labelled label="Preço Compra (€)">
+          <Labelled label="Purchase Price (€)">
             <MoneyInput
               value={purchasePrice}
               onChange={setPurchasePrice}
             />
           </Labelled>
 
-          <Labelled label="Cotação Atual (€)">
+          <Labelled label="Current Value (€)">
             <MoneyInput
               value={currentPrice}
               onChange={setCurrentPrice}
@@ -228,7 +230,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Labelled label="Data de Aquisição">
+          <Labelled label="Acquisition Date">
             <TextInput
               type="date"
               value={purchaseDate}
@@ -236,7 +238,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             />
           </Labelled>
 
-          <Labelled label="URL da Imagem">
+          <Labelled label="Image URL">
             <TextInput
               type="url"
               value={imageUrl}
@@ -245,7 +247,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
           </Labelled>
         </div>
 
-        <Labelled label="Notas">
+        <Labelled label="Notes & Provenance">
           <TextInput
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -262,15 +264,15 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                 : 'text-[var(--text-muted)] hover:text-[var(--negative)]'
             }`}
           >
-            {confirmDelete ? 'Confirmar remoção?' : 'Remover do portfólio'}
+            {confirmDelete ? 'Confirm deletion?' : 'Delete from portfolio'}
           </button>
 
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancelar
+              Cancel
             </Button>
             <Button type="submit" disabled={update.isPending || !name.trim()}>
-              {update.isPending ? 'A guardar...' : 'Guardar'}
+              {update.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
           </div>
         </div>

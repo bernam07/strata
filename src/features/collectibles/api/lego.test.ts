@@ -20,6 +20,11 @@ describe('LEGO api and utilities', () => {
     it('leaves clean numbers untouched', () => {
       expect(normalizeSetNumber('10316')).toBe('10316');
     });
+
+    it('preserves minifigure set numbers with prefixes and hyphens', () => {
+      expect(normalizeSetNumber('fig-000001')).toBe('fig-000001');
+      expect(normalizeSetNumber('sw0107')).toBe('sw0107');
+    });
   });
 
   describe('getLegoImageUrl', () => {
@@ -67,6 +72,13 @@ describe('LEGO api and utilities', () => {
       expect(results[0]?.imageUrl).toBe(
         'https://images.brickset.com/sets/images/99999-1.jpg',
       );
+    });
+
+    it('finds curated minifigures like Boba Fett Cloud City', async () => {
+      const results = await searchLegoSets('Boba Fett');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.some((s) => s.setNumber === 'sw0107')).toBe(true);
+      expect(results.some((s) => s.type === 'minifig')).toBe(true);
     });
   });
 

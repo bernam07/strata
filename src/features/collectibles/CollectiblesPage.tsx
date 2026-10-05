@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import { icons } from '@/app/icons';
 import { AmountInline } from '@/ui/Amount';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -7,9 +9,9 @@ import { PortfolioNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { PageHero } from '@/ui/PageHero';
 import { Stat } from '@/ui/Stat';
+import { TextInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
 import {
-  CATEGORY_ICONS,
   CATEGORY_LABELS,
   useCollectibles,
   useRefreshPokemonPrices,
@@ -20,6 +22,7 @@ import {
   useIncludeCollectiblesInNetWorth,
   useSetIncludeCollectiblesInNetWorth,
 } from '@/features/dashboard/api/usePreferences';
+import { CategoryIcon } from './components/CategoryIcon';
 import { AddCollectibleModal } from './components/AddCollectibleModal';
 import { EditCollectibleModal } from './components/EditCollectibleModal';
 
@@ -32,6 +35,7 @@ export const CollectiblesPage = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Collectible | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CollectibleCategory | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const totals = useMemo(() => {
@@ -58,9 +62,21 @@ export const CollectiblesPage = () => {
   }, [collectibles]);
 
   const filteredItems = useMemo(() => {
-    if (selectedCategory === 'all') return collectibles;
-    return collectibles.filter((item) => item.category === selectedCategory);
-  }, [collectibles, selectedCategory]);
+    let list = collectibles;
+    if (selectedCategory !== 'all') {
+      list = list.filter((item) => item.category === selectedCategory);
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          item.identifier?.toLowerCase().includes(q) ||
+          item.notes?.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [collectibles, selectedCategory, searchQuery]);
 
   const categoriesWithCounts = useMemo(() => {
     const counts = new Map<CollectibleCategory, number>();
@@ -73,7 +89,7 @@ export const CollectiblesPage = () => {
   const handleRefreshPokemon = () => {
     const pokemonCount = collectibles.filter((c) => c.category === 'pokemon' && c.identifier).length;
     if (pokemonCount === 0) {
-      toast('Nenhuma carta com identificador TCGdex para atualizar', 'info');
+      toast('No Pokémon cards with TCGdex identifiers found to sync', 'info');
       return;
     }
 
@@ -81,13 +97,13 @@ export const CollectiblesPage = () => {
       onSuccess: (count) => {
         toast(
           count > 0
-            ? `${count} carta${count > 1 ? 's' : ''} atualizada${count > 1 ? 's' : ''} com cotações Cardmarket!`
-            : 'As cotações das cartas já estão atualizadas.',
+            ? `${count} card${count > 1 ? 's' : ''} updated with live Cardmarket prices!`
+            : 'Cardmarket prices are already up to date.',
           'success',
         );
       },
       onError: (err) => {
-        toast(err instanceof Error ? err.message : 'Falha ao atualizar cotações', 'error');
+        toast(err instanceof Error ? err.message : 'Failed to sync prices', 'error');
       },
     });
   };
@@ -100,7 +116,7 @@ export const CollectiblesPage = () => {
 
       <PageHeader
         title="Alternative Assets"
-        subtitle="Colecionáveis, cartas Pokémon, LEGO e ativos tangíveis com cotações de mercado."
+        subtitle="Collectibles, Pokémon cards, LEGO sets & minifigures, and tangible assets with live market tracking."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -111,8 +127,8 @@ export const CollectiblesPage = () => {
                   onSuccess: () => {
                     toast(
                       next
-                        ? 'Ativos alternativos somados ao Net Worth principal'
-                        : 'Ativos alternativos excluídos do Net Worth principal',
+                        ? 'Alternative assets included in core Net Worth'
+                        : 'Alternative assets excluded from core Net Worth',
                       'info',
                     );
                   },
@@ -121,21 +137,21 @@ export const CollectiblesPage = () => {
               disabled={setIncludeInNetWorth.isPending}
               title={
                 includeInNetWorth
-                  ? 'Ativo: este valor está somado ao teu Net Worth no Dashboard'
-                  : 'Inativo: este valor está separado do teu Net Worth no Dashboard'
+                  ? 'Included: this asset value is added to your total Net Worth on the Dashboard'
+                  : 'Excluded: this asset value is kept separate from your core Net Worth on the Dashboard'
               }
               className={`tap flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
                 includeInNetWorth
-                  ? 'border-[var(--positive)]/40 bg-[var(--positive)]/10 text-[var(--positive)]'
-                  : 'border-[var(--line)] bg-[var(--surface-sunken)] text-[var(--text-muted)]'
+                  ? 'border-(--positive)/40 bg-(--positive)/10 text-(--positive)'
+                  : 'border-(--line) bg-(--surface-sunken) text-(--text-muted)'
               }`}
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  includeInNetWorth ? 'bg-[var(--positive)]' : 'bg-[var(--text-muted)]'
+                  includeInNetWorth ? 'bg-(--positive)' : 'bg-(--text-muted)'
                 }`}
               />
-              <span>{includeInNetWorth ? 'No Net Worth: Sim' : 'No Net Worth: Não'}</span>
+              <span>{includeInNetWorth ? 'In Net Worth: Yes' : 'In Net Worth: No'}</span>
             </button>
 
             {collectibles.some((c) => c.category === 'pokemon' && c.identifier) && (
@@ -146,15 +162,15 @@ export const CollectiblesPage = () => {
                 disabled={refreshPokemon.isPending}
               >
                 <span
-                  className={`mr-1.5 inline-block ${refreshPokemon.isPending ? 'animate-spin' : ''}`}
+                  className={`mr-1.5 inline-block h-3.5 w-3.5 ${refreshPokemon.isPending ? 'animate-spin' : ''}`}
                 >
-                  ⚡
+                  {icons.sync}
                 </span>
-                {refreshPokemon.isPending ? 'A atualizar...' : 'Atualizar Pokémon'}
+                {refreshPokemon.isPending ? 'Syncing…' : 'Sync Prices'}
               </Button>
             )}
             <Button size="sm" onClick={() => setAddModalOpen(true)}>
-              + Adicionar Ativo
+              + Add Collectible
             </Button>
           </div>
         }
@@ -162,7 +178,7 @@ export const CollectiblesPage = () => {
 
       {collectibles.length > 0 && (
         <PageHero
-          label="Valor Total de Colecionáveis"
+          label="Total Alternative Assets Value"
           value={totals.value}
           aside={
             totals.gainPct !== null ? (
@@ -176,173 +192,200 @@ export const CollectiblesPage = () => {
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Stat
-              label="Investido (Custo)"
+              label="Invested Cost"
               value={<AmountInline value={totals.cost} />}
             />
             <Stat
-              label="Mais-Valia Não Realizada"
+              label="Unrealized P&L"
               value={<AmountInline value={totals.gain} signed />}
               hint={
                 totals.gainPct !== null
-                  ? `${gainUp ? '+' : '−'}${(Math.abs(totals.gainPct) * 100).toFixed(1)}% de retorno`
+                  ? `${gainUp ? '+' : '−'}${(Math.abs(totals.gainPct) * 100).toFixed(1)}% total return`
                   : undefined
               }
               tone={gainUp ? 'positive' : 'negative'}
             />
             <Stat
-              label="Total de Peças / Itens"
+              label="Total Items / Sets"
               value={totals.totalItems}
-              hint={`${collectibles.length} registo${collectibles.length > 1 ? 's' : ''}`}
+              hint={`${collectibles.length} holding${collectibles.length > 1 ? 's' : ''}`}
             />
           </div>
         </PageHero>
       )}
 
-      {/* Category Filter Pills & View Mode */}
+      {/* Category Filter Pills, Search & View Mode */}
       {collectibles.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className={`tap rounded-full px-3 py-1 text-xs font-semibold transition ${
-                selectedCategory === 'all'
-                  ? 'neu-raised border border-[var(--accent)] bg-[var(--surface-raised)] text-[var(--accent)]'
-                  : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--text-strong)]'
-              }`}
-            >
-              Todos ({collectibles.length})
-            </button>
-            {(Object.keys(CATEGORY_LABELS) as CollectibleCategory[]).map((cat) => {
-              const count = categoriesWithCounts.get(cat) ?? 0;
-              if (count === 0) return null;
-              return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={`tap rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  selectedCategory === 'all'
+                    ? 'neu-raised border border-(--accent) bg-(--surface-raised) text-(--accent)'
+                    : 'neu-sunken text-(--text-muted) hover:text-(--text-strong)'
+                }`}
+              >
+                All ({collectibles.length})
+              </button>
+              {(Object.keys(CATEGORY_LABELS) as CollectibleCategory[]).map((cat) => {
+                const count = categoriesWithCounts.get(cat) ?? 0;
+                if (count === 0) return null;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`tap flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      selectedCategory === cat
+                        ? 'neu-raised border border-(--accent) bg-(--surface-raised) text-(--accent)'
+                        : 'neu-sunken text-(--text-muted) hover:text-(--text-strong)'
+                    }`}
+                  >
+                    <CategoryIcon category={cat} size={14} />
+                    <span>{CATEGORY_LABELS[cat]}</span>
+                    <span className="opacity-75">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-48 sm:w-60">
+                <TextInput
+                  value={searchQuery}
+                  placeholder="Filter holdings…"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-1 rounded-lg neu-sunken p-1 text-xs font-semibold">
                 <button
-                  key={cat}
                   type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`tap flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
-                    selectedCategory === cat
-                      ? 'neu-raised border border-[var(--accent)] bg-[var(--surface-raised)] text-[var(--accent)]'
-                      : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  onClick={() => setViewMode('grid')}
+                  className={`tap rounded px-2.5 py-1 transition ${
+                    viewMode === 'grid'
+                      ? 'neu-raised bg-(--surface-raised) text-(--text-strong)'
+                      : 'text-(--text-muted) hover:text-(--text-strong)'
                   }`}
                 >
-                  <span>{CATEGORY_ICONS[cat]}</span>
-                  <span>{CATEGORY_LABELS[cat]}</span>
-                  <span className="opacity-75">({count})</span>
+                  Grid
                 </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-1 rounded-lg neu-sunken p-1 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              className={`tap rounded px-2.5 py-1 transition ${
-                viewMode === 'grid'
-                  ? 'neu-raised bg-[var(--surface-raised)] text-[var(--text-strong)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
-              }`}
-            >
-              Grelha
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              className={`tap rounded px-2.5 py-1 transition ${
-                viewMode === 'list'
-                  ? 'neu-raised bg-[var(--surface-raised)] text-[var(--text-strong)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
-              }`}
-            >
-              Lista
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`tap rounded px-2.5 py-1 transition ${
+                    viewMode === 'list'
+                      ? 'neu-raised bg-(--surface-raised) text-(--text-strong)'
+                      : 'text-(--text-muted) hover:text-(--text-strong)'
+                  }`}
+                >
+                  List
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Main Content Area */}
       {isLoading ? (
-        <div className="flex items-center justify-center p-12 text-sm text-[var(--text-muted)]">
-          A carregar os teus colecionáveis...
+        <div className="flex items-center justify-center p-12 text-sm text-(--text-muted)">
+          Loading collectibles portfolio…
         </div>
       ) : collectibles.length === 0 ? (
         <Card className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[var(--surface-sunken)] text-3xl">
-            ⚡
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-(--surface-sunken) text-(--accent)">
+            <span className="h-8 w-8">{icons.collectibles}</span>
           </div>
           <div className="max-w-md">
-            <h3 className="text-base font-bold text-[var(--text-strong)]">
-              Nenhum ativo alternativo registado
+            <h3 className="text-base font-bold text-(--text-strong)">
+              No alternative assets added yet
             </h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">
-              Regista cartas Pokémon com cotações automáticas Cardmarket, sets de LEGO, relógios,
-              moedas ou obras de arte e acompanha a sua valorização no teu património total.
+            <p className="mt-1 text-xs text-(--text-muted) leading-relaxed">
+              Track Pokémon cards with live Cardmarket prices, LEGO sets &amp; rare minifigures via Rebrickable,
+              luxury watches, bullion coins, or fine art and monitor their appreciation in your net worth.
             </p>
           </div>
-          <Button onClick={() => setAddModalOpen(true)}>
-            + Adicionar Primeiro Ativo
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={() => setAddModalOpen(true)}>
+              + Add First Collectible
+            </Button>
+            <NavLink to="/integrations">
+              <Button variant="ghost">
+                Configure Integrations →
+              </Button>
+            </NavLink>
+          </div>
+        </Card>
+      ) : filteredItems.length === 0 ? (
+        <Card className="p-8 text-center text-xs text-(--text-muted)">
+          No items match your filter criteria.
         </Card>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredItems.map((item) => {
             const isProfit = item.gainEur >= 0;
             return (
               <div
                 key={item.id}
                 onClick={() => setEditingItem(item)}
-                className="tap group relative flex cursor-pointer flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface-raised)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:shadow-lg"
+                className="tap group relative flex cursor-pointer flex-col overflow-hidden rounded-(--radius-card) border border-(--line) bg-(--surface-raised) transition duration-200 hover:-translate-y-1 hover:border-(--accent) hover:shadow-lg"
               >
-                {/* Image container */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--surface-sunken)]">
+                {/* Proportional, well-sized Image Showcase */}
+                <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-(--surface-sunken) p-2 sm:h-40">
                   {item.imageUrl ? (
                     <img
                       src={item.imageUrl}
                       alt={item.name}
                       loading="lazy"
-                      className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105"
+                      className="max-h-full max-w-full object-contain drop-shadow-sm transition duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--text-muted)]">
-                      <span className="text-4xl">{CATEGORY_ICONS[item.category]}</span>
-                      <span className="text-xs">{CATEGORY_LABELS[item.category]}</span>
+                    <div className="flex flex-col items-center justify-center gap-1.5 text-(--text-muted)">
+                      <CategoryIcon category={item.category} size={28} />
+                      <span className="text-[10px] font-medium">{CATEGORY_LABELS[item.category]}</span>
                     </div>
                   )}
 
-                  {/* Top Badges */}
-                  <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1">
-                    <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-xs">
-                      {CATEGORY_ICONS[item.category]} {item.quantity > 1 ? `x${item.quantity}` : ''}
+                  {/* Top Category and Condition Badges */}
+                  <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+                    <span className="flex items-center gap-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+                      <CategoryIcon category={item.category} size={11} />
+                      {item.quantity > 1 ? `×${item.quantity}` : ''}
                     </span>
-                    {item.condition && (
-                      <span className="rounded-full bg-[var(--accent)]/90 px-2 py-0.5 text-[10px] font-bold text-[var(--accent-ink)] backdrop-blur-xs">
-                        {item.condition}
-                      </span>
-                    )}
                   </div>
+
+                  {item.condition && (
+                    <div className="absolute right-2 top-2">
+                      <span className="rounded-full bg-(--surface-raised)/90 px-1.5 py-0.5 text-[9px] font-bold text-(--accent) backdrop-blur-xs border border-(--line)">
+                        {item.condition.split(' ')[0]}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Card Body */}
-                <div className="flex flex-1 flex-col justify-between p-3.5">
+                <div className="flex flex-1 flex-col justify-between p-2.5 sm:p-3">
                   <div>
-                    <h4 className="line-clamp-2 text-xs font-bold text-[var(--text-strong)] group-hover:text-[var(--accent)]">
+                    <h4 className="line-clamp-2 text-xs font-bold text-(--text-strong) group-hover:text-(--accent)">
                       {item.name}
                     </h4>
                     {item.identifier && (
-                      <p className="mt-0.5 text-[11px] text-[var(--text-muted)] font-mono">
-                        {item.identifier}
+                      <p className="mt-0.5 truncate text-[10px] text-(--text-muted) font-mono">
+                        #{item.identifier}
                       </p>
                     )}
                   </div>
 
-                  <div className="mt-3 flex items-end justify-between border-t border-[var(--line)]/50 pt-2.5">
+                  <div className="mt-2.5 flex items-end justify-between border-t border-(--line)/50 pt-2">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-                        Valor
+                      <p className="text-[9px] uppercase tracking-wider text-(--text-muted)">
+                        Value
                       </p>
-                      <p className="text-sm font-extrabold text-[var(--text-strong)]">
+                      <p className="text-xs font-extrabold text-(--text-strong) sm:text-sm">
                         <AmountInline value={item.valueEur} />
                       </p>
                     </div>
@@ -350,18 +393,18 @@ export const CollectiblesPage = () => {
                     <div className="text-right">
                       {item.gainPct !== null ? (
                         <span
-                          className={`text-xs font-bold tabular-nums ${
-                            isProfit ? 'text-[var(--positive)]' : 'text-[var(--negative)]'
+                          className={`text-[11px] font-bold tabular-nums sm:text-xs ${
+                            isProfit ? 'text-(--positive)' : 'text-(--negative)'
                           }`}
                         >
                           {isProfit ? '+' : ''}
                           {(item.gainPct * 100).toFixed(1)}%
                         </span>
                       ) : (
-                        <span className="text-xs text-[var(--text-muted)]">—</span>
+                        <span className="text-[11px] text-(--text-muted) sm:text-xs">—</span>
                       )}
-                      <p className="text-[10px] text-[var(--text-muted)]">
-                        custo: <AmountInline value={item.costEur} />
+                      <p className="text-[9px] text-(--text-muted)">
+                        cost: <AmountInline value={item.costEur} />
                       </p>
                     </div>
                   </div>
@@ -374,53 +417,56 @@ export const CollectiblesPage = () => {
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--line)] bg-[var(--surface-sunken)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              <thead className="border-b border-(--line) bg-(--surface-sunken) text-[10px] font-bold uppercase tracking-wider text-(--text-muted)">
                 <tr>
-                  <th className="px-4 py-3">Ativo</th>
-                  <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Condição</th>
-                  <th className="px-4 py-3 text-right">Qtd</th>
-                  <th className="px-4 py-3 text-right">Custo Total</th>
-                  <th className="px-4 py-3 text-right">Valor Atual</th>
-                  <th className="px-4 py-3 text-right">P&L</th>
+                  <th className="px-4 py-3">Asset</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Condition</th>
+                  <th className="px-4 py-3 text-right">Qty</th>
+                  <th className="px-4 py-3 text-right">Total Cost</th>
+                  <th className="px-4 py-3 text-right">Current Value</th>
+                  <th className="px-4 py-3 text-right">Unrealized P&amp;L</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--line)]">
+              <tbody className="divide-y divide-(--line)">
                 {filteredItems.map((item) => {
                   const isProfit = item.gainEur >= 0;
                   return (
                     <tr
                       key={item.id}
                       onClick={() => setEditingItem(item)}
-                      className="tap cursor-pointer hover:bg-[var(--surface-flat)]"
+                      className="tap cursor-pointer hover:bg-(--surface-flat)"
                     >
                       <td className="flex items-center gap-2.5 px-4 py-3">
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
                             alt=""
-                            className="h-8 w-8 rounded object-contain"
+                            className="h-8 w-8 rounded object-contain bg-(--surface-sunken) p-0.5"
                           />
                         ) : (
-                          <span className="grid h-8 w-8 place-items-center rounded bg-[var(--surface-sunken)] text-sm">
-                            {CATEGORY_ICONS[item.category]}
+                          <span className="grid h-8 w-8 place-items-center rounded bg-(--surface-sunken) text-(--text-muted)">
+                            <CategoryIcon category={item.category} size={16} />
                           </span>
                         )}
                         <div className="min-w-0">
-                          <p className="truncate font-bold text-[var(--text-strong)]">
+                          <p className="truncate font-bold text-(--text-strong)">
                             {item.name}
                           </p>
                           {item.identifier && (
-                            <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                              {item.identifier}
+                            <p className="text-[10px] text-(--text-muted) font-mono">
+                              #{item.identifier}
                             </p>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-[var(--text-2)]">
-                        {CATEGORY_LABELS[item.category]}
+                      <td className="px-4 py-3 text-(--text-2)">
+                        <div className="flex items-center gap-1.5">
+                          <CategoryIcon category={item.category} size={13} />
+                          <span>{CATEGORY_LABELS[item.category]}</span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">
+                      <td className="px-4 py-3 text-(--text-muted)">
                         {item.condition || '—'}
                       </td>
                       <td className="px-4 py-3 text-right font-medium">
@@ -429,12 +475,12 @@ export const CollectiblesPage = () => {
                       <td className="px-4 py-3 text-right font-medium">
                         <AmountInline value={item.costEur} />
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-[var(--text-strong)]">
+                      <td className="px-4 py-3 text-right font-bold text-(--text-strong)">
                         <AmountInline value={item.valueEur} />
                       </td>
                       <td className="px-4 py-3 text-right font-bold tabular-nums">
                         {item.gainPct !== null ? (
-                          <span className={isProfit ? 'text-[var(--positive)]' : 'text-[var(--negative)]'}>
+                          <span className={isProfit ? 'text-(--positive)' : 'text-(--negative)'}>
                             {isProfit ? '+' : ''}
                             <AmountInline value={item.gainEur} signed /> ({(item.gainPct * 100).toFixed(1)}%)
                           </span>

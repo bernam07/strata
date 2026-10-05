@@ -4,13 +4,13 @@ import { Button } from '@/ui/Button';
 import { Labelled, MoneyInput, Select, TextInput } from '@/ui/Field';
 import { toast } from '@/ui/toast';
 import {
-  CATEGORY_ICONS,
   CATEGORY_LABELS,
   useAddCollectible,
   type CollectibleCategory,
 } from '../api/useCollectibles';
 import { extractCardmarketPrice, type PokemonCardDetail } from '../api/tcgdex';
 import { getLegoImageUrl, type LegoSetResult } from '../api/lego';
+import { CategoryIcon } from './CategoryIcon';
 import { PokemonCardSearch } from './PokemonCardSearch';
 import { LegoSetSearch } from './LegoSetSearch';
 
@@ -35,18 +35,20 @@ const POKEMON_CONDITIONS = [
 ];
 
 const LEGO_CONDITIONS = [
-  { value: 'Selado de Fábrica (MISB)', label: 'Selado de Fábrica (MISB)' },
-  { value: 'Selado c/ Danos Caixa', label: 'Selado c/ Danos na Caixa' },
-  { value: 'Montado Completo c/ Caixa & Manual', label: 'Montado Completo c/ Caixa & Manual' },
-  { value: 'Montado Completo sem Caixa', label: 'Montado Completo sem Caixa' },
-  { value: 'Incompleto / Peças', label: 'Incompleto / Peças' },
+  { value: 'Factory Sealed (MISB)', label: 'Factory Sealed (MISB)' },
+  { value: 'Sealed w/ Box Wear', label: 'Sealed w/ Box Wear' },
+  { value: 'Complete w/ Box & Manual', label: 'Complete w/ Box & Manual' },
+  { value: 'Complete without Box', label: 'Complete without Box' },
+  { value: 'Minifigure Mint / Complete', label: 'Minifigure Mint / Complete' },
+  { value: 'Loose / Parts', label: 'Loose / Parts' },
 ];
 
 const GENERIC_CONDITIONS = [
-  { value: 'Novo / Mint', label: 'Novo / Mint' },
-  { value: 'Excelente', label: 'Excelente' },
-  { value: 'Bom estado', label: 'Bom estado' },
-  { value: 'Usado / Vintage', label: 'Usado / Vintage' },
+  { value: 'Brand New / Mint', label: 'Brand New / Mint' },
+  { value: 'Near Mint / Excellent', label: 'Near Mint / Excellent' },
+  { value: 'Very Good', label: 'Very Good' },
+  { value: 'Good / Used', label: 'Good / Used' },
+  { value: 'Vintage / Worn', label: 'Vintage / Worn' },
 ];
 
 export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps) => {
@@ -71,7 +73,13 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     setSelectedLego(null);
     setName('');
     setIdentifier('');
-    setCondition(category === 'pokemon' ? 'Near Mint (NM)' : category === 'lego' ? 'Selado de Fábrica (MISB)' : 'Novo / Mint');
+    setCondition(
+      category === 'pokemon'
+        ? 'Near Mint (NM)'
+        : category === 'lego'
+          ? 'Factory Sealed (MISB)'
+          : 'Brand New / Mint',
+    );
     setQuantity('1');
     setPurchasePrice('');
     setCurrentPrice('');
@@ -88,9 +96,9 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     if (newCat === 'pokemon') {
       setCondition('Near Mint (NM)');
     } else if (newCat === 'lego') {
-      setCondition('Selado de Fábrica (MISB)');
+      setCondition('Factory Sealed (MISB)');
     } else {
-      setCondition('Novo / Mint');
+      setCondition('Brand New / Mint');
     }
   };
 
@@ -120,29 +128,33 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     });
   };
 
-  const handleSelectLegoSet = (set: LegoSetResult) => {
-    setSelectedLego(set);
-    setName(`${set.name} (#${set.setNumber})`);
-    setIdentifier(set.setNumber);
-    setImageUrl(set.imageUrl);
-    if (set.rrpEur) {
-      setCurrentPrice(String(set.rrpEur));
+  const handleSelectLegoSet = (item: LegoSetResult) => {
+    setSelectedLego(item);
+    setName(`${item.name} (#${item.setNumber})`);
+    setIdentifier(item.setNumber);
+    setImageUrl(item.imageUrl);
+    if (item.type === 'minifig') {
+      setCondition('Minifigure Mint / Complete');
+    }
+    if (item.rrpEur) {
+      setCurrentPrice(String(item.rrpEur));
       if (!purchasePrice) {
-        setPurchasePrice(String(set.rrpEur));
+        setPurchasePrice(String(item.rrpEur));
       }
     }
     setMetadata({
-      theme: set.theme,
-      pieces: set.pieces,
-      year: set.year,
-      rrpEur: set.rrpEur,
+      type: item.type || 'set',
+      theme: item.theme,
+      pieces: item.pieces,
+      year: item.year,
+      rrpEur: item.rrpEur,
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast('Indica o nome do ativo', 'error');
+      toast('Please enter the asset name', 'error');
       return;
     }
 
@@ -166,12 +178,12 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       },
       {
         onSuccess: () => {
-          toast('Ativo adicionado com sucesso', 'success');
+          toast('Collectible added successfully', 'success');
           resetForm();
           onClose();
         },
         onError: (err) => {
-          toast(err instanceof Error ? err.message : 'Falha ao guardar ativo', 'error');
+          toast(err instanceof Error ? err.message : 'Failed to save collectible', 'error');
         },
       },
     );
@@ -180,8 +192,8 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
   return (
     <BottomSheet
       open={open}
-      title="Adicionar Ativo Alternativo"
-      subtitle="Cartas Pokémon, LEGO, relógios, moedas ou outros colecionáveis"
+      title="Add Alternative Asset"
+      subtitle="Pokémon cards, LEGO sets & minifigures, watches, coins or other collectibles"
       onClose={() => {
         resetForm();
         onClose();
@@ -189,21 +201,21 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* Category Selector */}
-        <Labelled label="Categoria">
+        <Labelled label="Category">
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
             {(Object.keys(CATEGORY_LABELS) as CollectibleCategory[]).map((cat) => (
               <button
                 key={cat}
                 type="button"
                 onClick={() => handleCategoryChange(cat)}
-                className={`tap flex flex-col items-center justify-center gap-1 rounded-[var(--radius-field)] p-2 text-center text-xs font-semibold transition ${
+                className={`tap flex flex-col items-center justify-center gap-1.5 rounded-[var(--radius-field)] p-2 text-center text-xs font-semibold transition ${
                   category === cat
                     ? 'neu-raised border border-[var(--accent)] bg-[var(--surface-raised)] text-[var(--accent)]'
                     : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--text-strong)]'
                 }`}
               >
-                <span className="text-base">{CATEGORY_ICONS[cat]}</span>
-                <span className="truncate">{CATEGORY_LABELS[cat]}</span>
+                <CategoryIcon category={cat} size={18} />
+                <span className="truncate text-[11px]">{CATEGORY_LABELS[cat]}</span>
               </button>
             ))}
           </div>
@@ -214,7 +226,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
           <div className="flex flex-col gap-3 rounded-[var(--radius-field)] neu-sunken p-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                {selectedPokemon ? 'Carta Selecionada' : 'Pesquisar Catálogo TCGdex'}
+                {selectedPokemon ? 'Selected Card' : 'Search TCGdex Catalog'}
               </span>
               {selectedPokemon && (
                 <button
@@ -222,7 +234,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                   onClick={() => setSelectedPokemon(null)}
                   className="tap text-xs font-semibold text-[var(--accent)] hover:underline"
                 >
-                  Trocar carta
+                  Change card
                 </button>
               )}
             </div>
@@ -257,12 +269,12 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
           </div>
         )}
 
-        {/* LEGO Set Flow */}
+        {/* LEGO Set & Minifigure Flow */}
         {category === 'lego' && (
           <div className="flex flex-col gap-3 rounded-[var(--radius-field)] neu-sunken p-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                {selectedLego ? 'Set LEGO Selecionado' : 'Pesquisar Catálogo LEGO'}
+                {selectedLego ? 'Selected LEGO Set / Minifig' : 'Search LEGO & Minifigures'}
               </span>
               {selectedLego && (
                 <button
@@ -270,7 +282,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                   onClick={() => setSelectedLego(null)}
                   className="tap text-xs font-semibold text-[var(--accent)] hover:underline"
                 >
-                  Trocar set
+                  Change selection
                 </button>
               )}
             </div>
@@ -287,6 +299,9 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                     <span className="font-mono text-xs font-bold text-[var(--accent)]">
                       #{selectedLego.setNumber}
                     </span>
+                    <span className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-[var(--accent)]">
+                      {selectedLego.type === 'minifig' ? 'Minifig' : 'Set'}
+                    </span>
                     <span className="text-xs text-[var(--text-muted)]">
                       {selectedLego.theme} {selectedLego.year ? `(${selectedLego.year})` : ''}
                     </span>
@@ -295,8 +310,10 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                     {selectedLego.name}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    {selectedLego.pieces ? `${selectedLego.pieces.toLocaleString()} peças` : ''}
-                    {selectedLego.rrpEur ? ` · RRP Oficial: €${selectedLego.rrpEur.toFixed(2)}` : ''}
+                    {selectedLego.pieces
+                      ? `${selectedLego.pieces.toLocaleString()} ${selectedLego.type === 'minifig' ? 'parts' : 'pieces'}`
+                      : ''}
+                    {selectedLego.rrpEur ? ` · RRP: €${selectedLego.rrpEur.toFixed(2)}` : ''}
                   </p>
                 </div>
               </div>
@@ -309,15 +326,15 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         {/* General Details */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Labelled label="Nome do Ativo">
+            <Labelled label="Asset Name">
               <TextInput
                 value={name}
                 placeholder={
                   category === 'pokemon'
-                    ? 'Ex: Charizard ex #199/165'
+                    ? 'e.g. Charizard ex #199/165 (151)'
                     : category === 'lego'
-                      ? 'Ex: 10316 - O Senhor dos Anéis: Rivendell'
-                      : 'Ex: Omega Speedmaster Professional'
+                      ? 'e.g. Rivendell (10316) or Boba Fett (sw0107)'
+                      : 'e.g. Omega Speedmaster Professional Moonwatch'
                 }
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -325,27 +342,27 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             </Labelled>
           </div>
 
-          <Labelled label="Identificador / Ref (Opcional)">
+          <Labelled label="Identifier / Reference (Optional)">
             <TextInput
               value={identifier}
               placeholder={
                 category === 'pokemon'
-                  ? 'Ex: swsh4-25'
+                  ? 'e.g. swsh4-25'
                   : category === 'lego'
-                    ? 'Ex: 75192'
-                    : 'Ex: 310.30.42.50.01.002'
+                    ? 'e.g. 75192 or sw0107'
+                    : 'e.g. 310.30.42.50.01.002'
               }
               onChange={(e) => {
                 const val = e.target.value;
                 setIdentifier(val);
-                if (category === 'lego' && !imageUrl && /^\d{4,6}$/.test(val.trim())) {
+                if (category === 'lego' && !imageUrl && (/^\d{4,6}$/.test(val.trim()) || /^(fig-\d+|[a-z]{2,5}\d+[a-z]?)$/i.test(val.trim()))) {
                   setImageUrl(getLegoImageUrl(val));
                 }
               }}
             />
           </Labelled>
 
-          <Labelled label="Condição / Estado">
+          <Labelled label="Condition / Grade">
             <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
               {(category === 'pokemon'
                 ? POKEMON_CONDITIONS
@@ -363,7 +380,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
 
         {/* Financial Details */}
         <div className="grid grid-cols-3 gap-3">
-          <Labelled label="Qtd">
+          <Labelled label="Qty">
             <TextInput
               type="number"
               min="1"
@@ -374,7 +391,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             />
           </Labelled>
 
-          <Labelled label="Preço Compra (€)">
+          <Labelled label="Purchase Price (€)">
             <MoneyInput
               placeholder="0.00"
               value={purchasePrice}
@@ -382,7 +399,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             />
           </Labelled>
 
-          <Labelled label="Cotação Atual (€)">
+          <Labelled label="Current Value (€)">
             <MoneyInput
               placeholder="0.00"
               value={currentPrice}
@@ -393,7 +410,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
 
         {/* Date and Image */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Labelled label="Data de Aquisição (Opcional)">
+          <Labelled label="Acquisition Date (Optional)">
             <TextInput
               type="date"
               value={purchaseDate}
@@ -401,7 +418,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             />
           </Labelled>
 
-          <Labelled label="URL da Imagem (Opcional)">
+          <Labelled label="Image URL (Optional)">
             <TextInput
               type="url"
               value={imageUrl}
@@ -412,10 +429,10 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         </div>
 
         {/* Notes */}
-        <Labelled label="Notas / Detalhes (Opcional)">
+        <Labelled label="Notes & Provenance (Optional)">
           <TextInput
             value={notes}
-            placeholder="Ex: Comprado na Cardmarket, guardado em sleeve + toploader..."
+            placeholder="e.g. Purchased on Cardmarket, sleeved in vault case..."
             onChange={(e) => setNotes(e.target.value)}
           />
         </Labelled>
@@ -427,7 +444,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             className="flex-1"
             disabled={add.isPending || !name.trim()}
           >
-            {add.isPending ? 'A guardar...' : 'Guardar no Portfólio'}
+            {add.isPending ? 'Saving…' : 'Save to Portfolio'}
           </Button>
           <Button
             type="button"
@@ -437,7 +454,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
               onClose();
             }}
           >
-            Cancelar
+            Cancel
           </Button>
         </div>
       </form>

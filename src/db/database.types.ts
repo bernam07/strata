@@ -736,6 +736,18 @@ export interface Database {
         Args: Record<never, never>;
         Returns: undefined;
       };
+      set_rebrickable_api_key: {
+        Args: { p_key: string };
+        Returns: undefined;
+      };
+      remove_rebrickable_api_key: {
+        Args: Record<never, never>;
+        Returns: undefined;
+      };
+      get_rebrickable_api_key: {
+        Args: Record<never, never>;
+        Returns: string | null;
+      };
       provider_secret: {
         Args: { p_user: string; p_provider: string };
         Returns: { secret: string; use_demo: boolean }[];

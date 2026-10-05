@@ -1,22 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import { TextInput } from '@/ui/Field';
 import { searchLegoSets, type LegoSetResult } from '../api/lego';
+import { useRebrickableKey } from '@/features/integrations/api/useRebrickable';
 
 interface LegoSetSearchProps {
   onSelect: (set: LegoSetResult) => void;
 }
 
 export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
+  const { data: rebrickableKey } = useRebrickableKey();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<LegoSetResult[]>([]);
-  const [showKeyConfig, setShowKeyConfig] = useState(false);
-  const [rebrickableKey, setRebrickableKey] = useState(
-    typeof localStorage !== 'undefined'
-      ? localStorage.getItem('strata_rebrickable_key') ?? ''
-      : '',
-  );
+  const [typeFilter, setTypeFilter] = useState<'all' | 'set' | 'minifig'>('all');
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(text), 250);
@@ -32,7 +30,7 @@ export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
     let active = true;
     setLoading(true);
 
-    searchLegoSets(query, rebrickableKey)
+    searchLegoSets(query, rebrickableKey ?? undefined)
       .then((sets) => {
         if (active) {
           setResults(sets);
@@ -48,127 +46,165 @@ export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
     };
   }, [query, rebrickableKey]);
 
-  const handleSaveKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('strata_rebrickable_key', rebrickableKey.trim());
-    }
-    setShowKeyConfig(false);
-  };
+  const filteredResults = useMemo(() => {
+    if (typeFilter === 'all') return results;
+    return results.filter((item) => (item.type || 'set') === typeFilter);
+  }, [results, typeFilter]);
+
+  const setCount = useMemo(
+    () => results.filter((r) => (r.type || 'set') === 'set').length,
+    [results],
+  );
+  const minifigCount = useMemo(
+    () => results.filter((r) => r.type === 'minifig').length,
+    [results],
+  );
 
   return (
     <div className="flex flex-col gap-3">
       <TextInput
         value={text}
-        placeholder="Pesquisar por número ou nome (ex: 75192, 10316, Rivendell, Titanic)..."
+        placeholder="Search sets & minifigures (e.g. 75192, Rivendell, sw0107, Boba Fett)..."
         onChange={(e) => setText(e.target.value)}
         autoFocus
       />
 
-      <div className="flex items-center justify-between px-1 text-[11px] text-[var(--text-muted)]">
-        <span>
-          💡 Sugestão: Escreve o número do set (ex: <code>10294</code>) para puxar a foto oficial.
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-[var(--text-muted)]">
+        <span className="flex items-center gap-1.5">
+          <span>
+            Tip: Type set number (e.g. <code className="text-[var(--accent)]">10294</code>) or minifigure code (e.g. <code className="text-[var(--accent)]">sw0107</code>).
+          </span>
         </span>
-        <button
-          type="button"
-          onClick={() => setShowKeyConfig((v) => !v)}
-          className="tap text-[var(--accent)] hover:underline"
-        >
-          {showKeyConfig ? 'Fechar chave Rebrickable' : 'Configurar chave Rebrickable'}
-        </button>
+
+        {rebrickableKey ? (
+          <span className="inline-flex items-center gap-1 font-semibold text-[var(--positive)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+            Rebrickable Connected
+          </span>
+        ) : (
+          <NavLink
+            to="/integrations"
+            className="tap font-semibold text-[var(--accent)] hover:underline"
+          >
+            Connect Rebrickable API in Integrations →
+          </NavLink>
+        )}
       </div>
 
-      {showKeyConfig && (
-        <form
-          onSubmit={handleSaveKey}
-          className="flex flex-col gap-2 rounded-[var(--radius-field)] neu-sunken p-2.5 text-xs"
-        >
-          <p className="text-[var(--text-muted)] leading-relaxed">
-            Se quiseres pesquisar todo o catálogo mundial de mais de 20.000 sets LEGO em tempo real,
-            podes criar uma chave gratuita em{' '}
-            <a
-              href="https://rebrickable.com/api/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[var(--accent)] underline"
-            >
-              rebrickable.com/api
-            </a>
-            .
-          </p>
-          <div className="flex gap-2">
-            <TextInput
-              placeholder="Chave de API Rebrickable (opcional)"
-              value={rebrickableKey}
-              onChange={(e) => setRebrickableKey(e.target.value)}
-            />
+      {results.length > 0 && (
+        <div className="flex items-center gap-1.5 pt-1">
+          <button
+            type="button"
+            onClick={() => setTypeFilter('all')}
+            className={`tap rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${
+              typeFilter === 'all'
+                ? 'neu-raised bg-[var(--surface-raised)] text-[var(--accent)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+            }`}
+          >
+            All ({results.length})
+          </button>
+          {setCount > 0 && (
             <button
-              type="submit"
-              className="tap shrink-0 rounded-[var(--radius-field)] bg-[var(--accent)] px-3 text-xs font-bold text-[var(--accent-ink)]"
+              type="button"
+              onClick={() => setTypeFilter('set')}
+              className={`tap rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                typeFilter === 'set'
+                  ? 'neu-raised bg-[var(--surface-raised)] text-[var(--accent)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+              }`}
             >
-              Guardar
+              Sets ({setCount})
             </button>
-          </div>
-        </form>
+          )}
+          {minifigCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setTypeFilter('minifig')}
+              className={`tap rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                typeFilter === 'minifig'
+                  ? 'neu-raised bg-[var(--surface-raised)] text-[var(--accent)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+              }`}
+            >
+              Minifigures ({minifigCount})
+            </button>
+          )}
+        </div>
       )}
 
       {loading && (
         <div className="flex items-center gap-2 px-1 text-xs text-[var(--text-muted)]">
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
-          <span>A pesquisar sets LEGO...</span>
+          <span>Searching LEGO sets &amp; minifigures…</span>
         </div>
       )}
 
-      {!loading && query.trim().length >= 2 && results.length === 0 && (
+      {!loading && query.trim().length >= 2 && filteredResults.length === 0 && (
         <p className="px-1 text-xs text-[var(--text-muted)]">
-          Nenhum set encontrado para “{query}”. Podes introduzir o set manualmente abaixo.
+          No matches found for &ldquo;{query}&rdquo;. You can add details manually below.
         </p>
       )}
 
-      {results.length > 0 && (
+      {filteredResults.length > 0 && (
         <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-          {results.map((set) => (
-            <button
-              key={set.setNumber}
-              type="button"
-              onClick={() => onSelect(set)}
-              className="tap group flex items-center gap-3 rounded-[var(--radius-field)] neu-flat p-2.5 text-left transition hover:border-[var(--accent)] hover:shadow-md"
-            >
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-[var(--surface-sunken)] p-1">
-                <img
-                  src={set.imageUrl}
-                  alt={set.name}
-                  loading="lazy"
-                  className="h-full w-full object-contain transition duration-200 group-hover:scale-105"
-                  onError={(e) => {
-                    // Fallback to placeholder emoji if remote image 404s
-                    (e.currentTarget as HTMLElement).style.display = 'none';
-                  }}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[11px] font-bold text-[var(--accent)]">
-                    #{set.setNumber}
-                  </span>
-                  <span className="truncate text-[10px] text-[var(--text-muted)]">
-                    {set.theme} {set.year ? `(${set.year})` : ''}
-                  </span>
+          {filteredResults.map((item) => {
+            const isMinifig = item.type === 'minifig';
+            return (
+              <button
+                key={`${item.type || 'set'}-${item.setNumber}`}
+                type="button"
+                onClick={() => onSelect(item)}
+                className="tap group flex items-center gap-3 rounded-[var(--radius-field)] neu-flat p-2.5 text-left transition hover:border-[var(--accent)] hover:shadow-md"
+              >
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-[var(--surface-sunken)] p-1">
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    loading="lazy"
+                    className="h-full w-full object-contain transition duration-200 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
+                  />
                 </div>
-                <p className="line-clamp-1 text-xs font-bold text-[var(--text-strong)] group-hover:text-[var(--accent)]">
-                  {set.name}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-                  {set.pieces && <span>{set.pieces.toLocaleString()} peças</span>}
-                  {set.rrpEur && (
-                    <span className="font-semibold text-[var(--positive)]">
-                      RRP: €{set.rrpEur.toFixed(2)}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[11px] font-bold text-[var(--accent)]">
+                      #{item.setNumber}
                     </span>
-                  )}
+                    <span
+                      className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
+                        isMinifig
+                          ? 'bg-[var(--accent)]/15 text-[var(--accent)]'
+                          : 'bg-[var(--surface-sunken)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {isMinifig ? 'Minifig' : 'Set'}
+                    </span>
+                    <span className="truncate text-[10px] text-[var(--text-muted)]">
+                      {item.theme} {item.year ? `(${item.year})` : ''}
+                    </span>
+                  </div>
+                  <p className="line-clamp-1 text-xs font-bold text-[var(--text-strong)] group-hover:text-[var(--accent)]">
+                    {item.name}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                    {item.pieces && (
+                      <span>
+                        {item.pieces.toLocaleString()} {isMinifig ? 'parts' : 'pieces'}
+                      </span>
+                    )}
+                    {item.rrpEur && (
+                      <span className="font-semibold text-[var(--positive)]">
+                        RRP: €{item.rrpEur.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

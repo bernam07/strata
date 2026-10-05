@@ -6,17 +6,26 @@ export interface LegoSetResult {
   pieces?: number;
   rrpEur?: number;
   imageUrl: string;
+  type?: 'set' | 'minifig';
 }
 
 export const normalizeSetNumber = (raw: string): string => {
   const cleaned = raw.trim().replace(/\s+/g, '');
-  // If user entered e.g. 75192-1, strip the -1 for consistency
-  return cleaned.replace(/-[0-9]+$/, '');
+  // If user entered e.g. 75192-1 or 10316-2, strip the -1 for consistency
+  if (/^\d+-\d+$/.test(cleaned)) {
+    return cleaned.replace(/-\d+$/, '');
+  }
+  return cleaned;
 };
 
 export const getLegoImageUrl = (setNumber: string): string => {
   const base = normalizeSetNumber(setNumber);
-  return `https://images.brickset.com/sets/images/${base}-1.jpg`;
+  // Numeric set IDs: use Brickset CDN
+  if (/^\d+$/.test(base)) {
+    return `https://images.brickset.com/sets/images/${base}-1.jpg`;
+  }
+  // Minifigures or alphanumeric codes: use Bricklink or Rebrickable
+  return `https://img.bricklink.com/ItemImage/MN/0/${base}.png`;
 };
 
 // Curated database of iconic and popular investment LEGO sets with official RRP in EUR
@@ -30,6 +39,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 7541,
     rrpEur: 849.99,
     imageUrl: 'https://images.brickset.com/sets/images/75192-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75313',
@@ -39,6 +49,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 6785,
     rrpEur: 849.99,
     imageUrl: 'https://images.brickset.com/sets/images/75313-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75252',
@@ -48,6 +59,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 4784,
     rrpEur: 699.99,
     imageUrl: 'https://images.brickset.com/sets/images/75252-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75331',
@@ -57,6 +69,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 6187,
     rrpEur: 599.99,
     imageUrl: 'https://images.brickset.com/sets/images/75331-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75367',
@@ -66,6 +79,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 5374,
     rrpEur: 649.99,
     imageUrl: 'https://images.brickset.com/sets/images/75367-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75382',
@@ -75,6 +89,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1931,
     rrpEur: 229.99,
     imageUrl: 'https://images.brickset.com/sets/images/75382-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75308',
@@ -84,6 +99,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2314,
     rrpEur: 239.99,
     imageUrl: 'https://images.brickset.com/sets/images/75308-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75337',
@@ -93,6 +109,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1082,
     rrpEur: 139.99,
     imageUrl: 'https://images.brickset.com/sets/images/75337-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75060',
@@ -102,6 +119,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1996,
     rrpEur: 199.99,
     imageUrl: 'https://images.brickset.com/sets/images/75060-1.jpg',
+    type: 'set',
   },
 
   // Icons / Lord of the Rings / Creator Expert
@@ -113,6 +131,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 6167,
     rrpEur: 499.99,
     imageUrl: 'https://images.brickset.com/sets/images/10316-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10333',
@@ -122,6 +141,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 5471,
     rrpEur: 459.99,
     imageUrl: 'https://images.brickset.com/sets/images/10333-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10294',
@@ -131,6 +151,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 9090,
     rrpEur: 679.99,
     imageUrl: 'https://images.brickset.com/sets/images/10294-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10307',
@@ -140,6 +161,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 10001,
     rrpEur: 629.99,
     imageUrl: 'https://images.brickset.com/sets/images/10307-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10276',
@@ -149,6 +171,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 9036,
     rrpEur: 549.99,
     imageUrl: 'https://images.brickset.com/sets/images/10276-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10305',
@@ -158,6 +181,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 4514,
     rrpEur: 399.99,
     imageUrl: 'https://images.brickset.com/sets/images/10305-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10497',
@@ -167,6 +191,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1254,
     rrpEur: 99.99,
     imageUrl: 'https://images.brickset.com/sets/images/10497-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10300',
@@ -176,6 +201,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1872,
     rrpEur: 199.99,
     imageUrl: 'https://images.brickset.com/sets/images/10300-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10265',
@@ -185,6 +211,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1471,
     rrpEur: 169.99,
     imageUrl: 'https://images.brickset.com/sets/images/10265-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10274',
@@ -194,6 +221,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2352,
     rrpEur: 239.99,
     imageUrl: 'https://images.brickset.com/sets/images/10274-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10323',
@@ -203,6 +231,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2651,
     rrpEur: 269.99,
     imageUrl: 'https://images.brickset.com/sets/images/10323-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10318',
@@ -212,6 +241,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2083,
     rrpEur: 199.99,
     imageUrl: 'https://images.brickset.com/sets/images/10318-1.jpg',
+    type: 'set',
   },
 
   // Modular Buildings
@@ -223,6 +253,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 4014,
     rrpEur: 299.99,
     imageUrl: 'https://images.brickset.com/sets/images/10326-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10312',
@@ -232,6 +263,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2899,
     rrpEur: 229.99,
     imageUrl: 'https://images.brickset.com/sets/images/10312-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10297',
@@ -241,6 +273,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3066,
     rrpEur: 229.99,
     imageUrl: 'https://images.brickset.com/sets/images/10297-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10278',
@@ -250,6 +283,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2923,
     rrpEur: 199.99,
     imageUrl: 'https://images.brickset.com/sets/images/10278-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10270',
@@ -259,6 +293,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2504,
     rrpEur: 199.99,
     imageUrl: 'https://images.brickset.com/sets/images/10270-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10255',
@@ -268,6 +303,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 4002,
     rrpEur: 299.99,
     imageUrl: 'https://images.brickset.com/sets/images/10255-1.jpg',
+    type: 'set',
   },
 
   // Ideas
@@ -279,6 +315,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3036,
     rrpEur: 249.99,
     imageUrl: 'https://images.brickset.com/sets/images/21318-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '21325',
@@ -288,6 +325,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2164,
     rrpEur: 179.99,
     imageUrl: 'https://images.brickset.com/sets/images/21325-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '21330',
@@ -297,6 +335,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3955,
     rrpEur: 299.99,
     imageUrl: 'https://images.brickset.com/sets/images/21330-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '21338',
@@ -306,6 +345,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2082,
     rrpEur: 179.99,
     imageUrl: 'https://images.brickset.com/sets/images/21338-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '21344',
@@ -315,6 +355,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2540,
     rrpEur: 299.99,
     imageUrl: 'https://images.brickset.com/sets/images/21344-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '21348',
@@ -324,6 +365,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3745,
     rrpEur: 359.99,
     imageUrl: 'https://images.brickset.com/sets/images/21348-1.jpg',
+    type: 'set',
   },
 
   // Technic Supercars & Vehicles
@@ -335,6 +377,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3696,
     rrpEur: 449.99,
     imageUrl: 'https://images.brickset.com/sets/images/42115-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '42143',
@@ -344,6 +387,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3778,
     rrpEur: 449.99,
     imageUrl: 'https://images.brickset.com/sets/images/42143-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '42083',
@@ -353,6 +397,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3599,
     rrpEur: 369.99,
     imageUrl: 'https://images.brickset.com/sets/images/42083-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '42056',
@@ -362,6 +407,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2704,
     rrpEur: 299.99,
     imageUrl: 'https://images.brickset.com/sets/images/42056-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '42171',
@@ -371,6 +417,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1642,
     rrpEur: 219.99,
     imageUrl: 'https://images.brickset.com/sets/images/42171-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '42141',
@@ -380,6 +427,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1432,
     rrpEur: 199.99,
     imageUrl: 'https://images.brickset.com/sets/images/42141-1.jpg',
+    type: 'set',
   },
 
   // Harry Potter
@@ -391,6 +439,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 6020,
     rrpEur: 469.99,
     imageUrl: 'https://images.brickset.com/sets/images/71043-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '75978',
@@ -400,6 +449,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 5544,
     rrpEur: 449.99,
     imageUrl: 'https://images.brickset.com/sets/images/75978-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '76417',
@@ -409,6 +459,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 4803,
     rrpEur: 429.99,
     imageUrl: 'https://images.brickset.com/sets/images/76417-1.jpg',
+    type: 'set',
   },
 
   // Marvel & DC
@@ -420,6 +471,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 3772,
     rrpEur: 349.99,
     imageUrl: 'https://images.brickset.com/sets/images/76178-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '76269',
@@ -429,6 +481,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 5201,
     rrpEur: 499.99,
     imageUrl: 'https://images.brickset.com/sets/images/76269-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '76240',
@@ -438,6 +491,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 2049,
     rrpEur: 269.99,
     imageUrl: 'https://images.brickset.com/sets/images/76240-1.jpg',
+    type: 'set',
   },
 
   // Botanicals & Others
@@ -449,6 +503,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 756,
     rrpEur: 59.99,
     imageUrl: 'https://images.brickset.com/sets/images/10280-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '10281',
@@ -458,6 +513,7 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 878,
     rrpEur: 49.99,
     imageUrl: 'https://images.brickset.com/sets/images/10281-1.jpg',
+    type: 'set',
   },
   {
     setNumber: '77015',
@@ -467,7 +523,137 @@ export const POPULAR_LEGO_SETS: LegoSetResult[] = [
     pieces: 1545,
     rrpEur: 149.99,
     imageUrl: 'https://images.brickset.com/sets/images/77015-1.jpg',
+    type: 'set',
   },
+];
+
+// Curated database of iconic, rare and collectible investment LEGO minifigures
+export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
+  {
+    setNumber: 'sw0107',
+    name: 'Boba Fett - Cloud City (Printed Arms & Legs)',
+    theme: 'Star Wars Minifigures',
+    year: 2003,
+    pieces: 4,
+    rrpEur: 1800.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0107.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0450',
+    name: 'Captain Rex (Phase 2 with Pauldron)',
+    theme: 'Star Wars Minifigures',
+    year: 2013,
+    pieces: 4,
+    rrpEur: 160.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0450.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0115',
+    name: 'Grand Admiral Thrawn',
+    theme: 'Star Wars Minifigures',
+    year: 2017,
+    pieces: 4,
+    rrpEur: 110.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0115.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0377',
+    name: 'Clone Commander Wolffe',
+    theme: 'Star Wars Minifigures',
+    year: 2011,
+    pieces: 4,
+    rrpEur: 125.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0377.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0500',
+    name: 'Jedi Knight Revan (Polybag Exclusive)',
+    theme: 'Star Wars Minifigures',
+    year: 2014,
+    pieces: 4,
+    rrpEur: 280.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0500.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0540',
+    name: 'Darth Vader (Printed Arms)',
+    theme: 'Star Wars Minifigures',
+    year: 2014,
+    pieces: 5,
+    rrpEur: 75.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0540.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0742',
+    name: 'Sabine Wren (with Helmet)',
+    theme: 'Star Wars Minifigures',
+    year: 2016,
+    pieces: 4,
+    rrpEur: 140.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0742.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sw0001a',
+    name: 'Battle Droid (Tan with 1 Straight Arm)',
+    theme: 'Star Wars Minifigures',
+    year: 1999,
+    pieces: 6,
+    rrpEur: 5.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0001a.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'col143',
+    name: 'Mr. Gold (Series 10 Collectible Minifigure)',
+    theme: 'Collectible Minifigures',
+    year: 2013,
+    pieces: 5,
+    rrpEur: 4500.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/col143.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sh030',
+    name: 'Deadpool',
+    theme: 'Marvel Super Heroes Minifigures',
+    year: 2012,
+    pieces: 4,
+    rrpEur: 55.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sh030.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'sh012',
+    name: 'Iron Man (Mark 6 Armor - Triangle on Chest)',
+    theme: 'Marvel Super Heroes Minifigures',
+    year: 2012,
+    pieces: 4,
+    rrpEur: 35.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sh012.png',
+    type: 'minifig',
+  },
+  {
+    setNumber: 'fig-000001',
+    name: 'Classic Space Astronaut - Red',
+    theme: 'Classic Space Minifigures',
+    year: 1978,
+    pieces: 5,
+    rrpEur: 35.0,
+    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sp005.png',
+    type: 'minifig',
+  },
+];
+
+export const ALL_CURATED_LEGO_ITEMS: LegoSetResult[] = [
+  ...POPULAR_LEGO_SETS,
+  ...POPULAR_LEGO_MINIFIGS,
 ];
 
 export const searchLegoSets = async (
@@ -483,28 +669,38 @@ export const searchLegoSets = async (
       ? localStorage.getItem('strata_rebrickable_key') ?? undefined
       : undefined);
 
-  // 1. First search local curated popular sets
-  const localMatches = POPULAR_LEGO_SETS.filter((set) => {
+  // 1. Search local curated sets and minifigures
+  const localMatches = ALL_CURATED_LEGO_ITEMS.filter((item) => {
     return (
-      set.setNumber.toLowerCase().includes(trimmed) ||
-      set.name.toLowerCase().includes(trimmed) ||
-      set.theme.toLowerCase().includes(trimmed)
+      item.setNumber.toLowerCase().includes(trimmed) ||
+      item.name.toLowerCase().includes(trimmed) ||
+      item.theme.toLowerCase().includes(trimmed)
     );
   });
 
-  // 2. If an API key is available, query Rebrickable for full catalog
+  // 2. If an API key is available, query Rebrickable for full catalog (both sets and minifigs)
   if (keyToUse) {
     try {
-      const res = await fetch(
-        `https://rebrickable.com/api/v3/lego/sets/?search=${encodeURIComponent(trimmed)}&page_size=15`,
-        {
-          headers: {
-            Authorization: `key ${keyToUse}`,
-          },
-        },
-      );
-      if (res.ok) {
-        const data = (await res.json()) as {
+      const headers = { Authorization: `key ${keyToUse}` };
+      const encoded = encodeURIComponent(trimmed);
+
+      // Concurrently query sets and minifigures
+      const [setsRes, minifigsRes] = await Promise.allSettled([
+        fetch(
+          `https://rebrickable.com/api/v3/lego/sets/?search=${encoded}&page_size=15`,
+          { headers },
+        ),
+        fetch(
+          `https://rebrickable.com/api/v3/lego/minifigs/?search=${encoded}&page_size=15`,
+          { headers },
+        ),
+      ]);
+
+      const apiResults: LegoSetResult[] = [];
+
+      // Parse Sets
+      if (setsRes.status === 'fulfilled' && setsRes.value.ok) {
+        const data = (await setsRes.value.json()) as {
           results?: Array<{
             set_num: string;
             name: string;
@@ -513,44 +709,151 @@ export const searchLegoSets = async (
             set_img_url: string | null;
           }>;
         };
-
         if (Array.isArray(data.results)) {
-          const apiMatches: LegoSetResult[] = data.results.map((r) => {
+          for (const r of data.results) {
             const cleanNum = normalizeSetNumber(r.set_num);
-            return {
+            apiResults.push({
               setNumber: cleanNum,
               name: r.name,
-              theme: 'LEGO',
+              theme: 'LEGO Set',
               year: r.year,
               pieces: r.num_parts,
               imageUrl: r.set_img_url || getLegoImageUrl(cleanNum),
-            };
-          });
+              type: 'set',
+            });
+          }
+        }
+      }
 
-          // Merge without duplicates
-          const seen = new Set<string>();
-          const combined: LegoSetResult[] = [];
-          for (const item of [...localMatches, ...apiMatches]) {
-            if (!seen.has(item.setNumber)) {
-              seen.add(item.setNumber);
-              combined.push(item);
+      // Parse Minifigures
+      if (minifigsRes.status === 'fulfilled' && minifigsRes.value.ok) {
+        const data = (await minifigsRes.value.json()) as {
+          results?: Array<{
+            set_num: string;
+            name: string;
+            num_parts: number;
+            set_img_url: string | null;
+          }>;
+        };
+        if (Array.isArray(data.results)) {
+          for (const m of data.results) {
+            apiResults.push({
+              setNumber: m.set_num,
+              name: m.name,
+              theme: 'Minifigures',
+              pieces: m.num_parts,
+              imageUrl: m.set_img_url || getLegoImageUrl(m.set_num),
+              type: 'minifig',
+            });
+          }
+        }
+      }
+
+      // If user typed a specific set or minifig code that wasn't in top 15, try direct lookup
+      const isDirectMinifigCode = /^(fig-\d+|[a-z]{2,5}\d+[a-z]?)$/i.test(trimmed);
+      const isDirectSetCode = /^\d{4,6}$/.test(trimmed);
+
+      if (isDirectMinifigCode && !apiResults.some((r) => r.setNumber.toLowerCase() === trimmed)) {
+        try {
+          const directMinifigRes = await fetch(
+            `https://rebrickable.com/api/v3/lego/minifigs/${encodeURIComponent(trimmed)}/`,
+            { headers },
+          );
+          if (directMinifigRes.ok) {
+            const m = (await directMinifigRes.json()) as {
+              set_num: string;
+              name: string;
+              num_parts: number;
+              set_img_url: string | null;
+            };
+            if (m.set_num) {
+              apiResults.unshift({
+                setNumber: m.set_num,
+                name: m.name,
+                theme: 'Minifigures',
+                pieces: m.num_parts,
+                imageUrl: m.set_img_url || getLegoImageUrl(m.set_num),
+                type: 'minifig',
+              });
             }
           }
-          return combined;
+        } catch {
+          // Ignore direct lookup error
         }
+      }
+
+      if (isDirectSetCode && !apiResults.some((r) => r.setNumber.toLowerCase() === trimmed)) {
+        try {
+          const directSetRes = await fetch(
+            `https://rebrickable.com/api/v3/lego/sets/${encodeURIComponent(trimmed)}-1/`,
+            { headers },
+          );
+          if (directSetRes.ok) {
+            const s = (await directSetRes.json()) as {
+              set_num: string;
+              name: string;
+              year: number;
+              num_parts: number;
+              set_img_url: string | null;
+            };
+            if (s.set_num) {
+              apiResults.unshift({
+                setNumber: normalizeSetNumber(s.set_num),
+                name: s.name,
+                theme: 'LEGO Set',
+                year: s.year,
+                pieces: s.num_parts,
+                imageUrl: s.set_img_url || getLegoImageUrl(s.set_num),
+                type: 'set',
+              });
+            }
+          }
+        } catch {
+          // Ignore direct lookup error
+        }
+      }
+
+      // Merge local matches and API results without duplicates
+      const seen = new Set<string>();
+      const combined: LegoSetResult[] = [];
+      for (const item of [...apiResults, ...localMatches]) {
+        const id = item.setNumber.toLowerCase();
+        if (!seen.has(id)) {
+          seen.add(id);
+          combined.push(item);
+        }
+      }
+
+      if (combined.length > 0) {
+        return combined;
       }
     } catch {
       // Fallback to local matches if network or auth error
     }
   }
 
-  // If query is an exact number (e.g. 75337) not in popular sets, provide a quick synthesized item
+  // Synthesize direct numeric set code
   if (/^\d{4,6}$/.test(trimmed) && !localMatches.some((m) => m.setNumber === trimmed)) {
     return [
       {
         setNumber: trimmed,
         name: `LEGO Set #${trimmed}`,
         theme: 'LEGO',
+        type: 'set',
+        imageUrl: getLegoImageUrl(trimmed),
+      },
+      ...localMatches,
+    ];
+  }
+
+  // Synthesize direct minifigure code
+  if (/^(fig-\d+|[a-z]{2,5}\d+[a-z]?)$/i.test(trimmed) && !localMatches.some((m) => m.setNumber.toLowerCase() === trimmed)) {
+    return [
+      {
+        setNumber: trimmed,
+        name: `Minifigure #${trimmed.toUpperCase()}`,
+        theme: 'Minifigures',
+        type: 'minifig',
         imageUrl: getLegoImageUrl(trimmed),
       },
       ...localMatches,

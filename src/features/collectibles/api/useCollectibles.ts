@@ -40,22 +40,22 @@ export const collectiblesKey = ['collectibles'] as const;
 
 export const CATEGORY_LABELS: Record<CollectibleCategory, string> = {
   pokemon: 'Pokémon TCG',
-  lego: 'LEGO Sets',
-  watches: 'Relógios & Joalharia',
-  coins_bullion: 'Moedas & Metais',
-  wine: 'Vinho & Destilados',
-  art: 'Arte & Colecionáveis',
-  other: 'Outros Ativos',
+  lego: 'LEGO & Minifigures',
+  watches: 'Watches & Luxury',
+  coins_bullion: 'Coins & Bullion',
+  wine: 'Wine & Spirits',
+  art: 'Art & Antiques',
+  other: 'Other Assets',
 };
 
 export const CATEGORY_ICONS: Record<CollectibleCategory, string> = {
-  pokemon: '⚡',
-  lego: '🧱',
-  watches: '⌚',
-  coins_bullion: '🪙',
-  wine: '🍷',
-  art: '🎨',
-  other: '💎',
+  pokemon: 'TCG',
+  lego: 'LEGO',
+  watches: 'Watch',
+  coins_bullion: 'Coin',
+  wine: 'Wine',
+  art: 'Art',
+  other: 'Asset',
 };
 
 export const useCollectibles = () =>

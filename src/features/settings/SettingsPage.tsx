@@ -369,17 +369,17 @@ export const SettingsPage = () => {
         <div>
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-[var(--text-strong)]">
-              Alternative Assets no Net Worth
+              Alternative Assets in Net Worth
             </p>
             {includeCollectibles && (
               <span className="rounded-full bg-[color-mix(in_srgb,var(--positive)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--positive)]">
-                Ativo
+                Active
               </span>
             )}
           </div>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Define se o valor dos teus colecionáveis (cartas Pokémon, sets LEGO, relógios, etc.) é
-            somado ao teu Património Líquido principal no Dashboard e barra lateral.
+            Choose whether the valuation of your alternative assets (Pokémon cards, LEGO sets &amp; minifigures, luxury watches, etc.) is
+            included in your core Net Worth on the Dashboard.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -391,14 +391,14 @@ export const SettingsPage = () => {
                 onSuccess: () =>
                   toast(
                     !includeCollectibles
-                      ? 'Colecionáveis incluídos no Net Worth'
-                      : 'Colecionáveis excluídos do Net Worth',
+                      ? 'Alternative assets included in Net Worth'
+                      : 'Alternative assets excluded from Net Worth',
                     'info',
                   ),
               })
             }
           >
-            {includeCollectibles ? 'Excluir do Net Worth' : 'Incluir no Net Worth'}
+            {includeCollectibles ? 'Exclude from Net Worth' : 'Include in Net Worth'}
           </Button>
         </div>
       </Card>

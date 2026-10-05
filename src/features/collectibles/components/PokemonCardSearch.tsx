@@ -44,7 +44,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
       })
       .catch((err) => {
         if (active) {
-          setError(err instanceof Error ? err.message : 'Falha ao pesquisar cartas');
+          setError(err instanceof Error ? err.message : 'Failed to search cards');
           setLoading(false);
         }
       });
@@ -62,7 +62,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
         onSelect(detail);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao carregar detalhe da carta');
+      setError(err instanceof Error ? err.message : 'Failed to load card details');
     } finally {
       setLoadingDetail(null);
     }
@@ -72,7 +72,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
     <div className="flex flex-col gap-3">
       <TextInput
         value={text}
-        placeholder="Pesquisar carta Pokémon (ex: Charizard, Umbreon, Pikachu)..."
+        placeholder="Search Pokémon card (e.g. Charizard, Umbreon, Pikachu)..."
         onChange={(e) => setText(e.target.value)}
         autoFocus
       />
@@ -80,7 +80,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
       {loading && (
         <div className="flex items-center gap-2 px-1 text-xs text-[var(--text-muted)]">
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
-          <span>A pesquisar no catálogo TCGdex...</span>
+          <span>Searching TCGdex catalog…</span>
         </div>
       )}
 
@@ -90,7 +90,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
 
       {!loading && query.trim().length >= 2 && results.length === 0 && (
         <p className="px-1 text-xs text-[var(--text-muted)]">
-          Nenhuma carta encontrada para “{query}”.
+          No cards found for &ldquo;{query}&rdquo;.
         </p>
       )}
 
@@ -106,7 +106,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
                 disabled={isSelecting}
                 className="tap group flex flex-col items-center gap-1.5 rounded-[var(--radius-field)] neu-flat p-2 text-left transition hover:border-[var(--accent)] hover:shadow-md disabled:opacity-50"
               >
-                <div className="relative aspect-[2.5/3.5] w-full overflow-hidden rounded bg-[var(--surface-sunken)]">
+                <div className="relative aspect-[2.5/3.5] w-full overflow-hidden rounded bg-[var(--surface-sunken)] p-1">
                   {card.imageUrl ? (
                     <img
                       src={card.imageUrl}
@@ -116,7 +116,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs text-[var(--text-muted)]">
-                      Sem imagem
+                      No image
                     </div>
                   )}
                   {isSelecting && (
@@ -129,7 +129,7 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
                   <p className="truncate text-xs font-bold text-[var(--text-strong)]">
                     {card.name}
                   </p>
-                  <p className="text-[10px] text-[var(--text-muted)]">
+                  <p className="text-[10px] text-[var(--text-muted)] font-mono">
                     #{card.localId}
                   </p>
                 </div>

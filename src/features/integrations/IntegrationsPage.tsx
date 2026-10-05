@@ -1,10 +1,9 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { icons } from '@/app/icons';
 import { Button } from '@/ui/Button';
 import { SettingsNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { Card } from '@/ui/Card';
-import { TextInput } from '@/ui/Field';
 import { Surface } from '@/ui/Surface';
 import { toast } from '@/ui/toast';
 import { InstitutionLogo } from '@/features/accounts/components/InstitutionLogo';
@@ -21,6 +20,8 @@ import {
 import { SyncRunList } from './SyncRunList';
 import type { SyncRun } from './api/useT212';
 import { WidgetCard } from './WidgetCard';
+import { RebrickableCard } from './RebrickableCard';
+import { SecretField } from './SecretField';
 import { CardTitle } from '@/ui/Heading';
 
 const relativeTime = (date: string): string => {
@@ -35,110 +36,6 @@ const relativeTime = (date: string): string => {
 
 const latestSuccessful = (runs: SyncRun[] | undefined) =>
   runs?.find((run) => run.status === 'success' && run.finishedAt) ?? null;
-
-interface SecretFieldProps {
-  label: string;
-  hint?: string;
-  placeholder: string;
-  value: string;
-  visible: boolean;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-  onToggleVisible: () => void;
-}
-
-const SecretField = ({
-  label,
-  hint,
-  placeholder,
-  value,
-  visible,
-  disabled,
-  onChange,
-  onToggleVisible,
-}: SecretFieldProps) => {
-  const id = useId();
-
-  const handlePaste = async () => {
-    if (!navigator.clipboard?.readText) {
-      toast('Clipboard access is not supported in this browser', 'error');
-      return;
-    }
-    try {
-      const text = (await navigator.clipboard.readText()).trim();
-      if (!text) {
-        toast('Clipboard is empty', 'info');
-        return;
-      }
-      onChange(text);
-    } catch {
-      toast('Allow clipboard paste or long-press inside the field', 'info');
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5 text-sm">
-      <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={id} className="font-medium text-[var(--text-muted)]">
-          {label}
-        </label>
-        {hint && (
-          <span className="text-[11px] text-[var(--text-subtle)]">{hint}</span>
-        )}
-      </div>
-      <div className="relative flex items-center">
-        <TextInput
-          id={id}
-          type={visible ? 'text' : 'password'}
-          value={value}
-          disabled={disabled}
-          autoComplete="off"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder={placeholder}
-          className="pr-24 font-mono text-[13px]"
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <div className="absolute right-2 flex items-center gap-1">
-          {value ? (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange('')}
-              aria-label={`Clear ${label}`}
-              className="tap rounded-md px-2 py-1 text-[11px] font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-strong)]"
-            >
-              Clear
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={handlePaste}
-              aria-label={`Paste ${label} from clipboard`}
-              className="tap rounded-md bg-[var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[var(--text-2)] transition-colors hover:text-[var(--accent)]"
-            >
-              Paste
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onToggleVisible}
-            aria-label={visible ? `Hide ${label}` : `Show ${label}`}
-            aria-pressed={visible}
-            className="tap flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-strong)]"
-          >
-            <span className="h-4 w-4">
-              {visible ? icons.eyeOff : icons.eye}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const IntegrationsPage = () => {
   const connection = useT212Connection();
@@ -228,7 +125,7 @@ export const IntegrationsPage = () => {
 
       <PageHeader
         title="Integrations"
-        subtitle="Connect Trading 212 and set up your iPhone widget."
+        subtitle="Connect Trading 212, Rebrickable for LEGO, and set up your iPhone widget."
       />
 
       <NotificationsCard />
@@ -596,6 +493,8 @@ export const IntegrationsPage = () => {
           </div>
         )}
       </Card>
+
+      <RebrickableCard />
 
       <WidgetCard />
     </div>
