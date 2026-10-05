@@ -462,15 +462,6 @@ const syncUser = async (db: SupabaseClient, userId: string): Promise<number> => 
   }
 };
 
-const resolveUserId = async (req: Request, db: SupabaseClient): Promise<string | null> => {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return null;
-  const token = authHeader.replace('Bearer ', '');
-  if (token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) return null;
-  const { data } = await db.auth.getUser(token);
-  return data.user?.id ?? null;
-};
-
 const corsHeaders: HeadersInit = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
@@ -490,25 +481,42 @@ Deno.serve(async (req) => {
   }
 
   const db = admin();
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const serviceRoleKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim();
+  const isServiceRole = Boolean(serviceRoleKey && token === serviceRoleKey);
+
+  let requestedUser: string | null = null;
+  if (!isServiceRole && token) {
+    const { data } = await db.auth.getUser(token);
+    requestedUser = data.user?.id ?? null;
+  }
+
+  // Reject unauthorized callers immediately
+  if (!isServiceRole && !requestedUser) {
+    return json({ ok: false, error: 'unauthorized' }, 401);
+  }
 
   try {
-    const requestedUser = await resolveUserId(req, db);
-
     if (requestedUser) {
       const inserted = await syncUser(db, requestedUser);
       return json({ ok: true, inserted });
     }
 
-    const { data: credentials } = await db
-      .from('provider_credentials')
-      .select('user_id')
-      .eq('provider', 't212');
+    if (isServiceRole) {
+      const { data: credentials } = await db
+        .from('provider_credentials')
+        .select('user_id')
+        .eq('provider', 't212');
 
-    let total = 0;
-    for (const credential of credentials ?? []) {
-      total += await syncUser(db, credential.user_id);
+      let total = 0;
+      for (const credential of credentials ?? []) {
+        total += await syncUser(db, credential.user_id);
+      }
+      return json({ ok: true, users: credentials?.length ?? 0, inserted: total });
     }
-    return json({ ok: true, users: credentials?.length ?? 0, inserted: total });
+
+    return json({ ok: false, error: 'unauthorized' }, 401);
   } catch (error) {
     return json(
       { ok: false, error: error instanceof Error ? error.message : String(error) },

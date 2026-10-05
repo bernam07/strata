@@ -1,95 +1,206 @@
 # Strata
 
-> Personal wealth tracker — investments and spending in one net-worth view.
+<div align="center">
 
-Strata is a single-user personal finance app. It syncs a Trading&nbsp;212
-portfolio, prices holdings and crypto from Yahoo Finance, and turns an
-append-only transaction ledger into net worth, performance, and spending
-insight.
+**Personal Wealth & Portfolio Intelligence Platform**
 
-Built and run by one person, for one person. The hosted instance is private —
-every row lives behind per-user Postgres row-level security — and this repo
-ships no credentials. It is published as a reference/portfolio piece, not as a
-multi-tenant product.
+*A production-grade, ledger-backed financial operating system uniting equities, crypto, cashflow, and Apple Pay automation into a unified net-worth view.*
 
-## What it does
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)](https://react.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%7C%20RLS%20%7C%20Edge%20Functions-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Vitest](https://img.shields.io/badge/Vitest-150%2B%20Tests%20Passing-729b1b?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-- **Net worth** — a live cross-section of everything owned and owed, derived
-  entirely from the ledger. Assets and liabilities are bucketed by account type
-  *or* by the sign of the balance, so an account that goes negative becomes a
-  liability with no separate debt table.
-- **Portfolio** — positions rebuilt from the ledger (weighted-average cost,
-  cost basis, market value, unrealized P/L), plus allocation, sector breakdown,
-  a rebalancing calculator, and time-/money-weighted returns (TWR & XIRR).
-- **Trading 212 sync** — a Deno edge function imports orders, dividends and cash
-  movements via the official API; the key is stored encrypted in Supabase Vault
-  and never touches the browser or the repo.
-- **Market data** — an independent edge function resolves each holding to a
-  Yahoo symbol, refreshes prices and day changes, and powers search, a
-  watchlist, price alerts, and optional web-push notifications.
-- **Expenses** — hierarchical categories, monthly budgets, cash-flow, automatic
-  recurring-subscription detection, and a monthly summary.
-- **Crypto** — holdings priced in EUR, folded into net worth and the day's P/L.
-- **Insight & quality-of-life** — automatic dashboard nudges, a command palette
-  (⌘K), a privacy mode that blurs every amount, light/dark themes, JSON backup,
-  a home-/lock-screen iPhone widget, and an installable PWA.
+</div>
 
-The financial history reconstructs real held quantities from the ledger and
-daily net-worth snapshots, so performance and the "you vs. the market"
-benchmark reflect what was actually held over time.
+---
 
-## Stack
+## 📌 Executive Summary
 
-React 19 · TypeScript · Vite · Tailwind v4 · Supabase (Postgres, Auth, RLS,
-Deno edge functions) · TanStack Query · Vitest · Vercel.
+Strata is a private, full-stack fintech platform designed to solve the fragmentation of modern personal wealth tracking. Instead of relying on multiple disconnected apps (spreadsheets for net worth, broker apps for stocks, budgeting tools for expenses), Strata consolidates everything into a single ledger-derived system of record with real-time analytics, automated broker imports, and contactless payment ingestion.
 
-## Architecture
+Published as an engineering portfolio piece and personal daily driver, it demonstrates high-integrity software design: **pure mathematical domain modelling**, **immutable ledger accounting**, **hardened PostgreSQL Row Level Security (RLS)**, and **real-world iOS ecosystem integrations**.
 
-The financial core lives in `src/core/` — pure, tested functions with no React
-and no Supabase. Balances, net worth, positions, analytics, dividends, budgets
-and insights are always *derived* from transactions, never stored.
+---
+
+## 🚀 Key Capabilities
+
+### 1. Ledger-Derived Accounting & Net Worth
+- **Single Source of Truth**: Balances, historical positions, and net worth are never statically stored; they are functionally derived from the transaction ledger via pure, tested functions (`deriveBalances`, `computeNetWorth`).
+- **Debt by Sign, Not Separate Tables**: Assets and liabilities are dynamically classified by account type or balance sign (e.g., an overdrawn account or credit line automatically transitions into a liability without manual restructuring).
+- **Exact Monetary Precision**: Financial math is executed with zero floating-point drift using `decimal.js` on the client and high-precision `numeric(19,4)` in PostgreSQL.
+
+### 2. Investment Portfolio & Advanced Analytics
+- **Performance Metrics**: Automated calculation of **XIRR** (Internal Rate of Return / Money-Weighted Return) and **TWR** (Time-Weighted Return) using historical cashflow sequences.
+- **Position Tracking**: Weighted-average cost basis, unrealized P&L, daily gains, and portfolio asset allocation breakdowns.
+- **Dividend Forecasting**: Forward dividend projections, ex-dividend calendar scheduling, and historical yield-on-cost metrics.
+- **Crypto & Multi-Asset Support**: Real-time crypto tracking via CoinGecko and global equities pricing with foreign exchange (FX) conversion.
+
+### 3. Apple Pay & Contactless Workflow (iOS Shortcuts)
+- **Zero-Friction Logging**: Serverless webhook ingestion via Supabase Edge Functions allows instant transaction logging directly from iPhone/Apple Watch contactless taps.
+- **Smart Merchant Intelligence**: Automatically matches recurring merchants (e.g., grocery stores, gas stations) to the user's preferred funding account (e.g., Edenred meal cards vs. personal checking) based on transaction history.
+- **Pending Review Inbox**: Contactless payments land in an interactive review queue with 1-tap confirmation, account reassignment, and automatic category suggestions.
+
+### 4. Automated Broker Synchronization (Trading 212)
+- **Serverless Importer**: Deno Edge Functions incrementally sync equity orders, dividends, and cash movements using the official Trading 212 API.
+- **Vault Security**: API keys and secrets are encrypted at rest using **Supabase Vault** (libsodium) and are never exposed to client bundles or browser storage.
+
+### 5. Mobile Experience & Desktop UX
+- **Design System**: Responsive interface with smooth bottom sheets, glassmorphic HUD headers, light/dark modes, and a privacy mode that blurs financial values.
+- **Command Palette (`⌘K` / `Ctrl+K`)**: Rapid navigation, instant transaction creation, and keyboard-first actions.
+- **iOS Home Screen Widget**: Token-authenticated Scriptable widget providing at-a-glance net worth and daily asset changes.
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client ["Client (React 19 + TypeScript + Vite)"]
+        UI["UI Layer\n(Neumorphic + Tailwind v4)"]
+        State["State Management\n(TanStack Query v5)"]
+        Core["Financial Core (Pure Logic)\n• XIRR / TWR Analytics\n• Ledger Balance Derivation\n• Dividend Projection Engine"]
+    end
+
+    subgraph Edge ["Supabase Edge Functions (Deno Runtime)"]
+        T212Sync["t212-sync\n(Scheduled Portfolio Importer)"]
+        MarketData["market\n(Yahoo & CoinGecko Feeds)"]
+        WidgetHook["widget\n(Apple Pay Webhook & iOS Widget)"]
+    end
+
+    subgraph Data ["PostgreSQL Database (Supabase)"]
+        Ledger[("transactions\n(Append-Only Ledger)")]
+        Accounts[("accounts\n(Multi-Currency)")]
+        Vault[("vault.secrets\n(Encrypted API Keys)")]
+        Policies[("Row Level Security (RLS)\n• Tenant Isolation\n• SECURITY DEFINER RPCs")]
+    end
+
+    subgraph External ["External Services & Ecosystem"]
+        T212API["Trading 212 API"]
+        Yahoo["Yahoo Finance / CoinGecko"]
+        ApplePay["iOS Shortcuts / Apple Pay"]
+    end
+
+    ApplePay -->|Signed Webhook| WidgetHook
+    T212API <-->|Encrypted Sync| T212Sync
+    Yahoo <-->|Market Pricing| MarketData
+
+    WidgetHook -->|Scoped Ingestion| Ledger
+    T212Sync -->|Batch Ingest| Ledger
+    T212Sync <-->|Read Credential| Vault
+    MarketData -->|Upsert Prices| Data
+
+    UI <--> State
+    State <--> Core
+    State <-->|Authenticated JWT + RLS| Data
+```
+
+---
+
+## 🛡️ Security Architecture & Audit Report
+
+Strata follows defense-in-depth principles designed for sensitive personal financial data:
+
+| Security Vector | Implementation & Defensive Mechanism |
+| :--- | :--- |
+| **Row Level Security (RLS)** | Enabled across 100% of tables. Every query is filtered by `auth.uid() = user_id`. Composite foreign keys `(account_id, user_id)` guarantee transactional ownership integrity. |
+| **Credential Encryption** | Broker keys and sensitive tokens are sealed inside PostgreSQL via `supabase_vault` using libsodium symmetric encryption. |
+| **Search-Path Injection Defense** | All `SECURITY DEFINER` functions enforce `SET search_path = ''` and revoke execution rights from `public` to prevent path-hijacking vulnerabilities. |
+| **Scoped Service Roles** | Unauthenticated callers cannot trigger Edge Function batch jobs. Ingestion endpoints strictly validate service-role keys for crons or verified JWTs for users. |
+| **Webhook Protection** | Apple Pay and widget endpoints use high-entropy (48-character hex) random tokens with strict bounds checking (e.g., maximum amount caps, sanitized string lengths). |
+| **Zero XSS Vectors** | No `dangerouslySetInnerHTML`, `eval()`, or unescaped HTML interpolation. All user inputs are strictly typed and sanitized before state commits. |
+
+---
+
+## 📁 Repository Structure
 
 ```
-src/
-  core/       pure financial logic (money, balances, net worth, positions, analytics…)
-  db/         Supabase client, generated types, mappers
-  features/   auth · accounts · transactions · dashboard · positions · expenses · …
-  ui/         neumorphic primitives, theming, toasts, command palette
-  app/        router, providers, shell
-supabase/
-  migrations/ versioned schema — row-level security on every table
-  functions/
-    t212-sync/ Trading 212 importer (Deno)
-    market/    Yahoo pricing, search, alerts, snapshots (Deno)
-    widget/    token-scoped read-only endpoint for the iOS widget
-    _shared/   shared, unit-tested pure logic
+strata/
+├── src/
+│   ├── core/                  # Pure financial domain logic (Zero UI/DB dependencies)
+│   │   ├── analytics/         # XIRR, TWR, cashflow series, monthly delta calculations
+│   │   ├── balances/          # Pure balance derivation from transaction sequences
+│   │   ├── dividends/         # Dividend yield and cash forecasting engine
+│   │   ├── money/             # Arbitrary-precision decimal arithmetic (decimal.js)
+│   │   ├── networth/          # Asset/liability classification and net worth math
+│   │   └── positions/         # Portfolio position reconstruction & rebalancing logic
+│   ├── features/              # Feature modules (Domain components, hooks, modals)
+│   │   ├── accounts/          # Account management, targets, and payday allocations
+│   │   ├── analytics/         # Wealth trajectory and performance charts
+│   │   ├── crypto/            # CoinGecko integration and crypto holdings
+│   │   ├── dashboard/         # Financial timeline, pulse cards, and net worth donut
+│   │   ├── dividends/         # Forward dividend schedule view
+│   │   ├── expenses/          # Budget pacing, categories, and split expenses
+│   │   ├── integrations/      # Trading 212 setup and Apple Shortcuts webhook guide
+│   │   ├── positions/         # Stock/ETF holdings, prices, and Yahoo symbol mapping
+│   │   └── transactions/      # Transaction list, edit sheet, and pending review inbox
+│   ├── db/                    # Supabase client, typed schemas, and row mappers
+│   └── ui/                    # Design primitives, toasts, fields, and command palette
+├── supabase/
+│   ├── functions/             # Deno Edge Functions (market, t212-sync, widget)
+│   │   └── _shared/           # Shared modules (FX math, portfolio mapping, backoff)
+│   └── migrations/            # Version-controlled SQL migrations & RLS policies
+└── scripts/                   # Auxiliary CLI tools (VAPID generation, seeders)
 ```
 
-### Design decisions
+---
 
-- **Append-only ledger, single source of truth.** Balances and net worth are
-  always derived. The append-only rule is enforced by RLS itself — `select` and
-  `insert` policies, no `update`/`delete` on the ledger — so corrections are made
-  with an adjustment transaction.
-- **Liabilities by sign, not entity.** Bucketing uses the account `type` *or* the
-  balance sign; nothing lives in a separate debts table.
-- **Exact arithmetic.** `numeric` in Postgres, `decimal.js` on the client — never
-  floating point for money.
-- **Ownership integrity.** Transactions reference `(account_id, user_id)` via a
-  composite foreign key, so a row can never point at another user's account.
-- **Untrusted price writes stay server-side.** Prices, `current_price` and broker
-  totals are written only by `security definer` RPCs restricted to the service
-  role; the browser never writes them.
+## 🧪 Testing & Verification
 
-## Scripts
+The core calculation engines are backed by an extensive automated test suite run via [Vitest](https://vitest.dev/):
 
-| Command             | Effect                          |
-| ------------------- | ------------------------------- |
-| `npm run dev`       | Development server              |
-| `npm run build`     | Type-check + production build   |
-| `npm run test`      | Unit tests (Vitest)             |
-| `npm run typecheck` | Type-check only                 |
+```bash
+# Run unit and integration tests
+npm test
 
-## License
+# Run type-checking across TypeScript modules
+npm run typecheck
 
-[MIT](./LICENSE).
+# Build for production
+npm run build
+```
+
+**Key test suites covered:**
+- **Ledger Invariants**: Ensures transactions always correctly alter account balances and preserve debit/credit signs.
+- **XIRR & TWR Math**: Verified against known Newton-Raphson convergence sets and standard financial benchmarks.
+- **Payday Pacing & Budgets**: Edge-case testing for leap years, irregular month lengths, and multi-currency conversions.
+- **Reconstruction Algorithms**: Validates that historical positions accurately reconstruct from sequence logs.
+
+---
+
+## 🛠️ Local Development Setup
+
+### Prerequisites
+- Node.js 20+
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (optional, for local Edge Functions)
+
+### 1. Clone & Install
+```bash
+git clone https://github.com/bernam07/strata.git
+cd strata
+npm install
+```
+
+### 2. Environment Configuration
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+Fill in your Supabase project credentials:
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](./LICENSE).

@@ -32,8 +32,11 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const token = url.searchParams.get('token');
-  if (!token) return json({ error: 'missing token' }, 400);
+  const token =
+    url.searchParams.get('token') ??
+    req.headers.get('x-widget-token') ??
+    (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return json({ error: 'missing token' }, 401);
 
   const db = admin();
 
@@ -75,17 +78,17 @@ Deno.serve(async (req) => {
     }
 
     const rawAmount = Math.abs(Number(body.amount));
-    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-      return json({ error: 'invalid or missing amount' }, 400);
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0 || rawAmount > 100_000_000) {
+      return json({ error: 'invalid or out-of-range amount' }, 400);
     }
 
-    const kind = String(body.kind ?? 'expense').toLowerCase();
+    const kind = String(body.kind ?? 'expense').toLowerCase().slice(0, 30);
     const isOutflow = ['expense', 'withdrawal', 'fee', 'buy'].includes(kind);
     const signedAmount = isOutflow ? -rawAmount : rawAmount;
 
     const merchant = String(
       body.merchant ?? body.note ?? body.description ?? '',
-    ).trim();
+    ).trim().slice(0, 200);
     const note = merchant || 'Apple Pay / Wallet';
     const occurredAt = body.date
       ? new Date(String(body.date)).toISOString()
