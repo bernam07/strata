@@ -165,4 +165,31 @@ describe('tcgdex utilities', () => {
       expect(price).toBeNull();
     });
   });
+
+  describe('multilingual Japanese card support', () => {
+    it('provides Japanese mappings for iconic pokemon', async () => {
+      const { POKEMON_JA_NAMES, JAPANESE_SETS } = await import('./tcgdex');
+      expect(POKEMON_JA_NAMES.charizard).toBe('リザードン');
+      expect(POKEMON_JA_NAMES.pikachu).toBe('ピカチュウ');
+      expect(POKEMON_JA_NAMES.mew).toBe('ミュウ');
+      expect(JAPANESE_SETS['151']).toBe('sv2a');
+      expect(JAPANESE_SETS.sv4a).toBe('sv4a');
+    });
+
+    it('resolves Japanese card pricing via Cardmarket trend when TCGplayer is null', () => {
+      const japanesePricing: PokemonCardDetail['pricing'] = {
+        tcgplayer: undefined,
+        cardmarket: {
+          unit: 'EUR',
+          trend: 357.44,
+          avg: 382.53,
+          low: 239.0,
+        },
+      };
+      const res = resolvePokemonPrice(japanesePricing, { fxRate: 0.893 });
+      expect(res.source).toBe('cardmarket');
+      expect(res.resolvedEur).toBe(357.44);
+      expect(res.cardmarket?.priceEur).toBe(357.44);
+    });
+  });
 });

@@ -7,7 +7,7 @@ import {
   getUsdToEurRate,
   type PokemonCardFinish,
 } from './tcgdex';
-import { fetchBricklinkPrice } from './bricklink';
+import { resolveLegoPrice } from './legoValuation';
 
 export type CollectibleCategory =
   | 'pokemon'
@@ -270,47 +270,31 @@ export const useRefreshLegoPrices = () => {
       for (const item of legoItems) {
         if (!item.identifier) continue;
         try {
-          const isUsed = item.condition
-            ? /used|opened|loose|incomplete/i.test(item.condition)
-            : false;
-          const condition = isUsed ? 'U' : 'N';
           const explicitType = (item.metadata?.type as 'set' | 'minifig' | undefined)
             ? ((item.metadata.type as string).toUpperCase() as 'SET' | 'MINIFIG')
             : undefined;
 
-          const priceData = await fetchBricklinkPrice({
+          const valRes = await resolveLegoPrice({
             itemNo: item.identifier,
             itemType: explicitType,
-            condition,
-            guideType: 'sold',
+            condition: item.condition ?? undefined,
+            currency: 'EUR',
           });
 
-          const newPrice =
-            priceData.avgPrice > 0
-              ? priceData.avgPrice
-              : priceData.qtyAvgPrice > 0
-                ? priceData.qtyAvgPrice
-                : priceData.minPrice;
-
+          const newPrice = valRes.resolvedEur;
           if (newPrice > 0 && newPrice !== item.currentPrice) {
             const updatedMeta = {
               ...(item.metadata || {}),
-              bricklink: {
-                avgPrice: priceData.avgPrice,
-                qtyAvgPrice: priceData.qtyAvgPrice,
-                minPrice: priceData.minPrice,
-                maxPrice: priceData.maxPrice,
-                guideType: priceData.guideType,
-                condition: priceData.condition,
-                dateFetched: priceData.dateFetched,
-              },
+              valuationSource: valRes.source,
+              ...(valRes.brickeconomy ? { brickeconomy: valRes.brickeconomy } : {}),
+              ...(valRes.bricklink ? { bricklink: valRes.bricklink } : {}),
             };
 
             await supabase
               .from('collectibles')
               .update({
                 current_price: newPrice,
-                metadata: updatedMeta as Json,
+                metadata: updatedMeta as unknown as Json,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', item.id);
@@ -386,47 +370,31 @@ export const useSyncCollectiblePrices = () => {
       for (const item of legoItems) {
         if (!item.identifier) continue;
         try {
-          const isUsed = item.condition
-            ? /used|opened|loose|incomplete/i.test(item.condition)
-            : false;
-          const condition = isUsed ? 'U' : 'N';
           const explicitType = (item.metadata?.type as 'set' | 'minifig' | undefined)
             ? ((item.metadata.type as string).toUpperCase() as 'SET' | 'MINIFIG')
             : undefined;
 
-          const priceData = await fetchBricklinkPrice({
+          const valRes = await resolveLegoPrice({
             itemNo: item.identifier,
             itemType: explicitType,
-            condition,
-            guideType: 'sold',
+            condition: item.condition ?? undefined,
+            currency: 'EUR',
           });
 
-          const newPrice =
-            priceData.avgPrice > 0
-              ? priceData.avgPrice
-              : priceData.qtyAvgPrice > 0
-                ? priceData.qtyAvgPrice
-                : priceData.minPrice;
-
+          const newPrice = valRes.resolvedEur;
           if (newPrice > 0 && newPrice !== item.currentPrice) {
             const updatedMeta = {
               ...(item.metadata || {}),
-              bricklink: {
-                avgPrice: priceData.avgPrice,
-                qtyAvgPrice: priceData.qtyAvgPrice,
-                minPrice: priceData.minPrice,
-                maxPrice: priceData.maxPrice,
-                guideType: priceData.guideType,
-                condition: priceData.condition,
-                dateFetched: priceData.dateFetched,
-              },
+              valuationSource: valRes.source,
+              ...(valRes.brickeconomy ? { brickeconomy: valRes.brickeconomy } : {}),
+              ...(valRes.bricklink ? { bricklink: valRes.bricklink } : {}),
             };
 
             await supabase
               .from('collectibles')
               .update({
                 current_price: newPrice,
-                metadata: updatedMeta as Json,
+                metadata: updatedMeta as unknown as Json,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', item.id);

@@ -394,6 +394,16 @@ export const CollectiblesPage = () => {
                           #{item.identifier}
                         </p>
                       )}
+                      {Boolean(
+                        item.metadata?.language === 'ja' ||
+                          (item.category === 'pokemon' &&
+                            item.identifier &&
+                            /^(sv\d+[a-z]?|s\d+[a-z]?|sm\d+|pmcg)/i.test(item.identifier)),
+                      ) && (
+                        <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1 py-0.2 text-[9px] font-bold text-rose-300">
+                          JA
+                        </span>
+                      )}
                       {Boolean(item.metadata?.finish) && (
                         <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold uppercase tracking-wider text-(--accent)">
                           {String(item.metadata.finish).replace(/-/g, ' ')}

@@ -21,6 +21,7 @@ import { SyncRunList } from './SyncRunList';
 import type { SyncRun } from './api/useT212';
 import { WidgetCard } from './WidgetCard';
 import { RebrickableCard } from './RebrickableCard';
+import { BrickEconomyCard } from './BrickEconomyCard';
 import { BricklinkCard } from './BricklinkCard';
 import { SecretField } from './SecretField';
 import { CardTitle } from '@/ui/Heading';
@@ -126,7 +127,7 @@ export const IntegrationsPage = () => {
 
       <PageHeader
         title="Integrations"
-        subtitle="Connect Trading 212, Rebrickable & BrickLink for LEGO, and set up your iPhone widget."
+        subtitle="Connect Trading 212, Rebrickable & BrickEconomy for LEGO, and set up your iPhone widget."
       />
 
       <NotificationsCard />
@@ -496,6 +497,7 @@ export const IntegrationsPage = () => {
       </Card>
 
       <RebrickableCard />
+      <BrickEconomyCard />
       <BricklinkCard />
 
       <WidgetCard />

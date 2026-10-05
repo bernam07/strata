@@ -10,7 +10,8 @@ import {
   type Collectible,
   type CollectibleCategory,
 } from '../api/useCollectibles';
-import { fetchBricklinkPrice, type BricklinkPriceResult } from '../api/bricklink';
+import { type BricklinkPriceResult } from '../api/bricklink';
+import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
 import {
   getPokemonCard,
   getUsdToEurRate,
@@ -72,8 +73,9 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
   const [notes, setNotes] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [metadata, setMetadata] = useState<Record<string, unknown>>({});
-  const [fetchingBricklinkPrice, setFetchingBricklinkPrice] = useState(false);
+  const [fetchingLegoPrice, setFetchingLegoPrice] = useState(false);
   const [bricklinkGuide, setBricklinkGuide] = useState<BricklinkPriceResult | null>(null);
+  const [legoValuation, setLegoValuation] = useState<LegoValuationResult | null>(null);
   const [fetchingPokemonPrice, setFetchingPokemonPrice] = useState(false);
   const [pokemonBreakdown, setPokemonBreakdown] = useState<PokemonPriceBreakdown | null>(null);
 
@@ -92,47 +94,57 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     setMetadata(collectible.metadata ?? {});
     setConfirmDelete(false);
     setBricklinkGuide(null);
-    setFetchingBricklinkPrice(false);
+    setLegoValuation(null);
+    setFetchingLegoPrice(false);
     setPokemonBreakdown(null);
     setFetchingPokemonPrice(false);
   }, [collectible]);
 
-  const handleFetchBricklink = async () => {
+  const handleFetchLegoValuation = async () => {
     if (!identifier.trim()) {
       toast('Please enter a LEGO set number or minifigure code', 'error');
       return;
     }
-    setFetchingBricklinkPrice(true);
+    setFetchingLegoPrice(true);
     try {
-      const isUsed = /used|opened|loose|incomplete/i.test(condition);
-      const res = await fetchBricklinkPrice({
+      const res = await resolveLegoPrice({
         itemNo: identifier.trim(),
-        guideType: 'sold',
-        condition: isUsed ? 'U' : 'N',
+        condition,
+        currency: 'EUR',
       });
-      if (res) {
-        setBricklinkGuide(res);
-        const p =
-          res.avgPrice > 0
-            ? res.avgPrice
-            : res.qtyAvgPrice > 0
-              ? res.qtyAvgPrice
-              : res.minPrice;
-        if (p > 0) {
-          setCurrentPrice(String(p));
+      if (res && res.resolvedEur > 0) {
+        setLegoValuation(res);
+        if (res.bricklink) {
+          setBricklinkGuide(res.bricklink);
         }
-        toast(
-          `BrickLink market price loaded: €${(res.avgPrice || res.qtyAvgPrice).toFixed(2)}`,
-          'success',
-        );
+        setCurrentPrice(String(res.resolvedEur));
+        setMetadata((prev) => ({
+          ...prev,
+          valuationSource: res.source,
+          ...(res.brickeconomy ? { brickeconomy: res.brickeconomy } : {}),
+          ...(res.bricklink ? { bricklink: res.bricklink } : {}),
+        }));
+        if (res.source === 'brickeconomy') {
+          toast(
+            `BrickEconomy market valuation: €${res.resolvedEur.toFixed(2)}`,
+            'success',
+          );
+        } else if (res.source === 'bricklink') {
+          toast(
+            `BrickLink market price: €${res.resolvedEur.toFixed(2)}`,
+            'success',
+          );
+        }
+      } else {
+        toast('No live valuation found for this item', 'error');
       }
     } catch (err) {
       toast(
-        err instanceof Error ? err.message : 'Failed to fetch BrickLink price',
+        err instanceof Error ? err.message : 'Failed to fetch valuation',
         'error',
       );
     } finally {
-      setFetchingBricklinkPrice(false);
+      setFetchingLegoPrice(false);
     }
   };
 
@@ -347,11 +359,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                 {category === 'lego' && identifier.trim() && (
                   <button
                     type="button"
-                    disabled={fetchingBricklinkPrice}
-                    onClick={handleFetchBricklink}
+                    disabled={fetchingLegoPrice}
+                    onClick={handleFetchLegoValuation}
                     className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
                   >
-                    {fetchingBricklinkPrice ? 'Checking…' : 'Fetch BrickLink'}
+                    {fetchingLegoPrice ? 'Checking…' : 'Fetch live valuation'}
                   </button>
                 )}
                 {category === 'pokemon' && identifier.trim() && (
@@ -374,7 +386,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
           </Labelled>
         </div>
 
-        {pokemonBreakdown?.collectr && (
+        {pokemonBreakdown?.collectr ? (
           <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
@@ -409,9 +421,54 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
               </div>
             )}
           </div>
+        ) : pokemonBreakdown?.cardmarket ? (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+                Cardmarket Valuation (EU Market Trend)
+              </span>
+              <span className="font-bold text-[var(--positive)]">
+                €{pokemonBreakdown.cardmarket.priceEur.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+              <span>Japanese Market (Cardmarket EU)</span>
+              {pokemonBreakdown.cardmarket.avgEur && (
+                <span>Avg: €{pokemonBreakdown.cardmarket.avgEur.toFixed(2)}</span>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {legoValuation?.source === 'brickeconomy' && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                BrickEconomy Market Valuation
+              </span>
+              <span className="font-bold text-emerald-400">
+                €{legoValuation.resolvedEur.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-[var(--text-muted)]">
+              <span>
+                {legoValuation.retailPrice
+                  ? `Original Retail: €${legoValuation.retailPrice.toFixed(2)}`
+                  : 'Live Secondary Market'}
+              </span>
+              {legoValuation.growthPercent !== undefined && (
+                <span className="font-semibold text-emerald-400">
+                  {legoValuation.growthPercent >= 0 ? '+' : ''}
+                  {legoValuation.growthPercent.toFixed(1)}% growth
+                </span>
+              )}
+            </div>
+          </div>
         )}
 
-        {bricklinkGuide && (
+        {bricklinkGuide && legoValuation?.source !== 'brickeconomy' && (
           <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
@@ -432,6 +489,29 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                 Range: €{bricklinkGuide.minPrice.toFixed(2)} – €{bricklinkGuide.maxPrice.toFixed(2)}
               </span>
             </div>
+          </div>
+        )}
+
+        {category === 'lego' && identifier.trim() && (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+            <span>Market references:</span>
+            <a
+              href={`https://www.brickeconomy.com/${/^(fig-|[a-z]{2,5}\d)/i.test(identifier) ? 'minifig' : 'set'}/${identifier.trim().replace(/-\d+$/, '')}${/^(fig-|[a-z]{2,5}\d)/i.test(identifier) ? '' : '-1'}`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-emerald-500 hover:underline inline-flex items-center gap-0.5"
+            >
+              BrickEconomy ↗
+            </a>
+            <span>·</span>
+            <a
+              href={`https://www.bricklink.com/v2/catalog/catalogitem.page?${/^(fig-|[a-z]{2,5}\d)/i.test(identifier) ? 'M' : 'S'}=${identifier.trim().replace(/-\d+$/, '')}-1#T=P`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-[var(--accent)] hover:underline inline-flex items-center gap-0.5"
+            >
+              BrickLink Price Guide ↗
+            </a>
           </div>
         )}
 

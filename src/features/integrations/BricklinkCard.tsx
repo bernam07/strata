@@ -128,7 +128,7 @@ export const BricklinkCard = () => {
                 BrickLink
               </p>
               <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-muted)]">
-                LEGO Price Guide &amp; Market
+                Optional · Store Sellers
               </span>
             </div>
             {connected ? (
@@ -167,6 +167,11 @@ export const BricklinkCard = () => {
           </Button>
         )}
       </div>
+
+      <p className="text-sm text-[var(--text-muted)]">
+        Connect your BrickLink Store API keys (OAuth 1.0) to query 6-month historical sales and current stock price guides.
+        Note: The official BrickLink API is restricted by BrickLink to verified store sellers. For personal collections, use the single-key BrickEconomy integration above.
+      </p>
 
       {connected && confirmDisconnect && (
         <Surface
@@ -287,10 +292,22 @@ export const BricklinkCard = () => {
             {(!connected || showGuide) && (
               <Surface
                 elevation="sunken"
-                className="flex flex-col gap-2 p-3.5 text-xs text-[var(--text-muted)]"
+                className="flex flex-col gap-2.5 p-3.5 text-xs text-[var(--text-muted)]"
               >
-                <p className="font-semibold text-[var(--text-2)]">
-                  Where to get your BrickLink API credentials:
+                <div className="rounded border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] p-2.5 text-xs text-[var(--text-strong)]">
+                  <p className="font-semibold text-[var(--accent)]">
+                    Important: BrickLink Seller Requirement
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
+                    BrickLink strictly restricts OAuth API key generation to registered <strong>Seller Accounts</strong> with an active store (which requires past buyer feedback).
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
+                    If you do not sell on BrickLink, <strong>this integration is optional</strong>. You can use <strong>Rebrickable</strong> (100% free and open for everyone) to search the LEGO catalog and minifigures, and use Strata&apos;s 1-click price guide links to check current market values.
+                  </p>
+                </div>
+
+                <p className="font-semibold text-[var(--text-2)] pt-1">
+                  If you have a BrickLink Seller account:
                 </p>
                 <ol className="list-decimal space-y-1 pl-4">
                   <li>
