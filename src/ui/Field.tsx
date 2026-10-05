@@ -86,7 +86,7 @@ export const evaluateMoneyExpression = (raw: string): number | null => {
 };
 
 interface LabelledProps {
-  label: string;
+  label: ReactNode;
   children: ReactNode;
 }
 

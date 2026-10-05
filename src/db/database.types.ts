@@ -748,6 +748,23 @@ export interface Database {
         Args: Record<never, never>;
         Returns: string | null;
       };
+      set_bricklink_credentials: {
+        Args: {
+          p_consumer_key: string;
+          p_consumer_secret: string;
+          p_token_value: string;
+          p_token_secret: string;
+        };
+        Returns: undefined;
+      };
+      remove_bricklink_credentials: {
+        Args: Record<never, never>;
+        Returns: undefined;
+      };
+      get_bricklink_credentials: {
+        Args: Record<never, never>;
+        Returns: string | null;
+      };
       provider_secret: {
         Args: { p_user: string; p_provider: string };
         Returns: { secret: string; use_demo: boolean }[];

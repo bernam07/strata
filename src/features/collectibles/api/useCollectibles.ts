@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
 import type { Database, Json } from '@/db/database.types';
-import { extractCardmarketPrice, getPokemonCard } from './tcgdex';
+import {
+  extractCollectrPrice,
+  getPokemonCard,
+  getUsdToEurRate,
+  type PokemonCardFinish,
+} from './tcgdex';
+import { fetchBricklinkPrice } from './bricklink';
 
 export type CollectibleCategory =
   | 'pokemon'
@@ -210,14 +216,28 @@ export const useRefreshPokemonPrices = () => {
         (c) => c.category === 'pokemon' && Boolean(c.identifier),
       );
 
+      const fxRate = await getUsdToEurRate();
       let updatedCount = 0;
+
       for (const card of pokemonCards) {
         if (!card.identifier) continue;
         try {
           const detail = await getPokemonCard(card.identifier);
           if (detail) {
-            const newPrice = extractCardmarketPrice(detail.pricing);
-            if (newPrice !== null && newPrice > 0 && newPrice !== card.currentPrice) {
+            const preferredFinish = card.metadata?.finish as
+              | PokemonCardFinish
+              | undefined;
+            const newPrice = await extractCollectrPrice(detail.pricing, {
+              preferredFinish,
+              condition: card.condition ?? undefined,
+              rarity: detail.rarity,
+              fxRate,
+            });
+            if (
+              newPrice !== null &&
+              newPrice > 0 &&
+              newPrice !== card.currentPrice
+            ) {
               await supabase
                 .from('collectibles')
                 .update({
@@ -237,3 +257,193 @@ export const useRefreshPokemonPrices = () => {
     onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
   });
 };
+
+export const useRefreshLegoPrices = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (collectibles: Collectible[]) => {
+      const legoItems = collectibles.filter(
+        (c) => c.category === 'lego' && Boolean(c.identifier),
+      );
+
+      let updatedCount = 0;
+      for (const item of legoItems) {
+        if (!item.identifier) continue;
+        try {
+          const isUsed = item.condition
+            ? /used|opened|loose|incomplete/i.test(item.condition)
+            : false;
+          const condition = isUsed ? 'U' : 'N';
+          const explicitType = (item.metadata?.type as 'set' | 'minifig' | undefined)
+            ? ((item.metadata.type as string).toUpperCase() as 'SET' | 'MINIFIG')
+            : undefined;
+
+          const priceData = await fetchBricklinkPrice({
+            itemNo: item.identifier,
+            itemType: explicitType,
+            condition,
+            guideType: 'sold',
+          });
+
+          const newPrice =
+            priceData.avgPrice > 0
+              ? priceData.avgPrice
+              : priceData.qtyAvgPrice > 0
+                ? priceData.qtyAvgPrice
+                : priceData.minPrice;
+
+          if (newPrice > 0 && newPrice !== item.currentPrice) {
+            const updatedMeta = {
+              ...(item.metadata || {}),
+              bricklink: {
+                avgPrice: priceData.avgPrice,
+                qtyAvgPrice: priceData.qtyAvgPrice,
+                minPrice: priceData.minPrice,
+                maxPrice: priceData.maxPrice,
+                guideType: priceData.guideType,
+                condition: priceData.condition,
+                dateFetched: priceData.dateFetched,
+              },
+            };
+
+            await supabase
+              .from('collectibles')
+              .update({
+                current_price: newPrice,
+                metadata: updatedMeta as Json,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', item.id);
+            updatedCount += 1;
+          }
+        } catch {
+          // Continue updating other items even if one fails
+        }
+      }
+      return updatedCount;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};
+
+export interface SyncCollectiblePricesResult {
+  pokemonUpdated: number;
+  legoUpdated: number;
+  totalUpdated: number;
+}
+
+export const useSyncCollectiblePrices = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (collectibles: Collectible[]): Promise<SyncCollectiblePricesResult> => {
+      let pokemonUpdated = 0;
+      let legoUpdated = 0;
+
+      // 1. Refresh Pokémon cards via Collectr (TCGplayer Market EUR)
+      const pokemonCards = collectibles.filter(
+        (c) => c.category === 'pokemon' && Boolean(c.identifier),
+      );
+      const fxRate = await getUsdToEurRate();
+
+      for (const card of pokemonCards) {
+        if (!card.identifier) continue;
+        try {
+          const detail = await getPokemonCard(card.identifier);
+          if (detail) {
+            const preferredFinish = card.metadata?.finish as
+              | PokemonCardFinish
+              | undefined;
+            const newPrice = await extractCollectrPrice(detail.pricing, {
+              preferredFinish,
+              condition: card.condition ?? undefined,
+              rarity: detail.rarity,
+              fxRate,
+            });
+            if (
+              newPrice !== null &&
+              newPrice > 0 &&
+              newPrice !== card.currentPrice
+            ) {
+              await supabase
+                .from('collectibles')
+                .update({
+                  current_price: newPrice,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', card.id);
+              pokemonUpdated += 1;
+            }
+          }
+        } catch {
+          // ignore error
+        }
+      }
+
+      // 2. Refresh LEGO sets & minifigures via BrickLink
+      const legoItems = collectibles.filter(
+        (c) => c.category === 'lego' && Boolean(c.identifier),
+      );
+      for (const item of legoItems) {
+        if (!item.identifier) continue;
+        try {
+          const isUsed = item.condition
+            ? /used|opened|loose|incomplete/i.test(item.condition)
+            : false;
+          const condition = isUsed ? 'U' : 'N';
+          const explicitType = (item.metadata?.type as 'set' | 'minifig' | undefined)
+            ? ((item.metadata.type as string).toUpperCase() as 'SET' | 'MINIFIG')
+            : undefined;
+
+          const priceData = await fetchBricklinkPrice({
+            itemNo: item.identifier,
+            itemType: explicitType,
+            condition,
+            guideType: 'sold',
+          });
+
+          const newPrice =
+            priceData.avgPrice > 0
+              ? priceData.avgPrice
+              : priceData.qtyAvgPrice > 0
+                ? priceData.qtyAvgPrice
+                : priceData.minPrice;
+
+          if (newPrice > 0 && newPrice !== item.currentPrice) {
+            const updatedMeta = {
+              ...(item.metadata || {}),
+              bricklink: {
+                avgPrice: priceData.avgPrice,
+                qtyAvgPrice: priceData.qtyAvgPrice,
+                minPrice: priceData.minPrice,
+                maxPrice: priceData.maxPrice,
+                guideType: priceData.guideType,
+                condition: priceData.condition,
+                dateFetched: priceData.dateFetched,
+              },
+            };
+
+            await supabase
+              .from('collectibles')
+              .update({
+                current_price: newPrice,
+                metadata: updatedMeta as Json,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', item.id);
+            legoUpdated += 1;
+          }
+        } catch {
+          // ignore error
+        }
+      }
+
+      return {
+        pokemonUpdated,
+        legoUpdated,
+        totalUpdated: pokemonUpdated + legoUpdated,
+      };
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};
+

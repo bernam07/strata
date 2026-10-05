@@ -10,6 +10,15 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    proxy: {
+      '/api/bricklink': {
+        target: 'https://api.bricklink.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/bricklink/, ''),
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {

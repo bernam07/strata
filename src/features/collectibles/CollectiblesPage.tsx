@@ -14,7 +14,7 @@ import { toast } from '@/ui/toast';
 import {
   CATEGORY_LABELS,
   useCollectibles,
-  useRefreshPokemonPrices,
+  useSyncCollectiblePrices,
   type Collectible,
   type CollectibleCategory,
 } from './api/useCollectibles';
@@ -28,7 +28,7 @@ import { EditCollectibleModal } from './components/EditCollectibleModal';
 
 export const CollectiblesPage = () => {
   const { data: collectibles = [], isLoading } = useCollectibles();
-  const refreshPokemon = useRefreshPokemonPrices();
+  const syncPrices = useSyncCollectiblePrices();
   const { data: includeInNetWorth = true } = useIncludeCollectiblesInNetWorth();
   const setIncludeInNetWorth = useSetIncludeCollectiblesInNetWorth();
 
@@ -86,21 +86,32 @@ export const CollectiblesPage = () => {
     return counts;
   }, [collectibles]);
 
-  const handleRefreshPokemon = () => {
-    const pokemonCount = collectibles.filter((c) => c.category === 'pokemon' && c.identifier).length;
-    if (pokemonCount === 0) {
-      toast('No Pokémon cards with TCGdex identifiers found to sync', 'info');
+  const handleSyncPrices = () => {
+    const hasSyncable = collectibles.some(
+      (c) => (c.category === 'pokemon' || c.category === 'lego') && Boolean(c.identifier),
+    );
+    if (!hasSyncable) {
+      toast('No Pokémon cards or LEGO items with identifiers to sync', 'info');
       return;
     }
 
-    refreshPokemon.mutate(collectibles, {
-      onSuccess: (count) => {
-        toast(
-          count > 0
-            ? `${count} card${count > 1 ? 's' : ''} updated with live Cardmarket prices!`
-            : 'Cardmarket prices are already up to date.',
-          'success',
-        );
+    syncPrices.mutate(collectibles, {
+      onSuccess: ({ pokemonUpdated, legoUpdated, totalUpdated }) => {
+        if (totalUpdated > 0) {
+          const parts: string[] = [];
+          if (pokemonUpdated > 0) {
+            parts.push(`${pokemonUpdated} Pokémon card${pokemonUpdated > 1 ? 's' : ''}`);
+          }
+          if (legoUpdated > 0) {
+            parts.push(`${legoUpdated} LEGO item${legoUpdated > 1 ? 's' : ''}`);
+          }
+          toast(`Updated ${parts.join(' and ')} with live market prices!`, 'success');
+        } else {
+          toast(
+            'All Pokémon and LEGO prices are already up to date with live market data.',
+            'info',
+          );
+        }
       },
       onError: (err) => {
         toast(err instanceof Error ? err.message : 'Failed to sync prices', 'error');
@@ -154,19 +165,23 @@ export const CollectiblesPage = () => {
               <span>{includeInNetWorth ? 'In Net Worth: Yes' : 'In Net Worth: No'}</span>
             </button>
 
-            {collectibles.some((c) => c.category === 'pokemon' && c.identifier) && (
+            {collectibles.some(
+              (c) =>
+                (c.category === 'pokemon' || c.category === 'lego') &&
+                Boolean(c.identifier),
+            ) && (
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={handleRefreshPokemon}
-                disabled={refreshPokemon.isPending}
+                onClick={handleSyncPrices}
+                disabled={syncPrices.isPending}
               >
                 <span
-                  className={`mr-1.5 inline-block h-3.5 w-3.5 ${refreshPokemon.isPending ? 'animate-spin' : ''}`}
+                  className={`mr-1.5 inline-block h-3.5 w-3.5 ${syncPrices.isPending ? 'animate-spin' : ''}`}
                 >
                   {icons.sync}
                 </span>
-                {refreshPokemon.isPending ? 'Syncing…' : 'Sync Prices'}
+                {syncPrices.isPending ? 'Syncing…' : 'Sync Prices'}
               </Button>
             )}
             <Button size="sm" onClick={() => setAddModalOpen(true)}>
@@ -373,11 +388,18 @@ export const CollectiblesPage = () => {
                     <h4 className="line-clamp-2 text-xs font-bold text-(--text-strong) group-hover:text-(--accent)">
                       {item.name}
                     </h4>
-                    {item.identifier && (
-                      <p className="mt-0.5 truncate text-[10px] text-(--text-muted) font-mono">
-                        #{item.identifier}
-                      </p>
-                    )}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      {item.identifier && (
+                        <p className="truncate text-[10px] text-(--text-muted) font-mono">
+                          #{item.identifier}
+                        </p>
+                      )}
+                      {Boolean(item.metadata?.finish) && (
+                        <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold uppercase tracking-wider text-(--accent)">
+                          {String(item.metadata.finish).replace(/-/g, ' ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-2.5 flex items-end justify-between border-t border-(--line)/50 pt-2">
@@ -453,11 +475,18 @@ export const CollectiblesPage = () => {
                           <p className="truncate font-bold text-(--text-strong)">
                             {item.name}
                           </p>
-                          {item.identifier && (
-                            <p className="text-[10px] text-(--text-muted) font-mono">
-                              #{item.identifier}
-                            </p>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {item.identifier && (
+                              <p className="text-[10px] text-(--text-muted) font-mono">
+                                #{item.identifier}
+                              </p>
+                            )}
+                            {Boolean(item.metadata?.finish) && (
+                              <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold uppercase tracking-wider text-(--accent)">
+                                {String(item.metadata.finish).replace(/-/g, ' ')}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-(--text-2)">

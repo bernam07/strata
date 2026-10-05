@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { TextInput } from '@/ui/Field';
 import { searchLegoSets, type LegoSetResult } from '../api/lego';
 import { useRebrickableKey } from '@/features/integrations/api/useRebrickable';
+import { useBricklinkConnection } from '@/features/integrations/api/useBricklink';
 
 interface LegoSetSearchProps {
   onSelect: (set: LegoSetResult) => void;
@@ -10,6 +11,7 @@ interface LegoSetSearchProps {
 
 export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
   const { data: rebrickableKey } = useRebrickableKey();
+  const bricklinkConnection = useBricklinkConnection();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -76,19 +78,35 @@ export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
           </span>
         </span>
 
-        {rebrickableKey ? (
-          <span className="inline-flex items-center gap-1 font-semibold text-[var(--positive)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
-            Rebrickable Connected
-          </span>
-        ) : (
-          <NavLink
-            to="/integrations"
-            className="tap font-semibold text-[var(--accent)] hover:underline"
-          >
-            Connect Rebrickable API in Integrations →
-          </NavLink>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {rebrickableKey ? (
+            <span className="inline-flex items-center gap-1 font-semibold text-[var(--positive)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+              Rebrickable Active
+            </span>
+          ) : (
+            <NavLink
+              to="/integrations"
+              className="tap font-semibold text-[var(--accent)] hover:underline"
+            >
+              Connect Rebrickable →
+            </NavLink>
+          )}
+
+          {bricklinkConnection.data ? (
+            <span className="inline-flex items-center gap-1 font-semibold text-[var(--positive)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+              BrickLink Prices Active
+            </span>
+          ) : (
+            <NavLink
+              to="/integrations"
+              className="tap font-semibold text-[var(--accent)] hover:underline"
+            >
+              Connect BrickLink →
+            </NavLink>
+          )}
+        </div>
       </div>
 
       {results.length > 0 && (

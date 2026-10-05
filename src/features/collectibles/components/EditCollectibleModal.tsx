@@ -10,6 +10,14 @@ import {
   type Collectible,
   type CollectibleCategory,
 } from '../api/useCollectibles';
+import { fetchBricklinkPrice, type BricklinkPriceResult } from '../api/bricklink';
+import {
+  getPokemonCard,
+  getUsdToEurRate,
+  resolvePokemonPrice,
+  type PokemonCardFinish,
+  type PokemonPriceBreakdown,
+} from '../api/tcgdex';
 
 interface EditCollectibleModalProps {
   collectible: Collectible | null;
@@ -63,6 +71,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
   const [purchaseDate, setPurchaseDate] = useState('');
   const [notes, setNotes] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [metadata, setMetadata] = useState<Record<string, unknown>>({});
+  const [fetchingBricklinkPrice, setFetchingBricklinkPrice] = useState(false);
+  const [bricklinkGuide, setBricklinkGuide] = useState<BricklinkPriceResult | null>(null);
+  const [fetchingPokemonPrice, setFetchingPokemonPrice] = useState(false);
+  const [pokemonBreakdown, setPokemonBreakdown] = useState<PokemonPriceBreakdown | null>(null);
 
   useEffect(() => {
     if (!collectible) return;
@@ -76,8 +89,113 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     setImageUrl(collectible.imageUrl ?? '');
     setPurchaseDate(collectible.purchaseDate ?? '');
     setNotes(collectible.notes ?? '');
+    setMetadata(collectible.metadata ?? {});
     setConfirmDelete(false);
+    setBricklinkGuide(null);
+    setFetchingBricklinkPrice(false);
+    setPokemonBreakdown(null);
+    setFetchingPokemonPrice(false);
   }, [collectible]);
+
+  const handleFetchBricklink = async () => {
+    if (!identifier.trim()) {
+      toast('Please enter a LEGO set number or minifigure code', 'error');
+      return;
+    }
+    setFetchingBricklinkPrice(true);
+    try {
+      const isUsed = /used|opened|loose|incomplete/i.test(condition);
+      const res = await fetchBricklinkPrice({
+        itemNo: identifier.trim(),
+        guideType: 'sold',
+        condition: isUsed ? 'U' : 'N',
+      });
+      if (res) {
+        setBricklinkGuide(res);
+        const p =
+          res.avgPrice > 0
+            ? res.avgPrice
+            : res.qtyAvgPrice > 0
+              ? res.qtyAvgPrice
+              : res.minPrice;
+        if (p > 0) {
+          setCurrentPrice(String(p));
+        }
+        toast(
+          `BrickLink market price loaded: €${(res.avgPrice || res.qtyAvgPrice).toFixed(2)}`,
+          'success',
+        );
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : 'Failed to fetch BrickLink price',
+        'error',
+      );
+    } finally {
+      setFetchingBricklinkPrice(false);
+    }
+  };
+
+  const handleFetchPokemonPrice = async () => {
+    if (!identifier.trim()) {
+      toast('Please enter a card identifier (e.g. sv03.5-199)', 'error');
+      return;
+    }
+    setFetchingPokemonPrice(true);
+    try {
+      const card = await getPokemonCard(identifier.trim());
+      if (!card) {
+        toast('Card not found in TCGdex catalog', 'error');
+        return;
+      }
+      const fxRate = await getUsdToEurRate();
+      const preferredFinish = metadata.finish as PokemonCardFinish | undefined;
+      const breakdown = resolvePokemonPrice(card.pricing, {
+        preferredFinish,
+        condition,
+        rarity: card.rarity,
+        fxRate,
+      });
+      setPokemonBreakdown(breakdown);
+      if (breakdown.resolvedEur > 0) {
+        setCurrentPrice(String(breakdown.resolvedEur));
+        setMetadata((prev) => ({
+          ...prev,
+          finish: breakdown.selectedFinish,
+          collectrPriceEur: breakdown.collectr?.priceEur,
+          tcgplayerUsd: breakdown.collectr?.priceUsd,
+          cardmarketPriceEur: breakdown.cardmarket?.priceEur,
+        }));
+        toast(
+          `Collectr market price loaded: €${breakdown.resolvedEur.toFixed(2)}`,
+          'success',
+        );
+      } else {
+        toast('No market pricing available for this card', 'error');
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : 'Failed to fetch Collectr price',
+        'error',
+      );
+    } finally {
+      setFetchingPokemonPrice(false);
+    }
+  };
+
+  const handleSelectPokemonFinish = (finish: PokemonCardFinish) => {
+    if (!pokemonBreakdown) return;
+    const opt = pokemonBreakdown.finishes.find((f) => f.finish === finish);
+    if (opt && opt.priceEur > 0) {
+      setCurrentPrice(String(opt.priceEur));
+      setMetadata((prev) => ({
+        ...prev,
+        finish,
+        collectrPriceEur: opt.priceEur,
+        tcgplayerUsd: opt.priceUsd,
+      }));
+    }
+  };
 
   if (!collectible) return null;
 
@@ -105,6 +223,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         imageUrl: imageUrl.trim() || null,
         purchaseDate: purchaseDate || null,
         notes: notes.trim() || null,
+        metadata,
       },
       {
         onSuccess: () => {
@@ -221,13 +340,100 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             />
           </Labelled>
 
-          <Labelled label="Current Value (€)">
+          <Labelled
+            label={
+              <div className="flex items-center justify-between">
+                <span>Current Value (€)</span>
+                {category === 'lego' && identifier.trim() && (
+                  <button
+                    type="button"
+                    disabled={fetchingBricklinkPrice}
+                    onClick={handleFetchBricklink}
+                    className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
+                  >
+                    {fetchingBricklinkPrice ? 'Checking…' : 'Fetch BrickLink'}
+                  </button>
+                )}
+                {category === 'pokemon' && identifier.trim() && (
+                  <button
+                    type="button"
+                    disabled={fetchingPokemonPrice}
+                    onClick={handleFetchPokemonPrice}
+                    className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
+                  >
+                    {fetchingPokemonPrice ? 'Checking…' : 'Fetch Collectr'}
+                  </button>
+                )}
+              </div>
+            }
+          >
             <MoneyInput
               value={currentPrice}
               onChange={setCurrentPrice}
             />
           </Labelled>
         </div>
+
+        {pokemonBreakdown?.collectr && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+                Collectr Valuation (TCGplayer Market)
+              </span>
+              <span className="font-bold text-[var(--positive)]">
+                €{pokemonBreakdown.collectr.priceEur.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+              <span>Market: ${pokemonBreakdown.collectr.priceUsd.toFixed(2)} USD</span>
+              <span>FX: €{pokemonBreakdown.fxRateUsed.toFixed(4)} / $</span>
+            </div>
+            {pokemonBreakdown.finishes.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[11px] text-[var(--text-muted)]">Finish:</span>
+                {pokemonBreakdown.finishes.map((f) => (
+                  <button
+                    key={f.finish}
+                    type="button"
+                    onClick={() => handleSelectPokemonFinish(f.finish)}
+                    className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                      metadata.finish === f.finish
+                        ? 'bg-[var(--accent)] text-white shadow-xs'
+                        : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                    }`}
+                  >
+                    {f.label}: €{f.priceEur.toFixed(2)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {bricklinkGuide && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
+                BrickLink Guide ({bricklinkGuide.guideType === 'sold' ? '6-mo Sales' : 'Current Stock'})
+              </span>
+              <span className="font-bold text-[var(--positive)]">
+                €{bricklinkGuide.avgPrice.toFixed(2)} (Avg)
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-[var(--text-muted)]">
+              <span>
+                {bricklinkGuide.totalQuantity > 0
+                  ? `${bricklinkGuide.totalQuantity} items recorded (${bricklinkGuide.unitQuantity} lots)`
+                  : 'Price estimate'}
+              </span>
+              <span>
+                Range: €{bricklinkGuide.minPrice.toFixed(2)} – €{bricklinkGuide.maxPrice.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Labelled label="Acquisition Date">
