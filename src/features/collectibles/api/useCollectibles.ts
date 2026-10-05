@@ -1,0 +1,239 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/db/supabase';
+import type { Database, Json } from '@/db/database.types';
+import { extractCardmarketPrice, getPokemonCard } from './tcgdex';
+
+export type CollectibleCategory =
+  | 'pokemon'
+  | 'lego'
+  | 'watches'
+  | 'coins_bullion'
+  | 'wine'
+  | 'art'
+  | 'other';
+
+export interface Collectible {
+  id: string;
+  userId: string;
+  category: CollectibleCategory;
+  name: string;
+  identifier: string | null;
+  quantity: number;
+  purchasePrice: number;
+  purchaseCurrency: string;
+  purchaseDate: string | null;
+  currentPrice: number;
+  condition: string | null;
+  imageUrl: string | null;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  // Computed values
+  costEur: number;
+  valueEur: number;
+  gainEur: number;
+  gainPct: number | null;
+}
+
+export const collectiblesKey = ['collectibles'] as const;
+
+export const CATEGORY_LABELS: Record<CollectibleCategory, string> = {
+  pokemon: 'Pokémon TCG',
+  lego: 'LEGO Sets',
+  watches: 'Relógios & Joalharia',
+  coins_bullion: 'Moedas & Metais',
+  wine: 'Vinho & Destilados',
+  art: 'Arte & Colecionáveis',
+  other: 'Outros Ativos',
+};
+
+export const CATEGORY_ICONS: Record<CollectibleCategory, string> = {
+  pokemon: '⚡',
+  lego: '🧱',
+  watches: '⌚',
+  coins_bullion: '🪙',
+  wine: '🍷',
+  art: '🎨',
+  other: '💎',
+};
+
+export const useCollectibles = () =>
+  useQuery<Collectible[]>({
+    queryKey: collectiblesKey,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('collectibles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data ?? []).map((row) => {
+        const quantity = Number(row.quantity) || 1;
+        const purchasePrice = Number(row.purchase_price) || 0;
+        const currentPrice = Number(row.current_price) || purchasePrice;
+        const costEur = quantity * purchasePrice;
+        const valueEur = quantity * currentPrice;
+        const gainEur = valueEur - costEur;
+        const gainPct = costEur > 0 ? gainEur / costEur : null;
+
+        return {
+          id: row.id,
+          userId: row.user_id,
+          category: (row.category as CollectibleCategory) || 'other',
+          name: row.name,
+          identifier: row.identifier,
+          quantity,
+          purchasePrice,
+          purchaseCurrency: row.purchase_currency || 'EUR',
+          purchaseDate: row.purchase_date,
+          currentPrice,
+          condition: row.condition,
+          imageUrl: row.image_url,
+          notes: row.notes,
+          metadata: (row.metadata as Record<string, unknown>) ?? {},
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          costEur,
+          valueEur,
+          gainEur,
+          gainPct,
+        };
+      }).sort((a, b) => b.valueEur - a.valueEur);
+    },
+  });
+
+export interface AddCollectibleInput {
+  category: CollectibleCategory;
+  name: string;
+  identifier?: string | null;
+  quantity: number;
+  purchasePrice: number;
+  purchaseCurrency?: string;
+  purchaseDate?: string | null;
+  currentPrice?: number;
+  condition?: string | null;
+  imageUrl?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export const useAddCollectible = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AddCollectibleInput) => {
+      const { error } = await supabase.from('collectibles').insert({
+        category: input.category,
+        name: input.name,
+        identifier: input.identifier ?? null,
+        quantity: input.quantity,
+        purchase_price: input.purchasePrice,
+        purchase_currency: input.purchaseCurrency ?? 'EUR',
+        purchase_date: input.purchaseDate ?? null,
+        current_price: input.currentPrice ?? input.purchasePrice,
+        condition: input.condition ?? null,
+        image_url: input.imageUrl ?? null,
+        notes: input.notes ?? null,
+        metadata: (input.metadata ?? {}) as Json,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};
+
+export interface UpdateCollectibleInput {
+  id: string;
+  category?: CollectibleCategory;
+  name?: string;
+  identifier?: string | null;
+  quantity?: number;
+  purchasePrice?: number;
+  purchaseCurrency?: string;
+  purchaseDate?: string | null;
+  currentPrice?: number;
+  condition?: string | null;
+  imageUrl?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export const useUpdateCollectible = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateCollectibleInput) => {
+      type CollectibleUpdate =
+        Database['public']['Tables']['collectibles']['Update'];
+      const updates: CollectibleUpdate = {
+        updated_at: new Date().toISOString(),
+      };
+      if (input.category !== undefined) updates.category = input.category;
+      if (input.name !== undefined) updates.name = input.name;
+      if (input.identifier !== undefined) updates.identifier = input.identifier;
+      if (input.quantity !== undefined) updates.quantity = input.quantity;
+      if (input.purchasePrice !== undefined) updates.purchase_price = input.purchasePrice;
+      if (input.purchaseCurrency !== undefined) updates.purchase_currency = input.purchaseCurrency;
+      if (input.purchaseDate !== undefined) updates.purchase_date = input.purchaseDate;
+      if (input.currentPrice !== undefined) updates.current_price = input.currentPrice;
+      if (input.condition !== undefined) updates.condition = input.condition;
+      if (input.imageUrl !== undefined) updates.image_url = input.imageUrl;
+      if (input.notes !== undefined) updates.notes = input.notes;
+      if (input.metadata !== undefined) updates.metadata = input.metadata as Json;
+
+      const { error } = await supabase
+        .from('collectibles')
+        .update(updates)
+        .eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};
+
+export const useDeleteCollectible = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('collectibles').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};
+
+export const useRefreshPokemonPrices = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (collectibles: Collectible[]) => {
+      const pokemonCards = collectibles.filter(
+        (c) => c.category === 'pokemon' && Boolean(c.identifier),
+      );
+
+      let updatedCount = 0;
+      for (const card of pokemonCards) {
+        if (!card.identifier) continue;
+        try {
+          const detail = await getPokemonCard(card.identifier);
+          if (detail) {
+            const newPrice = extractCardmarketPrice(detail.pricing);
+            if (newPrice !== null && newPrice > 0 && newPrice !== card.currentPrice) {
+              await supabase
+                .from('collectibles')
+                .update({
+                  current_price: newPrice,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', card.id);
+              updatedCount += 1;
+            }
+          }
+        } catch {
+          // Continue updating other cards even if one fails
+        }
+      }
+      return updatedCount;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};

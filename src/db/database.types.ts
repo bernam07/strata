@@ -396,16 +396,19 @@ export interface Database {
           user_id: string;
           net_worth_goal: number | null;
           daily_briefing: boolean;
+          include_collectibles_in_net_worth: boolean;
           updated_at: string;
         };
         Insert: {
           user_id?: string;
           net_worth_goal?: number | null;
           daily_briefing?: boolean;
+          include_collectibles_in_net_worth?: boolean;
         };
         Update: {
           net_worth_goal?: number | null;
           daily_briefing?: boolean;
+          include_collectibles_in_net_worth?: boolean;
         };
         Relationships: [];
       };
@@ -626,6 +629,60 @@ export interface Database {
         };
         Update: {
           monthly_limit?: number;
+        };
+        Relationships: [];
+      };
+      collectibles: {
+        Row: {
+          id: string;
+          user_id: string;
+          category: string;
+          name: string;
+          identifier: string | null;
+          quantity: number;
+          purchase_price: number;
+          purchase_currency: string;
+          purchase_date: string | null;
+          current_price: number;
+          condition: string | null;
+          image_url: string | null;
+          notes: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          category: string;
+          name: string;
+          identifier?: string | null;
+          quantity?: number;
+          purchase_price?: number;
+          purchase_currency?: string;
+          purchase_date?: string | null;
+          current_price?: number;
+          condition?: string | null;
+          image_url?: string | null;
+          notes?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          name?: string;
+          identifier?: string | null;
+          quantity?: number;
+          purchase_price?: number;
+          purchase_currency?: string;
+          purchase_date?: string | null;
+          current_price?: number;
+          condition?: string | null;
+          image_url?: string | null;
+          notes?: string | null;
+          metadata?: Json;
+          updated_at?: string;
         };
         Relationships: [];
       };

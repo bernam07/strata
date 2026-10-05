@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { icons, type IconName } from '@/app/icons';
 import { usePositions } from '@/features/positions/api/usePositions';
 import { useCrypto } from '@/features/crypto/api/useCrypto';
+import { useCollectibles } from '@/features/collectibles/api/useCollectibles';
 import { useWatchlist } from '@/features/search/api/useMarket';
 import { useT212Connection } from '@/features/integrations/api/useT212';
 
@@ -26,7 +27,7 @@ const HubNavBar = ({
   return (
     <nav
       aria-label={ariaLabel}
-      className="-mx-1 flex items-center gap-1 overflow-x-auto rounded-[var(--radius-card)] neu-sunken p-1.5 no-scrollbar"
+      className="-mx-1 flex items-center gap-1 overflow-x-auto rounded-(--radius-card) neu-sunken p-1.5 no-scrollbar"
     >
       {tabs.map((tab) => {
         const isMatchedByPrefix = tab.matchPrefixes?.some((prefix) =>
@@ -38,10 +39,10 @@ const HubNavBar = ({
             to={tab.to}
             className={({ isActive }) => {
               const active = isActive || Boolean(isMatchedByPrefix);
-              return `tap flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-field)] px-3 py-2 text-xs font-semibold transition-all ${
+              return `tap flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-(--radius-field) px-3 py-2 text-xs font-semibold transition-all ${
                 active
-                  ? 'neu-raised bg-[var(--surface-raised)] text-[var(--accent)] shadow-sm'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-strong)]'
+                  ? 'neu-raised bg-(--surface-raised) text-(--accent) shadow-sm'
+                  : 'text-(--text-muted) hover:text-(--text-strong)'
               }`;
             }}
           >
@@ -53,14 +54,14 @@ const HubNavBar = ({
             </span>
             <span>{tab.label}</span>
             {tab.badge !== undefined && (
-              <span className="rounded-full bg-[var(--surface-sunken)] px-1.5 py-0.2 text-[10px] font-bold tabular-nums text-[var(--text-muted)]">
+              <span className="rounded-full bg-(--surface-sunken) px-1.5 py-0.2 text-[10px] font-bold tabular-nums text-(--text-muted)">
                 {tab.badge}
               </span>
             )}
             {tab.dot && (
               <span
                 aria-hidden="true"
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--positive)]"
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-(--positive)"
               />
             )}
           </NavLink>
@@ -73,10 +74,12 @@ const HubNavBar = ({
 export const PortfolioNav = () => {
   const { data: positionsData } = usePositions();
   const { data: crypto = [] } = useCrypto();
+  const { data: collectibles = [] } = useCollectibles();
   const { data: watchlist = [] } = useWatchlist();
 
   const holdingsCount = (positionsData?.positions.length ?? 0) + crypto.length;
   const cryptoCount = crypto.length;
+  const collectiblesCount = collectibles.length;
   const watchlistCount = watchlist.length;
 
   const tabs: HubTab[] = [
@@ -97,6 +100,12 @@ export const PortfolioNav = () => {
       label: 'Crypto',
       icon: 'crypto',
       badge: cryptoCount > 0 ? cryptoCount : undefined,
+    },
+    {
+      to: '/collectibles',
+      label: 'Collectibles',
+      icon: 'collectibles',
+      badge: collectiblesCount > 0 ? collectiblesCount : undefined,
     },
     {
       to: '/search',

@@ -24,6 +24,7 @@ export type IconName =
   | 'search'
   | 'settings'
   | 'crypto'
+  | 'collectibles'
   | 'more'
   | 'advisor'
   | 'sync'
@@ -85,6 +86,13 @@ export const icons: Record<IconName, ReactNode> = {
       <circle cx="15" cy="15" r="5.5" />
       <path d="M15 12.2v5.6" />
     </>,
+  ),
+  collectibles: wrap(
+    <>
+      <path d="M6 3h12l4 6-10 12L2 9z" />
+      <path d="M2 9h20" />
+      <path d="M10 3l-2 6 4 12 4-12-2-6" />
+    </>
   ),
   more: wrap(
     <>

@@ -19,6 +19,10 @@ import { Card } from '@/ui/Card';
 import { SettingsNav } from '@/ui/HubNav';
 import { PageHeader } from '@/ui/PageHeader';
 import { CardTitle } from '@/ui/Heading';
+import {
+  useIncludeCollectiblesInNetWorth,
+  useSetIncludeCollectiblesInNetWorth,
+} from '@/features/dashboard/api/usePreferences';
 
 interface RestoreTable {
   table: string;
@@ -108,6 +112,8 @@ export const SettingsPage = () => {
   const biometric = useBiometricLock();
   const [bioSupported, setBioSupported] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
+  const { data: includeCollectibles = true } = useIncludeCollectiblesInNetWorth();
+  const setIncludeCollectibles = useSetIncludeCollectiblesInNetWorth();
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -358,6 +364,44 @@ export const SettingsPage = () => {
       </Card>
 
       <NotificationsCard />
+
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[var(--text-strong)]">
+              Alternative Assets no Net Worth
+            </p>
+            {includeCollectibles && (
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--positive)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--positive)]">
+                Ativo
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            Define se o valor dos teus colecionáveis (cartas Pokémon, sets LEGO, relógios, etc.) é
+            somado ao teu Património Líquido principal no Dashboard e barra lateral.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant={includeCollectibles ? 'ghost' : 'primary'}
+            disabled={setIncludeCollectibles.isPending}
+            onClick={() =>
+              setIncludeCollectibles.mutate(!includeCollectibles, {
+                onSuccess: () =>
+                  toast(
+                    !includeCollectibles
+                      ? 'Colecionáveis incluídos no Net Worth'
+                      : 'Colecionáveis excluídos do Net Worth',
+                    'info',
+                  ),
+              })
+            }
+          >
+            {includeCollectibles ? 'Excluir do Net Worth' : 'Incluir no Net Worth'}
+          </Button>
+        </div>
+      </Card>
 
       <Card className="flex items-center justify-between gap-3">
         <div>

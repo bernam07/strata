@@ -11,6 +11,7 @@ import {
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
 import { useCrypto } from '@/features/crypto/api/useCrypto';
+import { useCollectibles } from '@/features/collectibles/api/useCollectibles';
 import { NetWorthChart } from '@/features/analytics/NetWorthChart';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
@@ -27,6 +28,7 @@ import { Movers } from './Movers';
 import { FinancialTimeline } from './FinancialTimeline';
 import { WealthLayersBar } from './WealthLayersBar';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
+import { useIncludeCollectiblesInNetWorth } from './api/usePreferences';
 
 export const DashboardPage = () => {
   const [heroView, setHeroView] = useState<'allocation' | 'trajectory'>('allocation');
@@ -36,6 +38,8 @@ export const DashboardPage = () => {
   const { data: instruments } = useInstruments();
   const positionsQuery = usePositions();
   const { data: crypto = [] } = useCrypto();
+  const { data: collectibles = [] } = useCollectibles();
+  const { data: includeCollectibles = true } = useIncludeCollectiblesInNetWorth();
   const { data: snapshots = [] } = useNetWorthHistory();
   const recordNetWorth = useRecordNetWorth();
 
@@ -67,7 +71,11 @@ export const DashboardPage = () => {
 
   const loading = accountsQuery.isLoading || transactionsQuery.isLoading;
   const accounts = accountsQuery.data ?? [];
-  const empty = !loading && accounts.length === 0 && crypto.length === 0;
+  const empty =
+    !loading &&
+    accounts.length === 0 &&
+    crypto.length === 0 &&
+    collectibles.length === 0;
   const positions = positionsQuery.data?.positions ?? [];
   const positionInstruments = positionsQuery.data?.instruments ?? new Map();
   const rankablePositions = positions.filter(
@@ -76,14 +84,30 @@ export const DashboardPage = () => {
 
   const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
   const cryptoDay = crypto.reduce((total, item) => total + item.dayChangeEur, 0);
-  const netWithCrypto = model.netWorth.net.plus(money(cryptoTotal));
-  const cryptoExtra = useMemo(
-    () =>
-      cryptoTotal > 0
-        ? [{ id: 'crypto', name: 'Crypto', value: cryptoTotal, to: '/crypto' }]
-        : [],
-    [cryptoTotal],
+  const collectiblesTotal = collectibles.reduce(
+    (total, item) => total + item.valueEur,
+    0,
   );
+  const effectiveCollectiblesValue = includeCollectibles ? collectiblesTotal : 0;
+  const netWithAll = model.netWorth.net
+    .plus(money(cryptoTotal))
+    .plus(money(effectiveCollectiblesValue));
+
+  const extraSegments = useMemo(() => {
+    const list = [];
+    if (cryptoTotal > 0) {
+      list.push({ id: 'crypto', name: 'Crypto', value: cryptoTotal, to: '/crypto' });
+    }
+    if (includeCollectibles && collectiblesTotal > 0) {
+      list.push({
+        id: 'collectibles',
+        name: 'Alternative Assets',
+        value: collectiblesTotal,
+        to: '/collectibles',
+      });
+    }
+    return list;
+  }, [cryptoTotal, collectiblesTotal, includeCollectibles]);
 
   const investments = useMemo(() => {
     const brokers = brokersQuery.data ?? new Map();
@@ -123,13 +147,17 @@ export const DashboardPage = () => {
   useEffect(() => {
     if (!dataReady) return;
     recordNetWorth.mutate({
-      net: toNumber(netWithCrypto),
-      assets: toNumber(model.netWorth.totalAssets) + cryptoTotal,
+      net: toNumber(netWithAll),
+      assets:
+        toNumber(model.netWorth.totalAssets) +
+        cryptoTotal +
+        effectiveCollectiblesValue,
       liabilities: toNumber(model.netWorth.totalLiabilities),
-      investments: toNumber(investments) + cryptoTotal,
+      investments:
+        toNumber(investments) + cryptoTotal + effectiveCollectiblesValue,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady, netWithCrypto.toString()]);
+  }, [dataReady, netWithAll.toString()]);
 
   const todayPl = useMemo<Money | null>(() => {
     const changes = positions
@@ -165,7 +193,7 @@ export const DashboardPage = () => {
             <div className="min-w-0 lg:col-span-2">
               <PageHero
                 label="Net worth"
-                value={toNumber(netWithCrypto)}
+                value={toNumber(netWithAll)}
                 toolbar={
                   snapshots.length >= 2 ? (
                     <div className="ml-auto inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-sunken)] p-0.5 text-[11px] font-semibold">
@@ -209,8 +237,8 @@ export const DashboardPage = () => {
                 ) : (
                   <NetWorthDonut
                     netWorth={model.netWorth}
-                    extra={cryptoExtra}
-                    net={netWithCrypto}
+                    extra={extraSegments}
+                    net={netWithAll}
                   />
                 )}
               </PageHero>
@@ -221,6 +249,7 @@ export const DashboardPage = () => {
               cash={liquidCash}
               meal={mealTotal}
               crypto={cryptoTotal}
+              collectibles={collectiblesTotal}
             />
 
             <MonthlyPulseCard
@@ -229,11 +258,13 @@ export const DashboardPage = () => {
               snapshots={snapshots}
             />
 
-            <GoalCard net={netWithCrypto} monthlySavings={avgMonthlySavings} />
+            <GoalCard net={netWithAll} monthlySavings={avgMonthlySavings} />
 
             <InsightsStrip
               cash={liquidCash + mealTotal}
-              investments={toNumber(investments) + cryptoTotal}
+              investments={
+                toNumber(investments) + cryptoTotal + collectiblesTotal
+              }
             />
 
             {rankablePositions >= 2 && (

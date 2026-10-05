@@ -11,6 +11,8 @@ import {
 import { useTransactions } from '@/features/transactions/api/useTransactions';
 import { usePositions } from '@/features/positions/api/usePositions';
 import { useCrypto } from '@/features/crypto/api/useCrypto';
+import { useCollectibles } from '@/features/collectibles/api/useCollectibles';
+import { useIncludeCollectiblesInNetWorth } from '@/features/dashboard/api/usePreferences';
 import { useWatchlist } from '@/features/search/api/useMarket';
 import { useT212Connection } from '@/features/integrations/api/useT212';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -57,6 +59,8 @@ const SidebarNetWorth = () => {
   const brokersQuery = useBrokerAccounts();
   const positionsQuery = usePositions();
   const { data: crypto = [] } = useCrypto();
+  const { data: collectibles = [] } = useCollectibles();
+  const { data: includeCollectibles = true } = useIncludeCollectiblesInNetWorth();
 
   const summary = useMemo(() => {
     const accounts = accountsQuery.data ?? [];
@@ -76,7 +80,14 @@ const SidebarNetWorth = () => {
       (total, item) => total + item.dayChangeEur,
       0,
     );
-    const net = toNumber(netWorth.net.plus(money(cryptoTotal)));
+    const collectiblesTotal = collectibles.reduce(
+      (total, item) => total + item.valueEur,
+      0,
+    );
+    const effectiveCollectibles = includeCollectibles ? collectiblesTotal : 0;
+    const net = toNumber(
+      netWorth.net.plus(money(cryptoTotal)).plus(money(effectiveCollectibles)),
+    );
 
     const positions = positionsQuery.data?.positions ?? [];
     const changes = positions
@@ -87,13 +98,20 @@ const SidebarNetWorth = () => {
         ? null
         : toNumber(sum(changes).plus(money(cryptoDay)));
 
-    return { net, todayPl, hasData: accounts.length > 0 || crypto.length > 0 };
+    return {
+      net,
+      todayPl,
+      hasData:
+        accounts.length > 0 || crypto.length > 0 || collectibles.length > 0,
+    };
   }, [
     accountsQuery.data,
     transactionsQuery.data,
     brokersQuery.data,
     positionsQuery.data,
     crypto,
+    collectibles,
+    includeCollectibles,
   ]);
 
   if (!summary.hasData) return null;
@@ -132,6 +150,7 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   const { data: accounts = [] } = useAccounts();
   const { data: positionsData } = usePositions();
   const { data: crypto = [] } = useCrypto();
+  const { data: collectibles = [] } = useCollectibles();
   const { data: watchlist = [] } = useWatchlist();
   const connection = useT212Connection();
 
@@ -174,6 +193,12 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
           label: 'Crypto',
           icon: 'crypto',
           badge: crypto.length > 0 ? crypto.length : undefined,
+        },
+        {
+          to: '/collectibles',
+          label: 'Collectibles',
+          icon: 'collectibles',
+          badge: collectibles.length > 0 ? collectibles.length : undefined,
         },
         {
           to: '/search',

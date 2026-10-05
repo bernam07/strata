@@ -55,3 +55,53 @@ export const useSetDailyBriefing = () => {
       client.invalidateQueries({ queryKey: [...preferencesKey, 'daily-briefing'] }),
   });
 };
+
+const LOCAL_STORAGE_COLLECTIBLES_KEY = 'strata_include_collectibles_net_worth';
+
+export const useIncludeCollectiblesInNetWorth = () =>
+  useQuery<boolean>({
+    queryKey: [...preferencesKey, 'include-collectibles'],
+    queryFn: async () => {
+      const stored = localStorage.getItem(LOCAL_STORAGE_COLLECTIBLES_KEY);
+      const defaultVal = stored !== null ? stored === 'true' : true;
+
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('include_collectibles_in_net_worth')
+        .maybeSingle();
+
+      if (error) return defaultVal;
+      const val = data?.include_collectibles_in_net_worth ?? defaultVal;
+      localStorage.setItem(LOCAL_STORAGE_COLLECTIBLES_KEY, String(val));
+      return val;
+    },
+    initialData: () => {
+      const stored = localStorage.getItem(LOCAL_STORAGE_COLLECTIBLES_KEY);
+      return stored !== null ? stored === 'true' : true;
+    },
+  });
+
+export const useSetIncludeCollectiblesInNetWorth = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      localStorage.setItem(LOCAL_STORAGE_COLLECTIBLES_KEY, String(enabled));
+      client.setQueryData([...preferencesKey, 'include-collectibles'], enabled);
+
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert(
+          { include_collectibles_in_net_worth: enabled },
+          { onConflict: 'user_id' },
+        );
+      if (error) {
+        console.warn('Failed to persist user preference to Supabase, saved locally:', error);
+      }
+    },
+    onSuccess: () =>
+      client.invalidateQueries({
+        queryKey: [...preferencesKey, 'include-collectibles'],
+      }),
+  });
+};
+

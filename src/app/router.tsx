@@ -53,6 +53,10 @@ const SettingsPage = lazyPage(
   'SettingsPage',
 );
 const CryptoPage = lazyPage(() => import('@/features/crypto/CryptoPage'), 'CryptoPage');
+const CollectiblesPage = lazyPage(
+  () => import('@/features/collectibles/CollectiblesPage'),
+  'CollectiblesPage',
+);
 
 import { isSupabaseConfigured } from '@/db/supabase';
 
@@ -131,6 +135,7 @@ export const AppRouter = () => {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/dividends" element={<DividendsPage />} />
             <Route path="/crypto" element={<CryptoPage />} />
+            <Route path="/collectibles" element={<CollectiblesPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

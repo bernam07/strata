@@ -16,11 +16,13 @@ export const WealthLayersBar = ({
   cash,
   meal,
   crypto,
+  collectibles = 0,
 }: {
   investments: number;
   cash: number;
   meal: number;
   crypto: number;
+  collectibles?: number;
 }) => {
   const raw: LayerItem[] = [
     {
@@ -50,6 +52,13 @@ export const WealthLayersBar = ({
       value: Math.max(0, crypto),
       color: '#7c8bff',
       to: '/crypto',
+    },
+    {
+      id: 'collectibles',
+      label: 'Alternative Assets',
+      value: Math.max(0, collectibles),
+      color: '#e0a44a',
+      to: '/collectibles',
     },
   ].filter((item) => item.value > 0);
 
