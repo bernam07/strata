@@ -72,7 +72,7 @@ describe('resolveLegoPrice', () => {
     const result = await resolveLegoPrice({ itemNo: 'COLSPI01', itemType: 'MINIFIG' });
 
     expect(fetchPrice).toHaveBeenCalledWith({
-      itemNo: 'COLSPI01',
+      itemNo: 'colspi01',
       itemType: 'MINIFIG',
       condition: undefined,
       bricksetSetNumber: '71050',
@@ -105,4 +105,106 @@ describe('resolveLegoPrice', () => {
     expect(result.resolvedEur).toBe(1800.0);
     expect(result.itemType).toBe('MINIFIG');
   });
+
+  it('selects Used market value when condition is used or loose', async () => {
+    vi.spyOn(bricksetModule, 'getCachedBricksetKey').mockReturnValue('brickset-key');
+    vi.spyOn(bricksetModule, 'fetchBricksetPrice').mockResolvedValue({
+      itemNo: '682303-1',
+      name: 'Miles Morales Foil Pack',
+      currency: 'EUR',
+      retailPrice: 5.0,
+      priceNew: 5.0,
+      priceUsed: 4.0,
+      dateFetched: new Date().toISOString(),
+      source: 'brickset',
+      itemType: 'SET',
+    });
+
+    const result = await resolveLegoPrice({
+      itemNo: '682303-1',
+      condition: 'Loose / Parts',
+    });
+
+    expect(result.resolvedEur).toBe(4.0);
+    expect(result.priceNew).toBe(5.0);
+    expect(result.priceUsed).toBe(4.0);
+  });
+
+  it('selects New market value when condition is factory sealed', async () => {
+    vi.spyOn(bricksetModule, 'getCachedBricksetKey').mockReturnValue('brickset-key');
+    vi.spyOn(bricksetModule, 'fetchBricksetPrice').mockResolvedValue({
+      itemNo: '682303-1',
+      name: 'Miles Morales Foil Pack',
+      currency: 'EUR',
+      retailPrice: 5.0,
+      priceNew: 5.0,
+      priceUsed: 4.0,
+      dateFetched: new Date().toISOString(),
+      source: 'brickset',
+      itemType: 'SET',
+    });
+
+    const result = await resolveLegoPrice({
+      itemNo: '682303-1',
+      condition: 'Factory Sealed (MISB)',
+    });
+
+    expect(result.resolvedEur).toBe(5.0);
+  });
 });
+
+describe('cleanLegoInput', () => {
+  it('extracts set number from Brickset set URLs', () => {
+    const cleaned = bricksetModule.cleanLegoInput(
+      'https://brickset.com/sets/682303-1/Miles-Morales',
+    );
+    expect(cleaned.itemNo).toBe('682303-1');
+    expect(cleaned.itemType).toBe('SET');
+  });
+
+  it('extracts minifigure code from Brickset minifig URLs', () => {
+    const cleaned = bricksetModule.cleanLegoInput(
+      'https://brickset.com/minifigs/sh0679/spider-man-(miles-morales)-dark-red-hood-black-lower-legs',
+    );
+    expect(cleaned.itemNo).toBe('sh0679');
+    expect(cleaned.itemType).toBe('MINIFIG');
+  });
+
+  it('extracts minifigure code from BrickLink URLs', () => {
+    const cleaned = bricksetModule.cleanLegoInput(
+      'https://www.bricklink.com/v2/catalog/catalogitem.page?M=sh0679#T=P',
+    );
+    expect(cleaned.itemNo).toBe('sh0679');
+    expect(cleaned.itemType).toBe('MINIFIG');
+  });
+
+  it('extracts set number from BrickLink URLs', () => {
+    const cleaned = bricksetModule.cleanLegoInput(
+      'https://www.bricklink.com/v2/catalog/catalogitem.page?S=682303-1#T=P',
+    );
+    expect(cleaned.itemNo).toBe('682303-1');
+    expect(cleaned.itemType).toBe('SET');
+  });
+
+  it('extracts set number from in-set minifig URLs', () => {
+    const cleaned = bricksetModule.cleanLegoInput(
+      'https://brickset.com/minifigs/in-682303-1',
+    );
+    expect(cleaned.itemNo).toBe('682303-1');
+    expect(cleaned.itemType).toBe('SET');
+  });
+
+  it('cleans minifig codes with -1 or #', () => {
+    expect(bricksetModule.cleanLegoInput('sh0679-1').itemNo).toBe('sh0679');
+    expect(bricksetModule.cleanLegoInput('#sh0679').itemNo).toBe('sh0679');
+    expect(bricksetModule.cleanLegoInput('sw0107').itemType).toBe('MINIFIG');
+    expect(bricksetModule.cleanLegoInput('fig-000001').itemNo).toBe('fig-000001');
+  });
+
+  it('appends -1 variant to bare set numbers', () => {
+    expect(bricksetModule.cleanLegoInput('682303').itemNo).toBe('682303-1');
+    expect(bricksetModule.cleanLegoInput('#75192').itemNo).toBe('75192-1');
+    expect(bricksetModule.cleanLegoInput('75192-1').itemNo).toBe('75192-1');
+  });
+});
+

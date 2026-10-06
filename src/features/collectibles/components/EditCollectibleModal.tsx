@@ -10,7 +10,8 @@ import {
   type Collectible,
   type CollectibleCategory,
 } from '../api/useCollectibles';
-import { getBricksetSetNumber } from '../api/lego';
+import { getLegoImageUrl } from '../api/lego';
+import { cleanLegoInput } from '../api/brickset';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
 import {
   getPokemonCard,
@@ -106,15 +107,22 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     setFetchingLegoPrice(true);
     try {
       const metadataType = metadata.type;
-      const itemType =
-        metadataType === 'minifig' ||
-        metadataType === 'MINIFIG' ||
-        Boolean(getBricksetSetNumber(identifier.trim()))
+      const hintedType =
+        metadataType === 'minifig' || metadataType === 'MINIFIG'
           ? 'MINIFIG'
-          : 'SET';
+          : undefined;
+      const cleaned = cleanLegoInput(identifier.trim(), hintedType);
+
+      if (
+        cleaned.raw !== cleaned.itemNo &&
+        (cleaned.raw.includes('http') || cleaned.raw.startsWith('#'))
+      ) {
+        setIdentifier(cleaned.itemNo);
+      }
+
       const res = await resolveLegoPrice({
-        itemNo: identifier.trim(),
-        itemType,
+        itemNo: cleaned.itemNo,
+        itemType: cleaned.itemType,
         bricksetSetNumber:
           typeof metadata.bricksetSetNumber === 'string'
             ? metadata.bricksetSetNumber
@@ -125,14 +133,25 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
       if (res && res.resolvedEur > 0) {
         setLegoValuation(res);
         setCurrentPrice(String(res.resolvedEur));
+        if (!imageUrl) {
+          setImageUrl(getLegoImageUrl(res.itemNo));
+        }
+        if (!name || name === 'LEGO Set' || name.startsWith('LEGO Set #')) {
+          if (res.name) setName(`${res.name} (#${res.itemNo})`);
+        }
         setMetadata((prev) => ({
           ...prev,
+          type: res.itemType.toLowerCase(),
           valuationSource: res.source,
           ...(res.brickset ? { brickset: res.brickset } : {}),
           ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
         }));
         if (res.source === 'brickset') {
-          toast(`Brickset valuation loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
+          const breakdown =
+            res.priceNew && res.priceUsed
+              ? ` (New: €${res.priceNew.toFixed(2)} / Used: €${res.priceUsed.toFixed(2)})`
+              : '';
+          toast(`Brickset valuation loaded: €${res.resolvedEur.toFixed(2)}${breakdown}`, 'success');
         }
       } else {
         toast('Brickset did not return a price for this item', 'error');
@@ -441,35 +460,109 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         ) : null}
 
         {legoValuation?.source === 'brickset' && (
-          <div className="flex flex-col gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
+          <div className="flex flex-col gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Brickset Official RRP
+                Brickset Market Valuation
               </span>
               <span className="font-bold text-emerald-400">
                 €{legoValuation.resolvedEur.toFixed(2)}
               </span>
             </div>
-            <div className="flex flex-wrap items-center justify-between text-[11px] text-[var(--text-muted)]">
-              <span>
-                Official LEGO retail price
+
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-[var(--text-muted)]">
+              <div className="flex flex-wrap items-center gap-2">
+                {legoValuation.priceNew !== undefined && (
+                  <span>
+                    New (MISB):{' '}
+                    <strong className="text-[var(--text-strong)]">
+                      €{legoValuation.priceNew.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+                {legoValuation.priceUsed !== undefined && (
+                  <span>
+                    Used:{' '}
+                    <strong className="text-[var(--text-strong)]">
+                      €{legoValuation.priceUsed.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+                {legoValuation.rrp !== undefined && (
+                  <span>
+                    RRP:{' '}
+                    <strong className="text-[var(--text-strong)]">
+                      €{legoValuation.rrp.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-[var(--text-muted)]">
+                {condition.toLowerCase().includes('used') || condition.toLowerCase().includes('loose')
+                  ? 'Used condition applied'
+                  : 'Sealed / mint valuation applied'}
               </span>
             </div>
+
+            {legoValuation.containedMinifig && (
+              <div className="flex items-center justify-between border-t border-emerald-500/20 pt-1.5 text-[11px]">
+                <span className="text-[var(--text-muted)]">
+                  Includes minifigure:{' '}
+                  <strong className="text-emerald-400">#{legoValuation.containedMinifig.code}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (legoValuation.containedMinifig) {
+                      const code = legoValuation.containedMinifig.code;
+                      setIdentifier(code);
+                      setImageUrl(getLegoImageUrl(code));
+                      setMetadata((m) => ({ ...m, type: 'minifig' }));
+                      void handleFetchLegoValuation();
+                    }
+                  }}
+                  className="tap font-semibold text-emerald-400 hover:underline"
+                >
+                  Set as Minifig Item →
+                </button>
+              </div>
+            )}
+
+            {legoValuation.appearsIn && legoValuation.appearsIn.length > 0 && (
+              <div className="border-t border-emerald-500/20 pt-1 text-[10px] text-[var(--text-muted)]">
+                <span>Appears in sets: </span>
+                <span className="font-semibold text-[var(--text-strong)]">
+                  {legoValuation.appearsIn.join(', ')}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         {category === 'lego' && identifier.trim() && (
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
             <span>Reference:</span>
-            <a
-              href={`https://brickset.com/sets/${identifier.trim().replace(/-\d+$/, '')}-1`}
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-emerald-500 hover:underline inline-flex items-center gap-0.5"
-            >
-              Brickset ↗
-            </a>
+            {(() => {
+              const cleaned = cleanLegoInput(
+                identifier.trim(),
+                metadata.type === 'minifig' || metadata.type === 'MINIFIG' ? 'MINIFIG' : undefined,
+              );
+              const href =
+                cleaned.itemType === 'MINIFIG'
+                  ? `https://brickset.com/minifigs/${encodeURIComponent(cleaned.itemNo.replace(/^#/, ''))}`
+                  : `https://brickset.com/sets/${cleaned.itemNo.replace(/-\d+$/, '')}-1`;
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-emerald-500 hover:underline inline-flex items-center gap-0.5"
+                >
+                  Brickset ↗
+                </a>
+              );
+            })()}
           </div>
         )}
 

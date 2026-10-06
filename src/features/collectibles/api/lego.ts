@@ -1,3 +1,5 @@
+import { cleanLegoInput } from './brickset';
+
 export interface LegoSetResult {
   setNumber: string;
   /** Brickset set number used to fetch the official RRP for a minifigure. */
@@ -29,13 +31,12 @@ export const normalizeSetNumber = (raw: string): string => {
 };
 
 export const getLegoImageUrl = (setNumber: string): string => {
-  const base = normalizeSetNumber(setNumber);
-  // Numeric set IDs: use Brickset CDN
-  if (/^\d+$/.test(base)) {
-    return `https://images.brickset.com/sets/images/${base}-1.jpg`;
+  const cleaned = cleanLegoInput(setNumber);
+  if (cleaned.itemType === 'MINIFIG') {
+    return `https://images.brickset.com/minifigs/images/${cleaned.itemNo}.jpg`;
   }
-  // Minifigures and alphanumeric codes use Brickset's public image CDN.
-  return `https://images.brickset.com/minifigs/images/${base}.jpg`;
+  const base = normalizeSetNumber(cleaned.itemNo);
+  return `https://images.brickset.com/sets/images/${base}-1.jpg`;
 };
 
 // Curated database of iconic and popular investment LEGO sets with official RRP in EUR
@@ -842,32 +843,36 @@ export const searchLegoSets = async (
     }
   }
 
-  // Synthesize direct numeric set code
-  if (/^\d{4,6}$/.test(trimmed) && !localMatches.some((m) => m.setNumber === trimmed)) {
-    return [
-      {
-        setNumber: trimmed,
-        name: `LEGO Set #${trimmed}`,
-        theme: 'LEGO',
-        type: 'set',
-        imageUrl: getLegoImageUrl(trimmed),
-      },
-      ...localMatches,
-    ];
-  }
-
-  // Synthesize direct minifigure code
-  if (/^(fig-\d+|[a-z]{2,5}\d+[a-z]?)$/i.test(trimmed) && !localMatches.some((m) => m.setNumber.toLowerCase() === trimmed)) {
-    return [
-      {
-        setNumber: trimmed,
-        name: `Minifigure #${trimmed.toUpperCase()}`,
-        theme: 'Minifigures',
-        type: 'minifig',
-        imageUrl: getLegoImageUrl(trimmed),
-      },
-      ...localMatches,
-    ];
+  // Synthesize direct numeric set or minifigure code (including Brickset URLs)
+  const cleaned = cleanLegoInput(trimmed);
+  if (cleaned.itemType === 'MINIFIG') {
+    if (!localMatches.some((m) => m.setNumber.toLowerCase() === cleaned.itemNo.toLowerCase())) {
+      return [
+        {
+          setNumber: cleaned.itemNo,
+          name: `Minifigure #${cleaned.itemNo.toUpperCase()} (Brickset)`,
+          theme: 'Minifigures',
+          type: 'minifig',
+          imageUrl: getLegoImageUrl(cleaned.itemNo),
+        },
+        ...localMatches,
+      ];
+    }
+  } else if (/^\d{4,7}(-\d+)?$/.test(cleaned.itemNo)) {
+    const rawNum = cleaned.itemNo.replace(/-\d+$/, '');
+    const setNum = trimmed.includes('-') ? cleaned.itemNo : rawNum;
+    if (!localMatches.some((m) => normalizeSetNumber(m.setNumber) === rawNum)) {
+      return [
+        {
+          setNumber: setNum,
+          name: `LEGO Set #${setNum} (Brickset)`,
+          theme: 'LEGO Set',
+          type: 'set',
+          imageUrl: getLegoImageUrl(cleaned.itemNo),
+        },
+        ...localMatches,
+      ];
+    }
   }
 
   return localMatches;

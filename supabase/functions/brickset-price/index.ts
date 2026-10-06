@@ -22,11 +22,100 @@ const numberValue = (value: unknown): number | undefined => {
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-const isMinifigIdentifier = (itemNo: string, itemType?: string): boolean => {
-  if (itemType === 'MINIFIG') return true;
-  if (itemType === 'SET') return false;
-  const clean = itemNo.trim().toLowerCase();
-  return /^(fig-\d+|[a-z]{2,5}\d+[a-z]?|col[a-z0-9]+)$/i.test(clean);
+const cleanLegoInput = (rawInput: string, hintedType?: 'SET' | 'MINIFIG') => {
+  let cleaned = (rawInput || '').trim();
+
+  // 1. BrickLink URLs (?M= for minifigs or ?S= for sets)
+  const blMinifig = cleaned.match(/bricklink\.com.*?[\?&]M=([a-z0-9_-]+)/i);
+  if (blMinifig) {
+    const rawCode = blMinifig[1].toLowerCase();
+    const code = rawCode.startsWith('fig-') ? rawCode : rawCode.replace(/-\d+$/, '');
+    return {
+      raw: rawInput,
+      itemNo: code,
+      itemType: 'MINIFIG' as const,
+      bricksetSlug: code,
+    };
+  }
+
+  const blSet = cleaned.match(/bricklink\.com.*?[\?&]S=([a-z0-9_-]+)/i);
+  if (blSet) {
+    const rawNum = blSet[1];
+    const withVariant = rawNum.includes('-') ? rawNum : `${rawNum}-1`;
+    return {
+      raw: rawInput,
+      itemNo: withVariant,
+      itemType: 'SET' as const,
+      bricksetSlug: withVariant,
+    };
+  }
+
+  // 2. Minifigure URL or slug path
+  const minifigUrl =
+    cleaned.match(/brickset\.com\/minifigs\/([a-z0-9_-]+)/i) ||
+    cleaned.match(/^minifigs\/([a-z0-9_-]+)/i);
+  if (minifigUrl) {
+    const matched = minifigUrl[1];
+    if (matched.toLowerCase().startsWith('in-')) {
+      const setNo = matched.slice(3);
+      const withVariant = setNo.includes('-') ? setNo : `${setNo}-1`;
+      return {
+        raw: rawInput,
+        itemNo: withVariant,
+        itemType: 'SET' as const,
+        bricksetSlug: withVariant,
+      };
+    }
+    const rawCode = matched.toLowerCase();
+    const code = rawCode.startsWith('fig-') ? rawCode : rawCode.replace(/-\d+$/, '');
+    return {
+      raw: rawInput,
+      itemNo: code,
+      itemType: 'MINIFIG' as const,
+      bricksetSlug: code,
+    };
+  }
+
+  // 3. Set URL or slug path
+  const setUrl =
+    cleaned.match(/brickset\.com\/sets\/([a-z0-9]+(?:-[0-9]+)?)/i) ||
+    cleaned.match(/^sets\/([a-z0-9]+(?:-[0-9]+)?)/i);
+  if (setUrl) {
+    const rawNum = setUrl[1];
+    const withVariant = rawNum.includes('-') ? rawNum : `${rawNum}-1`;
+    return {
+      raw: rawInput,
+      itemNo: withVariant,
+      itemType: 'SET' as const,
+      bricksetSlug: withVariant,
+    };
+  }
+
+  cleaned = cleaned.replace(/^#/, '').trim();
+
+  // 4. Minifigure code patterns:
+  const isMinifigPattern =
+    /^(fig-\d+|[a-z]{2,5}\d+[a-z]?|col[a-z0-9]+)(-\d+)?$/i.test(cleaned);
+  if (isMinifigPattern || hintedType === 'MINIFIG') {
+    const rawCode = cleaned.toLowerCase();
+    const code = rawCode.startsWith('fig-') ? rawCode : rawCode.replace(/-\d+$/, '');
+    return {
+      raw: rawInput,
+      itemNo: code,
+      itemType: 'MINIFIG' as const,
+      bricksetSlug: code,
+    };
+  }
+
+  // 5. Set number
+  const cleanNum = cleaned.replace(/\s+/g, '');
+  const withVariant = cleanNum.includes('-') ? cleanNum : `${cleanNum}-1`;
+  return {
+    raw: rawInput,
+    itemNo: withVariant,
+    itemType: 'SET' as const,
+    bricksetSlug: withVariant,
+  };
 };
 
 const FX_RATES: Record<string, Record<string, number>> = {
@@ -62,13 +151,15 @@ const fetchMinifigValuation = async (
   targetCurrency = 'EUR',
 ): Promise<MinifigScrapeResult | null> => {
   try {
-    const url = `https://brickset.com/minifigs/${encodeURIComponent(itemNo.trim())}`;
+    const cleanNo = itemNo.trim().replace(/-\d+$/, '').toLowerCase();
+    const url = `https://brickset.com/minifigs/${encodeURIComponent(cleanNo)}`;
     const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
     if (!response.ok) return null;
     const html = await response.text();
 
-    const nameMatch = html.match(/<h1>\s*([A-Za-z0-9_-]+):\s*([^<]+)<\/h1>/i);
-    const name = nameMatch ? nameMatch[2].trim() : undefined;
+    const h1Match = html.match(/<h1[^>]*>\s*([A-Za-z0-9_-]+)(?::\s*|\s+)([\s\S]*?)<\/h1>/i);
+    const dtNameMatch = html.match(/<dt>Name<\/dt>\s*<dd>([^<]+)<\/dd>/i);
+    const name = dtNameMatch ? dtNameMatch[1].trim() : (h1Match ? h1Match[2].replace(/\s+/g, ' ').trim() : undefined);
 
     // Search for New and Used market values displayed by Brickset
     const valNewMatch =
@@ -78,19 +169,20 @@ const fetchMinifigValuation = async (
       html.match(/Used:\s*<a[^>]*>~([^\d\s]*)\s*([\d,.]+)/i) ||
       html.match(/Value used<\/dt>\s*<dd><a[^>]*>~([^\d\s]*)\s*([\d,.]+)/i);
 
-    const priceNew = valNewMatch ? numberValue(valNewMatch[2]) : undefined;
-    const priceUsed = valUsedMatch ? numberValue(valUsedMatch[2]) : undefined;
+    const rawNew = valNewMatch ? numberValue(valNewMatch[2]) : undefined;
+    const rawUsed = valUsedMatch ? numberValue(valUsedMatch[2]) : undefined;
 
-    if (!priceNew && !priceUsed) return null;
+    if (!rawNew && !rawUsed) return null;
 
     const rawSym = (valNewMatch ? valNewMatch[1] : valUsedMatch?.[1] ?? '').trim();
     const sourceCurr = rawSym.includes('£')
       ? 'GBP'
       : rawSym.includes('$')
         ? 'USD'
-        : rawSym.includes('€')
-          ? 'EUR'
-          : 'GBP';
+        : 'EUR';
+
+    const priceNew = rawNew ? convertCurrency(rawNew, sourceCurr, targetCurrency) : undefined;
+    const priceUsed = rawUsed ? convertCurrency(rawUsed, sourceCurr, targetCurrency) : undefined;
 
     const condLower = (condition || '').toLowerCase();
     const isUsed =
@@ -98,12 +190,10 @@ const fetchMinifigValuation = async (
       condLower.includes('good') ||
       condLower.includes('fair') ||
       condLower.includes('loose');
-    const selectedRawPrice =
+    const selectedPrice =
       isUsed && priceUsed !== undefined
         ? priceUsed
         : (priceNew ?? priceUsed ?? 0);
-
-    const convertedPrice = convertCurrency(selectedRawPrice, sourceCurr, targetCurrency);
 
     // Appears in set list
     const sets = Array.from(new Set(Array.from(html.matchAll(/\/sets\/(\d+-\d+)/g), (m) => m[1])));
@@ -117,14 +207,14 @@ const fetchMinifigValuation = async (
     const theme = catMatch ? catMatch[1].trim() : 'Minifigures';
 
     return {
-      itemNo,
+      itemNo: cleanNo,
       name,
       theme,
       year,
       currency: targetCurrency,
-      retailPrice: convertedPrice,
-      priceNew: priceNew ? convertCurrency(priceNew, sourceCurr, targetCurrency) : undefined,
-      priceUsed: priceUsed ? convertCurrency(priceUsed, sourceCurr, targetCurrency) : undefined,
+      retailPrice: selectedPrice,
+      priceNew,
+      priceUsed,
       appearsIn: sets.slice(0, 5),
       source: 'brickset',
       itemType: 'MINIFIG',
@@ -136,18 +226,20 @@ const fetchMinifigValuation = async (
 
 const fetchSetFromBricksetPage = async (
   itemNo: string,
+  condition?: string,
   targetCurrency = 'EUR',
 ): Promise<Record<string, unknown> | null> => {
   try {
-    const cleanNo = itemNo.trim().replace(/-\d+$/, '');
-    const slug = `${cleanNo}-1`;
+    const cleanNo = itemNo.trim().replace(/\s+/g, '');
+    const slug = cleanNo.includes('-') ? cleanNo : `${cleanNo.replace(/-\d+$/, '')}-1`;
     const url = `https://brickset.com/sets/${slug}`;
     const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
     if (!response.ok) return null;
     const html = await response.text();
 
-    const titleMatch = html.match(/<h1>\s*([A-Za-z0-9_-]+):\s*([^<]+)<\/h1>/i);
-    const name = titleMatch ? titleMatch[2].trim() : undefined;
+    const h1Match = html.match(/<h1[^>]*>\s*([A-Za-z0-9_-]+)(?::\s*|\s+)([\s\S]*?)<\/h1>/i);
+    const dtNameMatch = html.match(/<dt>Name<\/dt>\s*<dd>([^<]+)<\/dd>/i);
+    const name = dtNameMatch ? dtNameMatch[1].trim() : (h1Match ? h1Match[2].replace(/\s+/g, ' ').trim() : undefined);
 
     const themeMatch = html.match(/Theme<\/dt>\s*<dd><a[^>]*>([^<]+)<\/a>/i);
     const theme = themeMatch ? themeMatch[1].trim() : undefined;
@@ -158,6 +250,31 @@ const fetchSetFromBricksetPage = async (
     const piecesMatch = html.match(/Pieces<\/dt>\s*<dd[^>]*>(\d+)<\/dd>/i);
     const pieces = piecesMatch ? Number(piecesMatch[1]) : undefined;
 
+    // 1. Market value New / Used
+    const valNewMatch =
+      html.match(/New:\s*<a[^>]*>~([^\d\s]*)\s*([\d,.]+)/i) ||
+      html.match(/Value new<\/dt>\s*<dd><a[^>]*>~([^\d\s]*)\s*([\d,.]+)/i);
+    const valUsedMatch =
+      html.match(/Used:\s*<a[^>]*>~([^\d\s]*)\s*([\d,.]+)/i) ||
+      html.match(/Value used<\/dt>\s*<dd><a[^>]*>~([^\d\s]*)\s*([\d,.]+)/i);
+
+    const rawNew = valNewMatch ? numberValue(valNewMatch[2]) : undefined;
+    const rawUsed = valUsedMatch ? numberValue(valUsedMatch[2]) : undefined;
+
+    let priceNew: number | undefined;
+    let priceUsed: number | undefined;
+    if (rawNew !== undefined || rawUsed !== undefined) {
+      const rawSym = (valNewMatch ? valNewMatch[1] : valUsedMatch?.[1] ?? '').trim();
+      const sourceCurr = rawSym.includes('£')
+        ? 'GBP'
+        : rawSym.includes('$')
+          ? 'USD'
+          : 'EUR';
+      priceNew = rawNew ? convertCurrency(rawNew, sourceCurr, targetCurrency) : undefined;
+      priceUsed = rawUsed ? convertCurrency(rawUsed, sourceCurr, targetCurrency) : undefined;
+    }
+
+    // 2. Official LEGO RRP
     const rrpMatch = html.match(/RRP<\/dt>\s*<dd>([^<]+)<\/dd>/i);
     const rrpText = rrpMatch ? rrpMatch[1].trim() : '';
 
@@ -169,28 +286,61 @@ const fetchSetFromBricksetPage = async (
     const usdVal = usdMatch ? numberValue(usdMatch[1]) : undefined;
     const gbpVal = gbpMatch ? numberValue(gbpMatch[1]) : undefined;
 
-    let finalPrice: number | undefined;
+    let rrpAmount: number | undefined;
     if (targetCurrency === 'EUR') {
-      finalPrice =
+      rrpAmount =
         eurVal ??
         (usdVal ? convertCurrency(usdVal, 'USD', 'EUR') : undefined) ??
         (gbpVal ? convertCurrency(gbpVal, 'GBP', 'EUR') : undefined);
     } else if (targetCurrency === 'USD') {
-      finalPrice =
+      rrpAmount =
         usdVal ??
         (eurVal ? convertCurrency(eurVal, 'EUR', 'USD') : undefined) ??
         (gbpVal ? convertCurrency(gbpVal, 'GBP', 'USD') : undefined);
     } else if (targetCurrency === 'GBP') {
-      finalPrice =
+      rrpAmount =
         gbpVal ??
         (eurVal ? convertCurrency(eurVal, 'EUR', 'GBP') : undefined) ??
         (usdVal ? convertCurrency(usdVal, 'USD', 'GBP') : undefined);
     }
 
+    // 3. Minifigures inside set
+    const minifigsMatch = html.match(/<dt>Minifigs<\/dt>\s*<dd><a[^>]*href=['"]\/minifigs\/in-([^'"]+)['"][^>]*>(\d+)<\/a>/i);
+    const minifigCount = minifigsMatch ? Number(minifigsMatch[2]) : undefined;
+    let singleMinifigCode: string | undefined;
+
+    if (minifigCount === 1) {
+      try {
+        const inSetUrl = `https://brickset.com/minifigs/in-${slug}`;
+        const inRes = await fetch(inSetUrl, { headers: { 'User-Agent': USER_AGENT } });
+        if (inRes.ok) {
+          const inHtml = await inRes.text();
+          const singleMfMatch = inHtml.match(/\/minifigs\/([a-z]{2,5}\d+[a-z]?|fig-\d+|col[a-z0-9]+)/i);
+          if (singleMfMatch) {
+            singleMinifigCode = singleMfMatch[1].toLowerCase();
+          }
+        }
+      } catch {
+        // non-blocking
+      }
+    }
+
+    const condLower = (condition || '').toLowerCase();
+    const isUsed =
+      condLower.includes('used') ||
+      condLower.includes('good') ||
+      condLower.includes('fair') ||
+      condLower.includes('loose');
+
+    // Prefer current market value for the condition, fallback to RRP
+    const finalPrice = isUsed
+      ? (priceUsed ?? priceNew ?? rrpAmount)
+      : (priceNew ?? rrpAmount ?? priceUsed);
+
     if (!finalPrice || finalPrice <= 0) return null;
 
     return {
-      itemNo: cleanNo,
+      itemNo: slug,
       queriedItemNo: slug,
       name,
       theme,
@@ -198,6 +348,12 @@ const fetchSetFromBricksetPage = async (
       pieces,
       currency: targetCurrency,
       retailPrice: finalPrice,
+      priceNew,
+      priceUsed,
+      rrp: rrpAmount,
+      containedMinifig: minifigCount
+        ? { code: singleMinifigCode || slug, count: minifigCount }
+        : undefined,
       source: 'brickset',
       itemType: 'SET',
     };
@@ -262,19 +418,21 @@ Deno.serve(async (req: Request) => {
       apiKey?: string;
     };
 
-    const rawItemNo = body.itemNo?.trim();
-    if (!rawItemNo) return json({ error: 'Missing itemNo parameter' }, 400);
+    const rawInput = body.itemNo?.trim();
+    if (!rawInput) return json({ error: 'Missing itemNo parameter' }, 400);
 
     const currency = (body.currency || 'EUR').toUpperCase();
-    const isMinifig = isMinifigIdentifier(rawItemNo, body.itemType);
+    const normalized = cleanLegoInput(rawInput, body.itemType);
+    const isMinifig = normalized.itemType === 'MINIFIG';
+    const itemNo = normalized.itemNo;
 
-    // 1. If it is a Minifigure, first try Brickset's minifigure lookup
+    // 1. If it is a Minifigure, try Brickset's minifigure page lookup
     if (isMinifig) {
-      const minifigResult = await fetchMinifigValuation(rawItemNo, body.condition, currency);
+      const minifigResult = await fetchMinifigValuation(itemNo, body.condition, currency);
       if (minifigResult && minifigResult.retailPrice > 0) {
         return json({
           ...minifigResult,
-          queriedItemNo: rawItemNo,
+          queriedItemNo: itemNo,
           dateFetched: new Date().toISOString(),
         });
       }
@@ -295,12 +453,20 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 3. If API key is available, query Brickset API v3 getSets
-    const cleanItemNo = rawItemNo.replace(/-\d+$/, '');
-    const setNumberWithVariant = rawItemNo.includes('-') ? rawItemNo : `${cleanItemNo}-1`;
+    // 3. Fallback to scraping the public Brickset set page (fetches Current Market Values New & Used + RRP)
+    const pageSet = await fetchSetFromBricksetPage(itemNo, body.condition, currency);
+    if (pageSet && (pageSet.retailPrice as number) > 0) {
+      return json({
+        ...pageSet,
+        dateFetched: new Date().toISOString(),
+      });
+    }
 
+    // 4. If scraping page didn't have current value, query Brickset API v3 getSets
     if (apiKey) {
-      // First try exact setNumber search
+      const cleanItemNo = itemNo.replace(/-\d+$/, '');
+      const setNumberWithVariant = itemNo.includes('-') ? itemNo : `${cleanItemNo}-1`;
+
       let setParams = encodeURIComponent(
         JSON.stringify({ setNumber: setNumberWithVariant, pageSize: 1 }),
       );
@@ -312,7 +478,6 @@ Deno.serve(async (req: Request) => {
         sets?: Array<Record<string, unknown>>;
       } | null;
 
-      // If no match by exact setNumber, try query search
       if (!payload?.sets?.length) {
         setParams = encodeURIComponent(JSON.stringify({ query: cleanItemNo, pageSize: 1 }));
         url = `https://brickset.com/api/v3.asmx/getSets?apiKey=${encodeURIComponent(apiKey)}&userHash=&params=${setParams}`;
@@ -326,15 +491,16 @@ Deno.serve(async (req: Request) => {
 
       if (response.ok && payload?.status === 'success' && payload.sets?.[0]) {
         const set = payload.sets[0];
-        const retailPrice = resolveApiSetPrice(set, currency);
-        if (retailPrice && retailPrice > 0) {
+        const apiRetailPrice = resolveApiSetPrice(set, currency);
+        if (apiRetailPrice && apiRetailPrice > 0) {
           return json({
             itemNo: cleanItemNo,
             queriedItemNo: setNumberWithVariant,
             itemType: isMinifig ? 'MINIFIG' : 'SET',
             name: typeof set.name === 'string' ? set.name : undefined,
             currency,
-            retailPrice,
+            retailPrice: apiRetailPrice,
+            rrp: apiRetailPrice,
             year: numberValue(set.year),
             pieces: numberValue(set.pieces),
             theme: typeof set.theme === 'string' ? set.theme : undefined,
@@ -345,28 +511,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 4. Fallback to scraping the public Brickset set page (works even when API key is missing or set is unpriced in API)
-    const pageSet = await fetchSetFromBricksetPage(rawItemNo, currency);
-    if (pageSet && (pageSet.retailPrice as number) > 0) {
-      return json({
-        ...pageSet,
-        dateFetched: new Date().toISOString(),
-      });
-    }
-
-    // 5. If it was a set and failed, try minifig lookup as last resort
+    // 5. If it was classified as set and failed, try minifig lookup as last resort
     if (!isMinifig) {
-      const minifigResult = await fetchMinifigValuation(rawItemNo, body.condition, currency);
+      const minifigResult = await fetchMinifigValuation(itemNo, body.condition, currency);
       if (minifigResult && minifigResult.retailPrice > 0) {
         return json({
           ...minifigResult,
-          queriedItemNo: rawItemNo,
+          queriedItemNo: itemNo,
           dateFetched: new Date().toISOString(),
         });
       }
     }
 
-    return json({ error: `Could not retrieve valuation for LEGO item ${rawItemNo} from Brickset.` }, 404);
+    return json({ error: `Could not retrieve valuation for LEGO item ${rawInput} from Brickset.` }, 404);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }

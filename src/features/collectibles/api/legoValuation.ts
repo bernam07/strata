@@ -1,7 +1,7 @@
 import {
+  cleanLegoInput,
   fetchBricksetPrice,
   getCachedBricksetKey,
-  isMinifigCode,
   type BricksetPriceResult,
 } from './brickset';
 import {
@@ -17,10 +17,18 @@ export interface LegoValuationResult {
   currency: string;
   resolvedEur: number;
   retailPrice?: number;
+  priceNew?: number;
+  priceUsed?: number;
+  rrp?: number;
   growthPercent?: number;
   source: 'brickset' | 'catalog' | 'manual';
   brickset?: BricksetPriceResult;
   bricksetSetNumber?: string;
+  appearsIn?: string[];
+  containedMinifig?: {
+    code: string;
+    count?: number;
+  };
 }
 
 export interface ResolveLegoPriceParams {
@@ -31,21 +39,33 @@ export interface ResolveLegoPriceParams {
   currency?: string;
 }
 
+const isUsedCondition = (cond?: string): boolean => {
+  if (!cond) return false;
+  const l = cond.toLowerCase();
+  return (
+    l.includes('used') ||
+    l.includes('loose') ||
+    l.includes('played') ||
+    l.includes('fair') ||
+    l.includes('good')
+  );
+};
+
 export const resolveLegoPrice = async (
   params: ResolveLegoPriceParams,
 ): Promise<LegoValuationResult> => {
   const currency = (params.currency || 'EUR').toUpperCase();
-  const isMinifig =
-    params.itemType === 'MINIFIG' || isMinifigCode(params.itemNo, params.itemType);
+  const normalized = cleanLegoInput(params.itemNo, params.itemType);
+  const isMinifig = normalized.itemType === 'MINIFIG';
   const bricksetSetNumber = isMinifig
-    ? params.bricksetSetNumber || getBricksetSetNumber(params.itemNo)
+    ? params.bricksetSetNumber || getBricksetSetNumber(normalized.itemNo)
     : undefined;
   const bricksetKey = getCachedBricksetKey();
 
   // Try Brickset (works for both Sets and Minifigures)
   try {
     const bricksetRes = await fetchBricksetPrice({
-      itemNo: params.itemNo,
+      itemNo: normalized.itemNo,
       itemType: isMinifig ? 'MINIFIG' : 'SET',
       condition: params.condition,
       bricksetSetNumber,
@@ -53,17 +73,31 @@ export const resolveLegoPrice = async (
       apiKey: bricksetKey || undefined,
     });
 
-    if (bricksetRes.retailPrice > 0) {
+    if (
+      bricksetRes.retailPrice > 0 ||
+      (bricksetRes.priceNew && bricksetRes.priceNew > 0) ||
+      (bricksetRes.priceUsed && bricksetRes.priceUsed > 0)
+    ) {
+      const isUsed = isUsedCondition(params.condition);
+      const chosenPrice = isUsed
+        ? (bricksetRes.priceUsed ?? bricksetRes.priceNew ?? bricksetRes.rrp ?? bricksetRes.retailPrice)
+        : (bricksetRes.priceNew ?? bricksetRes.rrp ?? bricksetRes.retailPrice);
+
       return {
         itemNo: bricksetRes.itemNo,
         itemType: isMinifig ? 'MINIFIG' : 'SET',
         name: bricksetRes.name,
         currency,
-        resolvedEur: bricksetRes.retailPrice,
-        retailPrice: bricksetRes.retailPrice,
+        resolvedEur: chosenPrice,
+        retailPrice: chosenPrice,
+        priceNew: bricksetRes.priceNew,
+        priceUsed: bricksetRes.priceUsed,
+        rrp: bricksetRes.rrp,
         source: 'brickset',
         brickset: bricksetRes,
         bricksetSetNumber: bricksetRes.queriedItemNo || bricksetSetNumber,
+        appearsIn: bricksetRes.appearsIn,
+        containedMinifig: bricksetRes.containedMinifig,
       };
     }
   } catch {
@@ -71,10 +105,11 @@ export const resolveLegoPrice = async (
   }
 
   // Fallback to internal curated database (both sets and minifigures)
-  const norm = normalizeSetNumber(params.itemNo);
+  const norm = normalizeSetNumber(normalized.itemNo);
   const localItem = ALL_CURATED_LEGO_ITEMS.find(
     (s) =>
       s.setNumber.toLowerCase() === norm.toLowerCase() ||
+      s.setNumber.toLowerCase() === normalized.itemNo.toLowerCase() ||
       s.setNumber.toLowerCase() === params.itemNo.toLowerCase(),
   );
 
@@ -86,13 +121,14 @@ export const resolveLegoPrice = async (
       currency: 'EUR',
       resolvedEur: localItem.rrpEur,
       retailPrice: localItem.rrpEur,
+      rrp: localItem.rrpEur,
       source: 'catalog',
     };
   }
 
   return {
-    itemNo: params.itemNo,
-    itemType: isMinifig ? 'MINIFIG' : params.itemType || 'SET',
+    itemNo: normalized.itemNo,
+    itemType: isMinifig ? 'MINIFIG' : 'SET',
     currency,
     resolvedEur: 0,
     source: 'manual',

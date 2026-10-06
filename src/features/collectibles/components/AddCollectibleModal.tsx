@@ -17,6 +17,7 @@ import {
   type PokemonCardFinish,
 } from '../api/tcgdex';
 import { getLegoImageUrl, type LegoSetResult } from '../api/lego';
+import { cleanLegoInput } from '../api/brickset';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
 import { CategoryIcon } from './CategoryIcon';
 import { PokemonCardSearch } from './PokemonCardSearch';
@@ -204,9 +205,17 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     if (!setNumber.trim()) return;
     setFetchingLegoPrice(true);
     try {
+      const cleaned = cleanLegoInput(setNumber, itemType);
+      if (
+        cleaned.raw !== cleaned.itemNo &&
+        (cleaned.raw.includes('http') || cleaned.raw.startsWith('#'))
+      ) {
+        setIdentifier(cleaned.itemNo);
+      }
+
       const res = await resolveLegoPrice({
-        itemNo: setNumber,
-        itemType,
+        itemNo: cleaned.itemNo,
+        itemType: cleaned.itemType,
         condition: overrideCondition || condition,
         currency: 'EUR',
       });
@@ -215,17 +224,35 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         setLegoValuation(res);
         setCurrentPrice(String(res.resolvedEur));
         if (!purchasePrice) {
-          setPurchasePrice(String(res.retailPrice ?? res.resolvedEur));
+          setPurchasePrice(String(res.rrp ?? res.retailPrice ?? res.resolvedEur));
+        }
+        if (
+          !name ||
+          name.startsWith('Minifigure #') ||
+          name.startsWith('LEGO Set #') ||
+          name === 'LEGO Set'
+        ) {
+          if (res.name) {
+            setName(`${res.name} (#${res.itemNo})`);
+          }
+        }
+        if (!imageUrl) {
+          setImageUrl(getLegoImageUrl(res.itemNo));
         }
         setMetadata((prev) => ({
           ...prev,
+          type: res.itemType.toLowerCase(),
           valuationSource: res.source,
           ...(res.brickset ? { brickset: res.brickset } : {}),
           ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
         }));
 
         if (res.source === 'brickset') {
-          toast(`Brickset valuation loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
+          const breakdown =
+            res.priceNew && res.priceUsed
+              ? ` (New: €${res.priceNew.toFixed(2)} / Used: €${res.priceUsed.toFixed(2)})`
+              : '';
+          toast(`Brickset valuation loaded: €${res.resolvedEur.toFixed(2)}${breakdown}`, 'success');
         }
       } else {
         toast('Brickset did not return a price for this item', 'error');
@@ -559,21 +586,82 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                 )}
 
                 {legoValuation?.source === 'brickset' && (
-                  <div className="flex flex-col gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
+                  <div className="flex flex-col gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        Brickset Official RRP
+                        Brickset Market Valuation
                       </span>
                       <span className="font-bold text-emerald-400">
                         €{legoValuation.resolvedEur.toFixed(2)}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center justify-between text-[11px] text-[var(--text-muted)]">
-                      <span>
-                        Official LEGO retail price
+
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-[var(--text-muted)]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {legoValuation.priceNew !== undefined && (
+                          <span>
+                            New (MISB):{' '}
+                            <strong className="text-[var(--text-strong)]">
+                              €{legoValuation.priceNew.toFixed(2)}
+                            </strong>
+                          </span>
+                        )}
+                        {legoValuation.priceUsed !== undefined && (
+                          <span>
+                            Used:{' '}
+                            <strong className="text-[var(--text-strong)]">
+                              €{legoValuation.priceUsed.toFixed(2)}
+                            </strong>
+                          </span>
+                        )}
+                        {legoValuation.rrp !== undefined && (
+                          <span>
+                            RRP:{' '}
+                            <strong className="text-[var(--text-strong)]">
+                              €{legoValuation.rrp.toFixed(2)}
+                            </strong>
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-[var(--text-muted)]">
+                        {condition.toLowerCase().includes('used') || condition.toLowerCase().includes('loose')
+                          ? 'Used condition applied'
+                          : 'Sealed / mint valuation applied'}
                       </span>
                     </div>
+
+                    {legoValuation.containedMinifig && (
+                      <div className="flex items-center justify-between border-t border-emerald-500/20 pt-1.5 text-[11px]">
+                        <span className="text-[var(--text-muted)]">
+                          Includes minifigure:{' '}
+                          <strong className="text-emerald-400">#{legoValuation.containedMinifig.code}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (legoValuation.containedMinifig) {
+                              const code = legoValuation.containedMinifig.code;
+                              setIdentifier(code);
+                              setImageUrl(getLegoImageUrl(code));
+                              void handleFetchLegoValuation(code, 'MINIFIG');
+                            }
+                          }}
+                          className="tap font-semibold text-emerald-400 hover:underline"
+                        >
+                          Check Minifig Value →
+                        </button>
+                      </div>
+                    )}
+
+                    {legoValuation.appearsIn && legoValuation.appearsIn.length > 0 && (
+                      <div className="border-t border-emerald-500/20 pt-1 text-[10px] text-[var(--text-muted)]">
+                        <span>Appears in sets: </span>
+                        <span className="font-semibold text-[var(--text-strong)]">
+                          {legoValuation.appearsIn.join(', ')}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -595,7 +683,13 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                   <div className="flex items-center gap-2.5 ml-auto">
                     <span>Source:</span>
                     <a
-                      href={`https://brickset.com/sets/${(legoValuation?.bricksetSetNumber || selectedLego.setNumber)}-1`}
+                      href={
+                        selectedLego.type === 'minifig' || legoValuation?.itemType === 'MINIFIG'
+                          ? `https://brickset.com/minifigs/${encodeURIComponent(
+                              (legoValuation?.bricksetSetNumber || selectedLego.setNumber).replace(/^#/, ''),
+                            )}`
+                          : `https://brickset.com/sets/${(legoValuation?.bricksetSetNumber || selectedLego.setNumber).replace(/-\d+$/, '')}-1`
+                      }
                       target="_blank"
                       rel="noreferrer"
                       className="font-semibold text-[var(--accent)] hover:underline"
@@ -642,10 +736,28 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
               }
               onChange={(e) => {
                 const val = e.target.value;
-                setIdentifier(val);
-                if (category === 'lego' && !imageUrl && (/^\d{4,6}$/.test(val.trim()) || /^(fig-\d+|[a-z]{2,5}\d+[a-z]?)$/i.test(val.trim()))) {
-                  setImageUrl(getLegoImageUrl(val));
+                if (category === 'lego') {
+                  const cleaned = cleanLegoInput(val);
+                  if (
+                    cleaned.raw !== cleaned.itemNo &&
+                    (cleaned.raw.includes('http') || cleaned.raw.startsWith('#'))
+                  ) {
+                    setIdentifier(cleaned.itemNo);
+                    setImageUrl(getLegoImageUrl(cleaned.itemNo));
+                    void handleFetchLegoValuation(cleaned.itemNo, cleaned.itemType);
+                    return;
+                  }
+                  setIdentifier(val);
+                  if (
+                    !imageUrl &&
+                    (/^\d{4,6}$/.test(val.trim()) ||
+                      /^(fig-\d+|[a-z]{2,5}\d+[a-z]?)$/i.test(val.trim()))
+                  ) {
+                    setImageUrl(getLegoImageUrl(val));
+                  }
+                  return;
                 }
+                setIdentifier(val);
               }}
             />
           </Labelled>
@@ -711,6 +823,103 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             />
           </Labelled>
         </div>
+
+        {/* Standalone Brickset Valuation Card when entered via Identifier directly */}
+        {category === 'lego' && legoValuation?.source === 'brickset' && !selectedLego && (
+          <div className="flex flex-col gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Brickset Market Valuation
+              </span>
+              <span className="font-bold text-emerald-400">
+                €{legoValuation.resolvedEur.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-[var(--text-muted)]">
+              <div className="flex flex-wrap items-center gap-2">
+                {legoValuation.priceNew !== undefined && (
+                  <span>
+                    New (MISB):{' '}
+                    <strong className="text-[var(--text-strong)]">
+                      €{legoValuation.priceNew.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+                {legoValuation.priceUsed !== undefined && (
+                  <span>
+                    Used:{' '}
+                    <strong className="text-[var(--text-strong)]">
+                      €{legoValuation.priceUsed.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+                {legoValuation.rrp !== undefined && (
+                  <span>
+                    RRP:{' '}
+                    <strong className="text-[var(--text-strong)]">
+                      €{legoValuation.rrp.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-[var(--text-muted)]">
+                {condition.toLowerCase().includes('used') || condition.toLowerCase().includes('loose')
+                  ? 'Used condition applied'
+                  : 'Sealed / mint valuation applied'}
+              </span>
+            </div>
+
+            {legoValuation.containedMinifig && (
+              <div className="flex items-center justify-between border-t border-emerald-500/20 pt-1.5 text-[11px]">
+                <span className="text-[var(--text-muted)]">
+                  Includes minifigure:{' '}
+                  <strong className="text-emerald-400">#{legoValuation.containedMinifig.code}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (legoValuation.containedMinifig) {
+                      const code = legoValuation.containedMinifig.code;
+                      setIdentifier(code);
+                      setImageUrl(getLegoImageUrl(code));
+                      void handleFetchLegoValuation(code, 'MINIFIG');
+                    }
+                  }}
+                  className="tap font-semibold text-emerald-400 hover:underline"
+                >
+                  Check Minifig Value →
+                </button>
+              </div>
+            )}
+
+            {legoValuation.appearsIn && legoValuation.appearsIn.length > 0 && (
+              <div className="border-t border-emerald-500/20 pt-1 text-[10px] text-[var(--text-muted)]">
+                <span>Appears in sets: </span>
+                <span className="font-semibold text-[var(--text-strong)]">
+                  {legoValuation.appearsIn.join(', ')}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-emerald-500/20 pt-1 text-[10px] text-[var(--text-muted)]">
+              <span>Verified on Brickset:</span>
+              <a
+                href={
+                  legoValuation.itemType === 'MINIFIG'
+                    ? `https://brickset.com/minifigs/${encodeURIComponent(legoValuation.itemNo.replace(/^#/, ''))}`
+                    : `https://brickset.com/sets/${legoValuation.itemNo.replace(/-\d+$/, '')}-1`
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-emerald-400 hover:underline inline-flex items-center gap-0.5"
+              >
+                Brickset Catalog ↗
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* Date and Image */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
