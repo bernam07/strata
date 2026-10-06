@@ -24,7 +24,12 @@ const getEurPrice = (set: Record<string, unknown>): number | undefined => {
   if (legoCom && typeof legoCom === 'object') {
     const prices = legoCom as Record<string, unknown>;
     for (const country of ['PT', 'ES', 'DE', 'FR', 'BE', 'IT', 'NL', 'EUR']) {
-      const price = numberValue(prices[country]);
+      const countryData = prices[country];
+      const price =
+        numberValue(countryData) ||
+        (countryData && typeof countryData === 'object'
+          ? numberValue((countryData as Record<string, unknown>).retailPrice)
+          : undefined);
       if (price !== undefined && price > 0) return price;
     }
   }
@@ -63,7 +68,9 @@ Deno.serve(async (req: Request) => {
     }
     if (!apiKey) return json({ error: 'Brickset API key is not configured.' }, 400);
 
-    const params = encodeURIComponent(JSON.stringify({ query: itemNo, pageSize: 1 }));
+    const params = encodeURIComponent(
+      JSON.stringify({ query: itemNo, pageSize: 1, extendedData: true }),
+    );
     const url = `https://brickset.com/api/v3.asmx/getSets?apiKey=${encodeURIComponent(apiKey)}&userHash=&params=${params}`;
     const response = await fetch(url, { headers: { Accept: 'application/json' } });
     const payload = (await response.json().catch(() => null)) as {
