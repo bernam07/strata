@@ -22,13 +22,22 @@ export const useBricksetConnection = () =>
           .select('updated_at')
           .eq('provider', 'brickset')
           .maybeSingle();
-        if (!error && data) return { updatedAt: data.updated_at };
+
+        if (error) {
+          const local = getCachedBricksetKey();
+          return local ? { updatedAt: new Date().toISOString() } : null;
+        }
+
+        if (data) {
+          return { updatedAt: data.updated_at };
+        }
+
+        const local = getCachedBricksetKey();
+        return local ? { updatedAt: new Date().toISOString() } : null;
       } catch {
-        // Fall back to the local cache when the backend is unavailable.
+        const local = getCachedBricksetKey();
+        return local ? { updatedAt: new Date().toISOString() } : null;
       }
-      return getCachedBricksetKey()
-        ? { updatedAt: new Date().toISOString() }
-        : null;
     },
   });
 
@@ -43,7 +52,7 @@ export const useBricksetKey = () =>
           return data;
         }
       } catch {
-        // Fall back to the local cache.
+        // Fall back to local storage
       }
       return getCachedBricksetKey();
     },
@@ -55,11 +64,21 @@ export const useSetBricksetKey = () => {
     mutationFn: async (key: string) => {
       const trimmed = key.trim();
       if (!trimmed) throw new Error('API key cannot be empty');
+
+      // Always save locally immediately
       setCachedBricksetKey(trimmed);
-      const { error } = await supabase.rpc('set_brickset_api_key', {
-        p_key: trimmed,
-      });
-      if (error) throw new Error(error.message);
+
+      // Save to Supabase Vault
+      try {
+        const { error } = await supabase.rpc('set_brickset_api_key', {
+          p_key: trimmed,
+        });
+        if (error) {
+          console.warn('Could not store Brickset key in vault:', error.message);
+        }
+      } catch (err) {
+        console.warn('Failed to call set_brickset_api_key RPC:', err);
+      }
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: bricksetConnectionKey });
@@ -73,8 +92,15 @@ export const useRemoveBricksetKey = () => {
   return useMutation({
     mutationFn: async () => {
       setCachedBricksetKey(null);
-      const { error } = await supabase.rpc('remove_brickset_api_key');
-      if (error) throw new Error(error.message);
+
+      try {
+        const { error } = await supabase.rpc('remove_brickset_api_key');
+        if (error) {
+          console.warn('Could not remove Brickset key from vault:', error.message);
+        }
+      } catch (err) {
+        console.warn('Failed to call remove_brickset_api_key RPC:', err);
+      }
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: bricksetConnectionKey });

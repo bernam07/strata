@@ -1,5 +1,14 @@
-import { fetchBricksetPrice, getCachedBricksetKey, type BricksetPriceResult } from './brickset';
-import { getBricksetSetNumber, POPULAR_LEGO_SETS, normalizeSetNumber } from './lego';
+import {
+  fetchBricksetPrice,
+  getCachedBricksetKey,
+  isMinifigCode,
+  type BricksetPriceResult,
+} from './brickset';
+import {
+  getBricksetSetNumber,
+  ALL_CURATED_LEGO_ITEMS,
+  normalizeSetNumber,
+} from './lego';
 
 export interface LegoValuationResult {
   itemNo: string;
@@ -26,63 +35,64 @@ export const resolveLegoPrice = async (
   params: ResolveLegoPriceParams,
 ): Promise<LegoValuationResult> => {
   const currency = (params.currency || 'EUR').toUpperCase();
-
-  // Brickset stores minifigures as sets, so query their containing set while
-  // keeping the minifigure code as the asset identifier.
-  const bricksetKey = getCachedBricksetKey();
-  const isMinifig = params.itemType === 'MINIFIG';
+  const isMinifig =
+    params.itemType === 'MINIFIG' || isMinifigCode(params.itemNo, params.itemType);
   const bricksetSetNumber = isMinifig
     ? params.bricksetSetNumber || getBricksetSetNumber(params.itemNo)
     : undefined;
-  if (bricksetKey && (!isMinifig || bricksetSetNumber)) {
-    try {
-      const bricksetRes = await fetchBricksetPrice({
-        itemNo: params.itemNo,
-        itemType: params.itemType,
-        bricksetSetNumber,
-        currency,
-        apiKey: bricksetKey,
-      });
+  const bricksetKey = getCachedBricksetKey();
 
-      if (bricksetRes.retailPrice > 0) {
-        return {
-          itemNo: bricksetRes.itemNo,
-          itemType: isMinifig ? 'MINIFIG' : 'SET',
-          name: bricksetRes.name,
-          currency,
-          resolvedEur: bricksetRes.retailPrice,
-          retailPrice: bricksetRes.retailPrice,
-          source: 'brickset',
-          brickset: bricksetRes,
-          bricksetSetNumber,
-        };
-      }
-    } catch {
-      // Continue to the catalog fallback when Brickset has no price.
+  // Try Brickset (works for both Sets and Minifigures)
+  try {
+    const bricksetRes = await fetchBricksetPrice({
+      itemNo: params.itemNo,
+      itemType: isMinifig ? 'MINIFIG' : 'SET',
+      condition: params.condition,
+      bricksetSetNumber,
+      currency,
+      apiKey: bricksetKey || undefined,
+    });
+
+    if (bricksetRes.retailPrice > 0) {
+      return {
+        itemNo: bricksetRes.itemNo,
+        itemType: isMinifig ? 'MINIFIG' : 'SET',
+        name: bricksetRes.name,
+        currency,
+        resolvedEur: bricksetRes.retailPrice,
+        retailPrice: bricksetRes.retailPrice,
+        source: 'brickset',
+        brickset: bricksetRes,
+        bricksetSetNumber: bricksetRes.queriedItemNo || bricksetSetNumber,
+      };
     }
+  } catch {
+    // Continue to curated catalog fallback
   }
 
-  // Fallback to the local catalog when Brickset has no key or no EUR price.
+  // Fallback to internal curated database (both sets and minifigures)
   const norm = normalizeSetNumber(params.itemNo);
-  const localSet = POPULAR_LEGO_SETS.find(
-    (s) => s.setNumber === norm || s.setNumber === params.itemNo,
+  const localItem = ALL_CURATED_LEGO_ITEMS.find(
+    (s) =>
+      s.setNumber.toLowerCase() === norm.toLowerCase() ||
+      s.setNumber.toLowerCase() === params.itemNo.toLowerCase(),
   );
 
-  if (localSet && localSet.rrpEur && localSet.rrpEur > 0) {
+  if (localItem && localItem.rrpEur && localItem.rrpEur > 0) {
     return {
-      itemNo: localSet.setNumber,
-      itemType: localSet.type === 'minifig' ? 'MINIFIG' : 'SET',
-      name: localSet.name,
+      itemNo: localItem.setNumber,
+      itemType: localItem.type === 'minifig' ? 'MINIFIG' : 'SET',
+      name: localItem.name,
       currency: 'EUR',
-      resolvedEur: localSet.rrpEur,
-      retailPrice: localSet.rrpEur,
+      resolvedEur: localItem.rrpEur,
+      retailPrice: localItem.rrpEur,
       source: 'catalog',
     };
   }
 
   return {
     itemNo: params.itemNo,
-    itemType: params.itemType || 'SET',
+    itemType: isMinifig ? 'MINIFIG' : params.itemType || 'SET',
     currency,
     resolvedEur: 0,
     source: 'manual',

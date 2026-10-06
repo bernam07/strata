@@ -132,7 +132,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
           ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
         }));
         if (res.source === 'brickset') {
-          toast(`Brickset RRP loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
+          toast(`Brickset valuation loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
         }
       } else {
         toast('Brickset did not return a price for this item', 'error');

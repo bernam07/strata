@@ -225,7 +225,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         }));
 
         if (res.source === 'brickset') {
-          toast(`Brickset RRP loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
+          toast(`Brickset valuation loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
         }
       } else {
         toast('Brickset did not return a price for this item', 'error');

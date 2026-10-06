@@ -12,15 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/bricklink': {
-        target: 'https://api.bricklink.com',
+      '/api/brickset': {
+        target: 'https://brickset.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/bricklink/, ''),
-      },
-      '/api/brickeconomy': {
-        target: 'https://www.brickeconomy.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/brickeconomy/, ''),
+        rewrite: (path) => path.replace(/^\/api\/brickset/, ''),
       },
     },
   },

@@ -126,12 +126,20 @@ export const IntegrationsPage = () => {
 
       <PageHeader
         title="Integrations"
-        subtitle="Connect Trading 212, Rebrickable & Brickset for LEGO, and set up your iPhone widget."
+        subtitle="Connect Trading 212, Rebrickable & Brickset for automated portfolio sync, and configure mobile widgets and alerts."
       />
 
-      <NotificationsCard />
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-strong)]">
+            API Integrations
+          </h2>
+          <p className="text-xs text-[var(--text-muted)]">
+            Direct connections to brokerages, price databases, and collectible catalogs.
+          </p>
+        </div>
 
-      <Card className="flex flex-col gap-5">
+        <Card className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <InstitutionLogo institutionId="trading212" />
@@ -495,10 +503,23 @@ export const IntegrationsPage = () => {
         )}
       </Card>
 
-      <RebrickableCard />
-      <BricksetCard />
+        <RebrickableCard />
+        <BricksetCard />
+      </section>
 
-      <WidgetCard />
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-strong)]">
+            Tools &amp; Extensions
+          </h2>
+          <p className="text-xs text-[var(--text-muted)]">
+            Home screen widgets, Apple Shortcuts, and system notification delivery channels.
+          </p>
+        </div>
+
+        <WidgetCard />
+        <NotificationsCard />
+      </section>
     </div>
   );
 };
