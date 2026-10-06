@@ -1,14 +1,5 @@
-import {
-  fetchBrickEconomyPrice,
-  getCachedBrickeconomyKey,
-  type BrickeconomyPriceResult,
-} from './brickeconomy';
-import {
-  fetchBricklinkPrice,
-  getCachedBricklinkCredentials,
-  type BricklinkPriceResult,
-} from './bricklink';
-import { POPULAR_LEGO_SETS, normalizeSetNumber } from './lego';
+import { fetchBricksetPrice, getCachedBricksetKey, type BricksetPriceResult } from './brickset';
+import { getBricksetSetNumber, POPULAR_LEGO_SETS, normalizeSetNumber } from './lego';
 
 export interface LegoValuationResult {
   itemNo: string;
@@ -18,9 +9,9 @@ export interface LegoValuationResult {
   resolvedEur: number;
   retailPrice?: number;
   growthPercent?: number;
-  source: 'brickeconomy' | 'bricklink' | 'catalog' | 'manual';
-  brickeconomy?: BrickeconomyPriceResult;
-  bricklink?: BricklinkPriceResult;
+  source: 'brickset' | 'catalog' | 'manual';
+  brickset?: BricksetPriceResult;
+  bricksetSetNumber?: string;
 }
 
 export interface ResolveLegoPriceParams {
@@ -34,75 +25,43 @@ export const resolveLegoPrice = async (
   params: ResolveLegoPriceParams,
 ): Promise<LegoValuationResult> => {
   const currency = (params.currency || 'EUR').toUpperCase();
-  const isUsed = /used|opened|loose|incomplete/i.test(params.condition || '');
-  const condCode: 'N' | 'U' = isUsed ? 'U' : 'N';
 
-  // 1. Try BrickEconomy if API key is present
-  const beKey = getCachedBrickeconomyKey();
-  if (beKey) {
+  // Brickset stores minifigures as sets, so query their containing set while
+  // keeping the minifigure code as the asset identifier.
+  const bricksetKey = getCachedBricksetKey();
+  const isMinifig = params.itemType === 'MINIFIG';
+  const bricksetSetNumber = isMinifig
+    ? getBricksetSetNumber(params.itemNo)
+    : undefined;
+  if (bricksetKey && (!isMinifig || bricksetSetNumber)) {
     try {
-      const beRes = await fetchBrickEconomyPrice({
+      const bricksetRes = await fetchBricksetPrice({
         itemNo: params.itemNo,
         itemType: params.itemType,
-        condition: condCode,
+        bricksetSetNumber,
         currency,
-        apiKey: beKey,
+        apiKey: bricksetKey,
       });
 
-      if (beRes && beRes.marketValue > 0) {
+      if (bricksetRes.retailPrice > 0) {
         return {
-          itemNo: beRes.itemNo,
-          itemType: beRes.itemType,
-          name: beRes.name,
+          itemNo: bricksetRes.itemNo,
+          itemType: isMinifig ? 'MINIFIG' : 'SET',
+          name: bricksetRes.name,
           currency,
-          resolvedEur: beRes.marketValue,
-          retailPrice: beRes.retailPrice,
-          growthPercent: beRes.growthPercent,
-          source: 'brickeconomy',
-          brickeconomy: beRes,
+          resolvedEur: bricksetRes.retailPrice,
+          retailPrice: bricksetRes.retailPrice,
+          source: 'brickset',
+          brickset: bricksetRes,
+          bricksetSetNumber,
         };
       }
     } catch {
-      // Continue to next provider
+      // Continue to the local catalog fallback.
     }
   }
 
-  // 2. Try BrickLink if 4 credentials are present
-  const blCreds = getCachedBricklinkCredentials();
-  if (blCreds) {
-    try {
-      const blRes = await fetchBricklinkPrice({
-        itemNo: params.itemNo,
-        itemType: params.itemType,
-        condition: condCode,
-        currency,
-        guideType: 'sold',
-        credentials: blCreds,
-      });
-
-      const p =
-        blRes.avgPrice > 0
-          ? blRes.avgPrice
-          : blRes.qtyAvgPrice > 0
-            ? blRes.qtyAvgPrice
-            : blRes.minPrice;
-
-      if (p > 0) {
-        return {
-          itemNo: blRes.itemNo,
-          itemType: blRes.itemType,
-          currency,
-          resolvedEur: p,
-          source: 'bricklink',
-          bricklink: blRes,
-        };
-      }
-    } catch {
-      // Continue to next provider
-    }
-  }
-
-  // 3. Fallback to Popular Catalog Database (for iconic sets with known RRP)
+  // Fallback to the local catalog when Brickset has no key or no EUR price.
   const norm = normalizeSetNumber(params.itemNo);
   const localSet = POPULAR_LEGO_SETS.find(
     (s) => s.setNumber === norm || s.setNumber === params.itemNo,

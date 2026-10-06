@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { TextInput } from '@/ui/Field';
 import { searchLegoSets, type LegoSetResult } from '../api/lego';
 import { useRebrickableKey } from '@/features/integrations/api/useRebrickable';
-import { useBricklinkConnection } from '@/features/integrations/api/useBricklink';
+import { useBricksetConnection } from '@/features/integrations/api/useBrickset';
 
 interface LegoSetSearchProps {
   onSelect: (set: LegoSetResult) => void;
@@ -11,7 +11,7 @@ interface LegoSetSearchProps {
 
 export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
   const { data: rebrickableKey } = useRebrickableKey();
-  const bricklinkConnection = useBricklinkConnection();
+  const bricksetConnection = useBricksetConnection();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,17 +93,17 @@ export const LegoSetSearch = ({ onSelect }: LegoSetSearchProps) => {
             </NavLink>
           )}
 
-          {bricklinkConnection.data ? (
+          {bricksetConnection.data ? (
             <span className="inline-flex items-center gap-1 font-semibold text-[var(--positive)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
-              BrickLink Prices Active
+              Brickset RRP Active
             </span>
           ) : (
             <NavLink
               to="/integrations"
               className="tap font-semibold text-[var(--accent)] hover:underline"
             >
-              Connect BrickLink →
+              Connect Brickset →
             </NavLink>
           )}
         </div>

@@ -17,7 +17,6 @@ import {
   type PokemonCardFinish,
 } from '../api/tcgdex';
 import { getLegoImageUrl, type LegoSetResult } from '../api/lego';
-import { type BricklinkPriceResult } from '../api/bricklink';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
 import { CategoryIcon } from './CategoryIcon';
 import { PokemonCardSearch } from './PokemonCardSearch';
@@ -77,7 +76,6 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
   const [notes, setNotes] = useState('');
   const [metadata, setMetadata] = useState<Record<string, unknown>>({});
   const [fetchingLegoPrice, setFetchingLegoPrice] = useState(false);
-  const [bricklinkGuide, setBricklinkGuide] = useState<BricklinkPriceResult | null>(null);
   const [legoValuation, setLegoValuation] = useState<LegoValuationResult | null>(null);
   const [pokemonBreakdown, setPokemonBreakdown] = useState<PokemonPriceBreakdown | null>(null);
   const [selectedFinish, setSelectedFinish] = useState<PokemonCardFinish | null>(null);
@@ -86,7 +84,6 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
   const resetForm = () => {
     setSelectedPokemon(null);
     setSelectedLego(null);
-    setBricklinkGuide(null);
     setLegoValuation(null);
     setFetchingLegoPrice(false);
     setPokemonBreakdown(null);
@@ -114,7 +111,6 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     setCategory(newCat);
     setSelectedPokemon(null);
     setSelectedLego(null);
-    setBricklinkGuide(null);
     setLegoValuation(null);
     setFetchingLegoPrice(false);
     setPokemonBreakdown(null);
@@ -217,9 +213,6 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
 
       if (res && res.resolvedEur > 0) {
         setLegoValuation(res);
-        if (res.bricklink) {
-          setBricklinkGuide(res.bricklink);
-        }
         setCurrentPrice(String(res.resolvedEur));
         if (!purchasePrice) {
           setPurchasePrice(String(res.retailPrice ?? res.resolvedEur));
@@ -227,24 +220,16 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         setMetadata((prev) => ({
           ...prev,
           valuationSource: res.source,
-          ...(res.brickeconomy ? { brickeconomy: res.brickeconomy } : {}),
-          ...(res.bricklink ? { bricklink: res.bricklink } : {}),
+          ...(res.brickset ? { brickset: res.brickset } : {}),
+          ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
         }));
 
-        if (res.source === 'brickeconomy') {
-          toast(
-            `BrickEconomy market valuation: €${res.resolvedEur.toFixed(2)}`,
-            'success',
-          );
-        } else if (res.source === 'bricklink') {
-          toast(
-            `BrickLink market price: €${res.resolvedEur.toFixed(2)}`,
-            'success',
-          );
+        if (res.source === 'brickset') {
+          toast(`Brickset RRP loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
         }
       }
     } catch {
-      // BrickEconomy/Bricklink not connected, keep existing price
+      // Brickset is optional; keep the existing price when it is unavailable.
     } finally {
       setFetchingLegoPrice(false);
     }
@@ -564,16 +549,16 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                 {fetchingLegoPrice && (
                   <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-sunken)] px-3 py-2 text-xs text-[var(--text-muted)]">
                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-                    <span>Fetching live market valuation (BrickEconomy / BrickLink)…</span>
+                    <span>Fetching official LEGO retail price (Brickset)…</span>
                   </div>
                 )}
 
-                {legoValuation?.source === 'brickeconomy' && (
+                {legoValuation?.source === 'brickset' && (
                   <div className="flex flex-col gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        BrickEconomy Market Valuation
+                        Brickset Official RRP
                       </span>
                       <span className="font-bold text-emerald-400">
                         €{legoValuation.resolvedEur.toFixed(2)}
@@ -581,39 +566,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                     </div>
                     <div className="flex flex-wrap items-center justify-between text-[11px] text-[var(--text-muted)]">
                       <span>
-                        {legoValuation.retailPrice
-                          ? `Original Retail: €${legoValuation.retailPrice.toFixed(2)}`
-                          : 'Live Secondary Market'}
-                      </span>
-                      {legoValuation.growthPercent !== undefined && (
-                        <span className="font-semibold text-emerald-400">
-                          {legoValuation.growthPercent >= 0 ? '+' : ''}
-                          {legoValuation.growthPercent.toFixed(1)}% growth
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {bricklinkGuide && legoValuation?.source !== 'brickeconomy' && (
-                  <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
-                        BrickLink Guide ({bricklinkGuide.guideType === 'sold' ? '6-mo Sales' : 'Current Stock'})
-                      </span>
-                      <span className="font-bold text-[var(--positive)]">
-                        €{bricklinkGuide.avgPrice.toFixed(2)} (Avg)
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between text-[11px] text-[var(--text-muted)]">
-                      <span>
-                        {bricklinkGuide.totalQuantity > 0
-                          ? `${bricklinkGuide.totalQuantity} items recorded (${bricklinkGuide.unitQuantity} lots)`
-                          : 'Price estimate'}
-                      </span>
-                      <span>
-                        Range: €{bricklinkGuide.minPrice.toFixed(2)} – €{bricklinkGuide.maxPrice.toFixed(2)}
+                        Official LEGO retail price
                       </span>
                     </div>
                   </div>
@@ -635,23 +588,14 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                     </button>
                   )}
                   <div className="flex items-center gap-2.5 ml-auto">
-                    <span>References:</span>
+                    <span>Source:</span>
                     <a
-                      href={`https://www.brickeconomy.com/${selectedLego.type === 'minifig' ? 'minifig' : 'set'}/${selectedLego.setNumber}${selectedLego.type === 'minifig' ? '' : '-1'}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-emerald-500 hover:underline"
-                    >
-                      BrickEconomy ↗
-                    </a>
-                    <span>·</span>
-                    <a
-                      href={`https://www.bricklink.com/v2/catalog/catalogitem.page?${selectedLego.type === 'minifig' ? 'M' : 'S'}=${selectedLego.setNumber}-1#T=P`}
+                      href={`https://brickset.com/sets/${(legoValuation?.bricksetSetNumber || selectedLego.setNumber)}-1`}
                       target="_blank"
                       rel="noreferrer"
                       className="font-semibold text-[var(--accent)] hover:underline"
                     >
-                      BrickLink ↗
+                      Brickset ↗
                     </a>
                   </div>
                 </div>

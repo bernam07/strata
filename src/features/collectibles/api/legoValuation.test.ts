@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveLegoPrice } from './legoValuation';
-import * as brickeconomyModule from './brickeconomy';
-import * as bricklinkModule from './bricklink';
+import * as bricksetModule from './brickset';
 
 describe('resolveLegoPrice', () => {
   beforeEach(() => {
@@ -9,75 +8,66 @@ describe('resolveLegoPrice', () => {
     vi.restoreAllMocks();
   });
 
-  it('resolves price from BrickEconomy when key is present', async () => {
-    vi.spyOn(brickeconomyModule, 'getCachedBrickeconomyKey').mockReturnValue('be-test-key');
-    vi.spyOn(brickeconomyModule, 'fetchBrickEconomyPrice').mockResolvedValue({
-      itemNo: '75192-1',
-      itemType: 'SET',
+  it('resolves a set from Brickset official retail price', async () => {
+    vi.spyOn(bricksetModule, 'getCachedBricksetKey').mockReturnValue('brickset-key');
+    vi.spyOn(bricksetModule, 'fetchBricksetPrice').mockResolvedValue({
+      itemNo: '75192',
       name: 'Millennium Falcon',
       currency: 'EUR',
-      condition: 'N',
-      marketValue: 980.0,
       retailPrice: 849.99,
-      growthPercent: 15.3,
       dateFetched: new Date().toISOString(),
-      source: 'brickeconomy',
+      source: 'brickset',
     });
 
-    const res = await resolveLegoPrice({ itemNo: '75192', condition: 'Factory Sealed' });
+    const result = await resolveLegoPrice({ itemNo: '75192' });
 
-    expect(res.source).toBe('brickeconomy');
-    expect(res.resolvedEur).toBe(980.0);
-    expect(res.retailPrice).toBe(849.99);
-    expect(res.growthPercent).toBe(15.3);
+    expect(result.source).toBe('brickset');
+    expect(result.resolvedEur).toBe(849.99);
   });
 
-  it('falls back to BrickLink when BrickEconomy key is not set', async () => {
-    vi.spyOn(brickeconomyModule, 'getCachedBrickeconomyKey').mockReturnValue(null);
-    vi.spyOn(bricklinkModule, 'getCachedBricklinkCredentials').mockReturnValue({
-      consumerKey: 'k',
-      consumerSecret: 's',
-      tokenValue: 'tv',
-      tokenSecret: 'ts',
-    });
-    vi.spyOn(bricklinkModule, 'fetchBricklinkPrice').mockResolvedValue({
-      itemNo: '75192-1',
-      itemType: 'SET',
+  it('does not request a Brickset price for minifigures', async () => {
+    vi.spyOn(bricksetModule, 'getCachedBricksetKey').mockReturnValue('brickset-key');
+    const fetchPrice = vi.spyOn(bricksetModule, 'fetchBricksetPrice');
+
+    const result = await resolveLegoPrice({ itemNo: 'sw0107', itemType: 'MINIFIG' });
+
+    expect(fetchPrice).not.toHaveBeenCalled();
+    expect(result.source).toBe('manual');
+  });
+
+  it('uses the containing Brickset set for a minifigure', async () => {
+    vi.spyOn(bricksetModule, 'getCachedBricksetKey').mockReturnValue('brickset-key');
+    const fetchPrice = vi.spyOn(bricksetModule, 'fetchBricksetPrice').mockResolvedValue({
+      itemNo: 'COLSPI01',
+      queriedItemNo: '71050',
+      name: 'Collectible Minifigure',
       currency: 'EUR',
-      guideType: 'sold',
-      condition: 'N',
-      avgPrice: 890.0,
-      qtyAvgPrice: 880.0,
-      minPrice: 800.0,
-      maxPrice: 1000.0,
-      unitQuantity: 10,
-      totalQuantity: 20,
+      retailPrice: 3.99,
       dateFetched: new Date().toISOString(),
+      source: 'brickset',
     });
 
-    const res = await resolveLegoPrice({ itemNo: '75192' });
+    const result = await resolveLegoPrice({ itemNo: 'COLSPI01', itemType: 'MINIFIG' });
 
-    expect(res.source).toBe('bricklink');
-    expect(res.resolvedEur).toBe(890.0);
+    expect(fetchPrice).toHaveBeenCalledWith({
+      itemNo: 'COLSPI01',
+      itemType: 'MINIFIG',
+      bricksetSetNumber: '71050',
+      currency: 'EUR',
+      apiKey: 'brickset-key',
+    });
+    expect(result.itemNo).toBe('COLSPI01');
+    expect(result.itemType).toBe('MINIFIG');
+    expect(result.resolvedEur).toBe(3.99);
+    expect(result.bricksetSetNumber).toBe('71050');
   });
 
-  it('falls back to local curated database when no API keys are present', async () => {
-    vi.spyOn(brickeconomyModule, 'getCachedBrickeconomyKey').mockReturnValue(null);
-    vi.spyOn(bricklinkModule, 'getCachedBricklinkCredentials').mockReturnValue(null);
+  it('falls back to the local catalog without a Brickset key', async () => {
+    vi.spyOn(bricksetModule, 'getCachedBricksetKey').mockReturnValue(null);
 
-    const res = await resolveLegoPrice({ itemNo: '75192' });
+    const result = await resolveLegoPrice({ itemNo: '75192' });
 
-    expect(res.source).toBe('catalog');
-    expect(res.resolvedEur).toBe(849.99);
-  });
-
-  it('returns source manual and resolvedEur 0 when set is unknown and no keys set', async () => {
-    vi.spyOn(brickeconomyModule, 'getCachedBrickeconomyKey').mockReturnValue(null);
-    vi.spyOn(bricklinkModule, 'getCachedBricklinkCredentials').mockReturnValue(null);
-
-    const res = await resolveLegoPrice({ itemNo: 'unknown-set-999999' });
-
-    expect(res.source).toBe('manual');
-    expect(res.resolvedEur).toBe(0);
+    expect(result.source).toBe('catalog');
+    expect(result.resolvedEur).toBe(849.99);
   });
 });

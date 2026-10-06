@@ -286,8 +286,10 @@ export const useRefreshLegoPrices = () => {
             const updatedMeta = {
               ...(item.metadata || {}),
               valuationSource: valRes.source,
-              ...(valRes.brickeconomy ? { brickeconomy: valRes.brickeconomy } : {}),
-              ...(valRes.bricklink ? { bricklink: valRes.bricklink } : {}),
+              ...(valRes.brickset ? { brickset: valRes.brickset } : {}),
+              ...(valRes.bricksetSetNumber
+                ? { bricksetSetNumber: valRes.bricksetSetNumber }
+                : {}),
             };
 
             await supabase
@@ -363,7 +365,7 @@ export const useSyncCollectiblePrices = () => {
         }
       }
 
-      // 2. Refresh LEGO sets & minifigures via BrickLink
+      // 2. Refresh LEGO sets & minifigures via Brickset RRP
       const legoItems = collectibles.filter(
         (c) => c.category === 'lego' && Boolean(c.identifier),
       );
@@ -386,8 +388,10 @@ export const useSyncCollectiblePrices = () => {
             const updatedMeta = {
               ...(item.metadata || {}),
               valuationSource: valRes.source,
-              ...(valRes.brickeconomy ? { brickeconomy: valRes.brickeconomy } : {}),
-              ...(valRes.bricklink ? { bricklink: valRes.bricklink } : {}),
+              ...(valRes.brickset ? { brickset: valRes.brickset } : {}),
+              ...(valRes.bricksetSetNumber
+                ? { bricksetSetNumber: valRes.bricksetSetNumber }
+                : {}),
             };
 
             await supabase
@@ -414,4 +418,3 @@ export const useSyncCollectiblePrices = () => {
     onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
   });
 };
-

@@ -1,5 +1,7 @@
 export interface LegoSetResult {
   setNumber: string;
+  /** Brickset set number used to fetch the official RRP for a minifigure. */
+  bricksetSetNumber?: string;
   name: string;
   theme: string;
   year?: number;
@@ -8,6 +10,14 @@ export interface LegoSetResult {
   imageUrl: string;
   type?: 'set' | 'minifig';
 }
+
+const BRICKSET_MINIFIG_SET_NUMBERS: Record<string, string> = {
+  // Brickset stores this collectible minifigure under its containing set.
+  COLSPI01: '71050',
+};
+
+export const getBricksetSetNumber = (itemNumber: string): string | undefined =>
+  BRICKSET_MINIFIG_SET_NUMBERS[itemNumber.trim().toUpperCase()];
 
 export const normalizeSetNumber = (raw: string): string => {
   const cleaned = raw.trim().replace(/\s+/g, '');
@@ -24,8 +34,8 @@ export const getLegoImageUrl = (setNumber: string): string => {
   if (/^\d+$/.test(base)) {
     return `https://images.brickset.com/sets/images/${base}-1.jpg`;
   }
-  // Minifigures or alphanumeric codes: use Bricklink or Rebrickable
-  return `https://img.bricklink.com/ItemImage/MN/0/${base}.png`;
+  // Minifigures and alphanumeric codes use Brickset's public image CDN.
+  return `https://images.brickset.com/minifigs/images/${base}.jpg`;
 };
 
 // Curated database of iconic and popular investment LEGO sets with official RRP in EUR
@@ -536,7 +546,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2003,
     pieces: 4,
     rrpEur: 1800.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0107.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0107.jpg',
     type: 'minifig',
   },
   {
@@ -546,7 +556,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2013,
     pieces: 4,
     rrpEur: 160.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0450.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0450.jpg',
     type: 'minifig',
   },
   {
@@ -556,7 +566,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2017,
     pieces: 4,
     rrpEur: 110.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0115.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0115.jpg',
     type: 'minifig',
   },
   {
@@ -566,7 +576,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2011,
     pieces: 4,
     rrpEur: 125.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0377.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0377.jpg',
     type: 'minifig',
   },
   {
@@ -576,7 +586,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2014,
     pieces: 4,
     rrpEur: 280.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0500.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0500.jpg',
     type: 'minifig',
   },
   {
@@ -586,7 +596,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2014,
     pieces: 5,
     rrpEur: 75.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0540.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0540.jpg',
     type: 'minifig',
   },
   {
@@ -596,7 +606,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2016,
     pieces: 4,
     rrpEur: 140.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0742.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0742.jpg',
     type: 'minifig',
   },
   {
@@ -606,7 +616,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 1999,
     pieces: 6,
     rrpEur: 5.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sw0001a.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sw0001a.jpg',
     type: 'minifig',
   },
   {
@@ -616,7 +626,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2013,
     pieces: 5,
     rrpEur: 4500.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/col143.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/col143.jpg',
     type: 'minifig',
   },
   {
@@ -626,7 +636,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2012,
     pieces: 4,
     rrpEur: 55.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sh030.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sh030.jpg',
     type: 'minifig',
   },
   {
@@ -636,7 +646,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 2012,
     pieces: 4,
     rrpEur: 35.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sh012.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sh012.jpg',
     type: 'minifig',
   },
   {
@@ -646,7 +656,7 @@ export const POPULAR_LEGO_MINIFIGS: LegoSetResult[] = [
     year: 1978,
     pieces: 5,
     rrpEur: 35.0,
-    imageUrl: 'https://img.bricklink.com/ItemImage/MN/0/sp005.png',
+    imageUrl: 'https://images.brickset.com/minifigs/images/sp005.jpg',
     type: 'minifig',
   },
 ];
