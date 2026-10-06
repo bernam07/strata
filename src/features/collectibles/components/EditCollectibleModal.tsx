@@ -104,8 +104,16 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     }
     setFetchingLegoPrice(true);
     try {
+      const metadataType = metadata.type;
+      const itemType =
+        metadataType === 'minifig' || metadataType === 'MINIFIG' ? 'MINIFIG' : 'SET';
       const res = await resolveLegoPrice({
         itemNo: identifier.trim(),
+        itemType,
+        bricksetSetNumber:
+          typeof metadata.bricksetSetNumber === 'string'
+            ? metadata.bricksetSetNumber
+            : undefined,
         condition,
         currency: 'EUR',
       });

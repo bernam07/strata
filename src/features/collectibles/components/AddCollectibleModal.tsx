@@ -228,8 +228,11 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
           toast(`Brickset RRP loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
         }
       }
-    } catch {
-      // Brickset is optional; keep the existing price when it is unavailable.
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : 'Failed to fetch Brickset price',
+        'error',
+      );
     } finally {
       setFetchingLegoPrice(false);
     }

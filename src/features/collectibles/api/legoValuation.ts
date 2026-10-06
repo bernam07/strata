@@ -17,6 +17,7 @@ export interface LegoValuationResult {
 export interface ResolveLegoPriceParams {
   itemNo: string;
   itemType?: 'SET' | 'MINIFIG';
+  bricksetSetNumber?: string;
   condition?: string; // 'Factory Sealed (MISB)', 'Used', etc.
   currency?: string;
 }
@@ -31,7 +32,7 @@ export const resolveLegoPrice = async (
   const bricksetKey = getCachedBricksetKey();
   const isMinifig = params.itemType === 'MINIFIG';
   const bricksetSetNumber = isMinifig
-    ? getBricksetSetNumber(params.itemNo)
+    ? params.bricksetSetNumber || getBricksetSetNumber(params.itemNo)
     : undefined;
   if (bricksetKey && (!isMinifig || bricksetSetNumber)) {
     try {

@@ -277,6 +277,10 @@ export const useRefreshLegoPrices = () => {
           const valRes = await resolveLegoPrice({
             itemNo: item.identifier,
             itemType: explicitType,
+            bricksetSetNumber:
+              typeof item.metadata?.bricksetSetNumber === 'string'
+                ? item.metadata.bricksetSetNumber
+                : undefined,
             condition: item.condition ?? undefined,
             currency: 'EUR',
           });
@@ -379,6 +383,10 @@ export const useSyncCollectiblePrices = () => {
           const valRes = await resolveLegoPrice({
             itemNo: item.identifier,
             itemType: explicitType,
+            bricksetSetNumber:
+              typeof item.metadata?.bricksetSetNumber === 'string'
+                ? item.metadata.bricksetSetNumber
+                : undefined,
             condition: item.condition ?? undefined,
             currency: 'EUR',
           });
