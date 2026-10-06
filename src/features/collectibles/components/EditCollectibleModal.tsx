@@ -10,6 +10,7 @@ import {
   type Collectible,
   type CollectibleCategory,
 } from '../api/useCollectibles';
+import { getBricksetSetNumber } from '../api/lego';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
 import {
   getPokemonCard,
@@ -106,7 +107,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     try {
       const metadataType = metadata.type;
       const itemType =
-        metadataType === 'minifig' || metadataType === 'MINIFIG' ? 'MINIFIG' : 'SET';
+        metadataType === 'minifig' ||
+        metadataType === 'MINIFIG' ||
+        Boolean(getBricksetSetNumber(identifier.trim()))
+          ? 'MINIFIG'
+          : 'SET';
       const res = await resolveLegoPrice({
         itemNo: identifier.trim(),
         itemType,
@@ -130,7 +135,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
           toast(`Brickset RRP loaded: €${res.resolvedEur.toFixed(2)}`, 'success');
         }
       } else {
-        toast('No live valuation found for this item', 'error');
+        toast('Brickset did not return a price for this item', 'error');
       }
     } catch (err) {
       toast(

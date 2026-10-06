@@ -45,6 +45,7 @@ export const fetchBricksetPrice = async (
   const { data, error } = await supabase.functions.invoke('brickset-price', {
     body: {
       itemNo: queriedItemNo,
+      itemType: params.itemType,
       currency,
       apiKey: apiKey || undefined,
     },

@@ -58,7 +58,7 @@ export const resolveLegoPrice = async (
         };
       }
     } catch {
-      // Continue to the local catalog fallback.
+      // Continue to the catalog fallback when Brickset has no price.
     }
   }
 
