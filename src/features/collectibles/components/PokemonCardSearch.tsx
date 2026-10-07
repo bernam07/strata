@@ -38,9 +38,7 @@ const CardImageThumbnail = ({
     setError(true);
   };
 
-  const isJapanese =
-    card.language === 'ja' ||
-    /^(sv\d+[a-z]?|s\d+[a-z]?|sm\d+[a-z]?|pmcg\d*|cp\d+|mc)-/i.test(card.id);
+  const isJapanese = card.language === 'ja';
 
   return (
     <div className="relative aspect-[2.5/3.5] w-full overflow-hidden rounded bg-[var(--surface-sunken)] p-1">

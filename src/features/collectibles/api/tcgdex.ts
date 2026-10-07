@@ -427,6 +427,15 @@ export const JAPANESE_SETS: Record<string, string> = {
 // Fast in-memory search cache to eliminate repeat latency
 const searchCache = new Map<string, PokemonCardSummary[]>();
 
+const JAPANESE_SET_IDS = new Set(
+  Object.values(JAPANESE_SETS).map((setId) => setId.toLowerCase()),
+);
+
+const isJapaneseCardId = (id: string): boolean => {
+  const setId = id.split('-')[0]?.toLowerCase() ?? '';
+  return JAPANESE_SET_IDS.has(setId) || /^(pmcg\d*|cp\d+|mc)-/i.test(id);
+};
+
 export const searchPokemonCards = async (
   query: string,
   lang: PokemonCardLanguage = 'all',
@@ -441,7 +450,10 @@ export const searchPokemonCards = async (
   // Direct card ID check (e.g. SV2a-201 or sv03.5-199)
   if (/^[a-z0-9.]+-([a-z0-9]+)$/i.test(trimmed)) {
     try {
-      const card = await getPokemonCard(trimmed);
+      const card = await getPokemonCard(
+        trimmed,
+        lang === 'en' ? 'en' : lang === 'ja' ? 'ja' : isJapaneseCardId(trimmed) ? 'ja' : 'en',
+      );
       if (card) {
         const directResult: PokemonCardSummary[] = [
           {
@@ -568,7 +580,10 @@ export const searchPokemonCards = async (
     }
   }
 
-  const results = combined.slice(0, 24);
+  const results =
+    lang === 'all'
+      ? [...enResults.slice(0, 12), ...jaResults.slice(0, 12)]
+      : combined.slice(0, 24);
   searchCache.set(cacheKey, results);
   return results;
 };
@@ -580,9 +595,7 @@ export const getPokemonCard = async (
   if (!id) return null;
 
   // Auto-detect Japanese ID patterns (e.g. SV2a-201, S12a-001, PMCG4-001, etc.)
-  const isJapaneseId =
-    lang === 'ja' ||
-    /^(sv\d+[a-z]?|s\d+[a-z]?|sm\d+[a-z]?|pmcg\d*|cp\d+|mc)-/i.test(id);
+  const isJapaneseId = lang === 'ja' || isJapaneseCardId(id);
 
   const primaryLang = lang || (isJapaneseId ? 'ja' : 'en');
   const fallbackLang = primaryLang === 'en' ? 'ja' : 'en';

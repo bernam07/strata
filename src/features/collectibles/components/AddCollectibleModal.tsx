@@ -85,6 +85,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
   const resetForm = () => {
     setSelectedPokemon(null);
     setSelectedLego(null);
+    setImageUrl('');
     setLegoValuation(null);
     setFetchingLegoPrice(false);
     setPokemonBreakdown(null);
@@ -158,7 +159,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       rarity: card.rarity,
       localId: card.localId,
       finish: breakdown.selectedFinish,
-      language: card.language || (/^(sv\d+[a-z]?|s\d+[a-z]?|sm\d+|pmcg)/i.test(card.id) ? 'ja' : 'en'),
+      language: card.language || 'en',
       collectrPriceEur: breakdown.collectr?.priceEur,
       tcgplayerUsd: breakdown.collectr?.priceUsd,
       cardmarketPriceEur: breakdown.cardmarket?.priceEur,
@@ -268,10 +269,11 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
   };
 
   const handleSelectLegoSet = (item: LegoSetResult) => {
-    setSelectedLego(item);
+    const imageUrl = item.imageUrl || getLegoImageUrl(item.setNumber);
+    setSelectedLego({ ...item, imageUrl });
     setName(`${item.name} (#${item.setNumber})`);
     setIdentifier(item.setNumber);
-    setImageUrl(item.imageUrl);
+    setImageUrl(imageUrl);
     const newCond =
       item.type === 'minifig'
         ? 'Minifigure Mint / Complete'
@@ -538,7 +540,10 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
               {selectedLego && (
                 <button
                   type="button"
-                  onClick={() => setSelectedLego(null)}
+                  onClick={() => {
+                    setSelectedLego(null);
+                    setImageUrl('');
+                  }}
                   className="tap text-xs font-semibold text-[var(--accent)] hover:underline"
                 >
                   Change selection
