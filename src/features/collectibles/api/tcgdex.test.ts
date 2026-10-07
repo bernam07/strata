@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   extractCardmarketPrice,
   extractCollectrPrice,
   extractTcgPlayerPrice,
   getCardImageUrl,
+  getPokemonCard,
   resolvePokemonPrice,
+  searchPokemonCards,
   type PokemonCardDetail,
 } from './tcgdex';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('tcgdex utilities', () => {
   describe('getCardImageUrl', () => {
@@ -190,6 +196,75 @@ describe('tcgdex utilities', () => {
       expect(res.source).toBe('cardmarket');
       expect(res.resolvedEur).toBe(357.44);
       expect(res.cardmarket?.priceEur).toBe(357.44);
+    });
+
+    it('searches Japanese Zoroark cards from an English query', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('/v2/en/cards?name=zoroark')) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 'sv09-098',
+                localId: '098',
+                name: "N's Zoroark ex",
+                image: 'https://assets.tcgdex.net/en/sv/sv09/098',
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        if (url.includes('/v2/ja/cards?name=%E3%82%BE%E3%83%AD%E3%82%A2%E3%83%BC%E3%82%AF')) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 'SV9-127',
+                localId: '127',
+                name: 'Nのゾロアークex',
+                image: 'https://assets.tcgdex.net/ja/SV/SV9/127',
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      });
+
+      const results = await searchPokemonCards('zoroark', 'all');
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'SV9-127',
+            language: 'ja',
+            imageUrl: 'https://assets.tcgdex.net/ja/SV/SV9/127/low.webp',
+          }),
+        ]),
+      );
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it('uses the language returned by the fallback for an unpadded Japanese ID', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('/v2/en/cards/sv9-127')) return new Response('', { status: 404 });
+        if (url.includes('/v2/ja/cards/sv9-127')) {
+          return new Response(
+            JSON.stringify({
+              id: 'SV9-127',
+              localId: '127',
+              name: 'Nのゾロアークex',
+              image: 'https://assets.tcgdex.net/ja/SV/SV9/127',
+            }),
+            { status: 200 },
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      });
+
+      const card = await getPokemonCard('sv9-127');
+      expect(card?.id).toBe('SV9-127');
+      expect(card?.language).toBe('ja');
+      expect(card?.imageUrl).toContain('/ja/SV/SV9/127');
     });
   });
 });

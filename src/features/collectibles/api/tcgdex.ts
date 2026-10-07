@@ -346,6 +346,7 @@ export const POKEMON_JA_NAMES: Record<string, string> = {
   gengar: 'ゲンガー',
   lucario: 'ルカリオ',
   rayquaza: 'レックウザ',
+  zoroark: 'ゾロアーク',
   giratina: 'ギラティナ',
   dialga: 'ディアルガ',
   palkia: 'パルキア',
@@ -427,13 +428,52 @@ export const JAPANESE_SETS: Record<string, string> = {
 // Fast in-memory search cache to eliminate repeat latency
 const searchCache = new Map<string, PokemonCardSummary[]>();
 
-const JAPANESE_SET_IDS = new Set(
-  Object.values(JAPANESE_SETS).map((setId) => setId.toLowerCase()),
-);
-
 const isJapaneseCardId = (id: string): boolean => {
-  const setId = id.split('-')[0]?.toLowerCase() ?? '';
-  return JAPANESE_SET_IDS.has(setId) || /^(pmcg\d*|cp\d+|mc)-/i.test(id);
+  const setId = id.split('-')[0] ?? '';
+  return (
+    /^[A-Z]/.test(setId) ||
+    /^(PMCG\d*|CP\d+|MC)-/.test(id)
+  );
+};
+
+type TcgDexSetSummary = { id: string };
+
+let japaneseSetIndex: TcgDexSetSummary[] | null = null;
+let japaneseSetIndexPromise: Promise<TcgDexSetSummary[]> | null = null;
+
+const getJapaneseSetIndex = async (): Promise<TcgDexSetSummary[]> => {
+  if (japaneseSetIndex) return japaneseSetIndex;
+  if (!japaneseSetIndexPromise) {
+    japaneseSetIndexPromise = fetch('https://api.tcgdex.net/v2/ja/sets')
+      .then(async (res) => {
+        if (!res.ok) return [];
+        const data = (await res.json()) as TcgDexSetSummary[];
+        return Array.isArray(data) ? data : [];
+      })
+      .catch(() => [])
+      .then((sets) => {
+        japaneseSetIndex = sets;
+        return sets;
+      });
+  }
+  return japaneseSetIndexPromise;
+};
+
+const normalizeSetCode = (value: string): string =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^([a-z]+)0+(\d)/, '$1$2');
+
+const resolveJapaneseSetIds = async (
+  query: string,
+): Promise<string[]> => {
+  const alias = JAPANESE_SETS[query.toLowerCase()];
+  if (!alias && !/^[a-z]{1,5}\d{1,3}(?:\.[a-z0-9]+)?$/i.test(query.trim())) {
+    return [];
+  }
+  const sets = await getJapaneseSetIndex();
+  const normalizedQuery = normalizeSetCode(alias ?? query);
+  return sets
+    .filter((set) => normalizeSetCode(set.id) === normalizedQuery)
+    .map((set) => set.id);
 };
 
 export const searchPokemonCards = async (
@@ -452,7 +492,7 @@ export const searchPokemonCards = async (
     try {
       const card = await getPokemonCard(
         trimmed,
-        lang === 'en' ? 'en' : lang === 'ja' ? 'ja' : isJapaneseCardId(trimmed) ? 'ja' : 'en',
+        lang === 'en' ? 'en' : lang === 'ja' ? 'ja' : undefined,
       );
       if (card) {
         const directResult: PokemonCardSummary[] = [
@@ -476,7 +516,7 @@ export const searchPokemonCards = async (
   const isJapaneseText = /[\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF]/.test(trimmed);
   const qLower = trimmed.toLowerCase();
   const jaTranslated = POKEMON_JA_NAMES[qLower];
-  const jaSetMatch = JAPANESE_SETS[qLower];
+  const jaSetMatch = await resolveJapaneseSetIds(trimmed);
 
   const fetchEn = async (): Promise<PokemonCardSummary[]> => {
     if (lang === 'ja' || isJapaneseText) return [];
@@ -492,7 +532,7 @@ export const searchPokemonCards = async (
         image?: string;
       }>;
       if (!Array.isArray(data)) return [];
-      return data.slice(0, 18).map((card) => ({
+      return data.slice(0, 40).map((card) => ({
         id: card.id,
         localId: card.localId,
         name: card.name,
@@ -509,29 +549,34 @@ export const searchPokemonCards = async (
     if (lang === 'en') return [];
     try {
       // If matches a Japanese set directly
-      if (jaSetMatch) {
-        const setRes = await fetch(
-          `https://api.tcgdex.net/v2/ja/sets/${encodeURIComponent(jaSetMatch)}`,
+      if (jaSetMatch.length > 0) {
+        const setResults = await Promise.all(
+          jaSetMatch.map(async (setId) => {
+            const setRes = await fetch(
+              `https://api.tcgdex.net/v2/ja/sets/${encodeURIComponent(setId)}`,
+            );
+            if (!setRes.ok) return [];
+            const setData = (await setRes.json()) as {
+              cards?: Array<{
+                id: string;
+                localId: string;
+                name: string;
+                image?: string;
+              }>;
+            };
+            return setData.cards ?? [];
+          }),
         );
-        if (setRes.ok) {
-          const setData = (await setRes.json()) as {
-            cards?: Array<{
-              id: string;
-              localId: string;
-              name: string;
-              image?: string;
-            }>;
-          };
-          if (Array.isArray(setData.cards) && setData.cards.length > 0) {
-            return setData.cards.slice(0, 18).map((card) => ({
-              id: card.id,
-              localId: card.localId,
-              name: card.name,
-              image: card.image,
-              imageUrl: getCardImageUrl(card.image, 'low'),
-              language: 'ja' as const,
-            }));
-          }
+        const cards = setResults.flat();
+        if (cards.length > 0) {
+          return cards.slice(0, 40).map((card) => ({
+            id: card.id,
+            localId: card.localId,
+            name: card.name,
+            image: card.image,
+            imageUrl: getCardImageUrl(card.image, 'low'),
+            language: 'ja' as const,
+          }));
         }
       }
 
@@ -548,7 +593,7 @@ export const searchPokemonCards = async (
         image?: string;
       }>;
       if (!Array.isArray(data)) return [];
-      return data.slice(0, 18).map((card) => ({
+      return data.slice(0, 40).map((card) => ({
         id: card.id,
         localId: card.localId,
         name: card.name,
@@ -582,7 +627,7 @@ export const searchPokemonCards = async (
 
   const results =
     lang === 'all'
-      ? [...enResults.slice(0, 12), ...jaResults.slice(0, 12)]
+      ? [...enResults.slice(0, 40), ...jaResults.slice(0, 40)]
       : combined.slice(0, 24);
   searchCache.set(cacheKey, results);
   return results;
