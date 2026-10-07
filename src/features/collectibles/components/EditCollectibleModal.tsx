@@ -18,6 +18,7 @@ import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation
 import {
   resolveWatchPrice,
   cleanWatchReference,
+  resolveCuratedWatchImage,
   type WatchDetailsResult,
 } from '../api/theWatchApi';
 
@@ -116,7 +117,12 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     setQuantity(String(collectible.quantity));
     setPurchasePrice(String(collectible.purchasePrice));
     setCurrentPrice(String(collectible.currentPrice));
-    setImageUrl(collectible.imageUrl ?? '');
+    const initialImg =
+      collectible.imageUrl ||
+      (collectible.category === 'watches' && collectible.identifier
+        ? resolveCuratedWatchImage(collectible.identifier) || ''
+        : '');
+    setImageUrl(initialImg);
     setPurchaseDate(collectible.purchaseDate ?? '');
     setNotes(collectible.notes ?? '');
     setMetadata(collectible.metadata ?? {});
@@ -142,8 +148,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         setWatchValuation(res);
         if (res.priceEur > 0) {
           setCurrentPrice(String(res.priceEur));
+          if (!purchasePrice || Number(purchasePrice) === 0) {
+            setPurchasePrice(String(res.priceEur));
+          }
         }
-        if (res.imageUrl && !imageUrl) {
+        if (res.imageUrl) {
           setImageUrl(res.imageUrl);
         }
         if (!name || name === 'Luxury Watch' || name.startsWith('Watch #')) {
@@ -270,8 +279,39 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     }
 
     const qty = Number(quantity) > 0 ? Number(quantity) : 1;
-    const buyPrice = Number(purchasePrice) || 0;
-    const curVal = currentPrice ? Number(currentPrice) : buyPrice;
+    let buyPrice = Number(purchasePrice) || 0;
+    let curVal = currentPrice ? Number(currentPrice) : buyPrice;
+    if (category === 'watches' && watchValuation?.priceEur && watchValuation.priceEur > 0) {
+      if (buyPrice === 0) buyPrice = watchValuation.priceEur;
+      if (curVal === 0) curVal = watchValuation.priceEur;
+    }
+
+    const persistedImageUrl =
+      imageUrl.trim() ||
+      (category === 'watches' && identifier.trim()
+        ? (watchValuation?.imageUrl || resolveCuratedWatchImage(identifier.trim()))
+        : null) ||
+      (category === 'lego' && identifier.trim()
+        ? getLegoImageUrl(
+            typeof metadata.bricksetSetNumber === 'string'
+              ? metadata.bricksetSetNumber
+              : identifier.trim(),
+          )
+        : null) ||
+      null;
+
+    const mergedMetadata = {
+      ...metadata,
+      ...(category === 'watches' && watchValuation
+        ? {
+            brand: watchValuation.brand,
+            model: watchValuation.model,
+            specs: watchValuation.specs,
+            priceUsd: watchValuation.priceUsd,
+            valuationSource: 'thewatchapi',
+          }
+        : {}),
+    };
 
     update.mutate(
       {
@@ -283,10 +323,10 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         purchasePrice: buyPrice,
         currentPrice: curVal,
         condition: condition.trim() || null,
-        imageUrl: imageUrl.trim() || null,
+        imageUrl: persistedImageUrl,
         purchaseDate: purchaseDate || null,
         notes: notes.trim() || null,
-        metadata,
+        metadata: mergedMetadata,
       },
       {
         onSuccess: () => {
@@ -541,7 +581,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         )}
 
         {category === 'watches' && (
-          <div className="flex flex-col gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 p-3 text-xs">
+          <div className="flex flex-col gap-3 rounded-xl border border-purple-500/30 bg-purple-500/10 p-3.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-semibold text-purple-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
@@ -551,62 +591,125 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                 type="button"
                 disabled={fetchingWatchPrice || !identifier.trim()}
                 onClick={() => handleFetchWatchValuation()}
-                className="tap text-[10px] font-semibold text-purple-300 hover:underline"
+                className="tap text-xs font-semibold text-purple-300 hover:underline"
               >
                 {fetchingWatchPrice ? 'Checking…' : 'Refetch Watch Details'}
               </button>
             </div>
 
             {(watchValuation || metadata.brand || metadata.specs) ? (
-              <div className="flex flex-col gap-1.5 text-[11px] text-[var(--text-muted)]">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[var(--text-strong)]">
-                    {watchValuation
-                      ? `${watchValuation.brand} ${watchValuation.model}`
-                      : `${String(metadata.brand ?? '')} ${String(metadata.model ?? '')}`.trim() || 'Watch Details'}
-                  </span>
-                  {Boolean(watchValuation?.priceEur || metadata.priceUsd) && (
-                    <span className="font-bold text-purple-400">
+              <div className="flex flex-col gap-3">
+                {/* Watch Header with photo, brand, model & valuation */}
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const displayImg = imageUrl || watchValuation?.imageUrl || (identifier.trim() ? resolveCuratedWatchImage(identifier.trim()) : undefined);
+                    if (!displayImg) return null;
+                    return (
+                      <img
+                        src={displayImg}
+                        alt={name}
+                        className="h-20 w-20 shrink-0 rounded-lg object-contain bg-[var(--surface-sunken)] p-1.5 shadow-sm border border-[var(--line)]"
+                      />
+                    );
+                  })()}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded bg-purple-950/80 border border-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-300">
+                        {String(watchValuation?.brand || metadata.brand || 'Luxury Watch')}
+                      </span>
+                      {identifier.trim() && (
+                        <span className="font-mono text-xs font-bold text-[var(--accent)]">
+                          #{identifier.trim()}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 truncate text-sm font-bold text-[var(--text-strong)]">
                       {watchValuation
-                        ? `€${watchValuation.priceEur.toFixed(2)}`
-                        : metadata.priceUsd
-                          ? `$${Number(metadata.priceUsd).toLocaleString('en-US')}`
-                          : ''}
-                    </span>
-                  )}
+                        ? watchValuation.model
+                        : String(metadata.model || name)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                      {Boolean(watchValuation?.priceEur || currentPrice) && (
+                        <span className="text-base font-extrabold text-purple-400">
+                          €{watchValuation ? watchValuation.priceEur.toFixed(2) : Number(currentPrice).toFixed(2)}
+                        </span>
+                      )}
+                      {Boolean(watchValuation?.priceUsd || metadata.priceUsd) && (
+                        <span className="text-xs text-[var(--text-muted)]">
+                          (${Number(watchValuation?.priceUsd || metadata.priceUsd).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD)
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
+                {/* Structured Specifications Grid */}
                 {(() => {
                   const specs =
                     watchValuation?.specs ||
                     (metadata.specs as Record<string, string | undefined> | undefined);
                   if (!specs) return null;
                   return (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-purple-500/20 text-[10px]">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 border-t border-purple-500/20 pt-2.5">
                       {specs.caseDiameter && (
-                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
-                          {specs.caseDiameter}
-                        </span>
+                        <div className="flex flex-col rounded-md bg-[var(--surface-raised)]/80 p-2 border border-[var(--line)]/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Diameter
+                          </span>
+                          <span className="text-xs font-bold text-[var(--text-strong)]">
+                            {specs.caseDiameter}
+                          </span>
+                        </div>
                       )}
                       {specs.caseMaterial && (
-                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
-                          {specs.caseMaterial}
-                        </span>
+                        <div className="flex flex-col rounded-md bg-[var(--surface-raised)]/80 p-2 border border-[var(--line)]/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Material
+                          </span>
+                          <span className="truncate text-xs font-bold text-[var(--text-strong)]" title={specs.caseMaterial}>
+                            {specs.caseMaterial}
+                          </span>
+                        </div>
                       )}
                       {specs.movement && (
-                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
-                          {specs.movement}
-                        </span>
+                        <div className="flex flex-col rounded-md bg-[var(--surface-raised)]/80 p-2 border border-[var(--line)]/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Movement
+                          </span>
+                          <span className="truncate text-xs font-bold text-[var(--text-strong)]" title={specs.movement}>
+                            {specs.movement}
+                          </span>
+                        </div>
                       )}
                       {specs.caliber && (
-                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
-                          {specs.caliber}
-                        </span>
+                        <div className="flex flex-col rounded-md bg-[var(--surface-raised)]/80 p-2 border border-[var(--line)]/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Caliber
+                          </span>
+                          <span className="truncate text-xs font-bold text-[var(--text-strong)]" title={specs.caliber}>
+                            {specs.caliber}
+                          </span>
+                        </div>
+                      )}
+                      {specs.dialColor && (
+                        <div className="flex flex-col rounded-md bg-[var(--surface-raised)]/80 p-2 border border-[var(--line)]/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Dial
+                          </span>
+                          <span className="truncate text-xs font-bold text-[var(--text-strong)]" title={specs.dialColor}>
+                            {specs.dialColor}
+                          </span>
+                        </div>
                       )}
                       {specs.waterResistance && (
-                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
-                          {specs.waterResistance}
-                        </span>
+                        <div className="flex flex-col rounded-md bg-[var(--surface-raised)]/80 p-2 border border-[var(--line)]/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Water Resistance
+                          </span>
+                          <span className="truncate text-xs font-bold text-[var(--text-strong)]" title={specs.waterResistance}>
+                            {specs.waterResistance}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );
@@ -615,7 +718,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             ) : (
               <p className="text-[11px] text-[var(--text-muted)]">
                 {identifier.trim()
-                  ? 'Click "Refetch Watch Details" to retrieve model info, specs and live secondary valuation.'
+                  ? 'Click "Refetch Watch Details" to retrieve model info, specs, photo and live secondary valuation.'
                   : 'Enter a watch reference number above to sync market details.'}
               </p>
             )}

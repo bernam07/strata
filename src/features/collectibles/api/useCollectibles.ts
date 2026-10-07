@@ -501,16 +501,21 @@ export const useSyncSingleCollectiblePrice = () => {
             lastSyncedAt: new Date().toISOString(),
           };
 
+          const updates: Database['public']['Tables']['collectibles']['Update'] = {
+            current_price: newPrice,
+            metadata: updatedMeta as unknown as Json,
+            updated_at: new Date().toISOString(),
+          };
+          if (!item.imageUrl && watchRes.imageUrl) {
+            updates.image_url = watchRes.imageUrl;
+          }
+
           await supabase
             .from('collectibles')
-            .update({
-              current_price: newPrice,
-              metadata: updatedMeta as unknown as Json,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updates)
             .eq('id', item.id);
 
-          return { updated: newPrice !== oldPrice, newPrice, oldPrice };
+          return { updated: newPrice !== oldPrice || Boolean(!item.imageUrl && watchRes.imageUrl), newPrice, oldPrice };
         }
         throw new Error('No market value found on TheWatchAPI for this watch reference');
       }
@@ -659,7 +664,7 @@ export const useSyncCollectiblePrices = () => {
             fxRate,
           });
 
-          if (watchRes && watchRes.priceEur > 0 && watchRes.priceEur !== item.currentPrice) {
+          if (watchRes && watchRes.priceEur > 0 && (watchRes.priceEur !== item.currentPrice || !item.imageUrl)) {
             const newPrice = watchRes.priceEur;
             const rawHistory = item.metadata?.priceHistory;
             const updatedHistory = appendPriceSnapshot(
@@ -683,13 +688,18 @@ export const useSyncCollectiblePrices = () => {
               lastSyncedAt: new Date().toISOString(),
             };
 
+            const updates: Database['public']['Tables']['collectibles']['Update'] = {
+              current_price: newPrice,
+              metadata: updatedMeta as unknown as Json,
+              updated_at: new Date().toISOString(),
+            };
+            if (!item.imageUrl && watchRes.imageUrl) {
+              updates.image_url = watchRes.imageUrl;
+            }
+
             await supabase
               .from('collectibles')
-              .update({
-                current_price: newPrice,
-                metadata: updatedMeta as unknown as Json,
-                updated_at: new Date().toISOString(),
-              })
+              .update(updates)
               .eq('id', item.id);
             watchesUpdated += 1;
           }

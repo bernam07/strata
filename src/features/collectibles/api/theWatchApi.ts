@@ -198,7 +198,7 @@ const CURATED_WATCH_CATALOG: Record<
   'T137.407.11.091.00': {
     brand: 'Tissot',
     model: 'PRX Powermatic 80 Green 40mm',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://www.tissotwatches.com/dw/image/v2/BKKD_PRD/on/demandware.static/-/Sites-Tissot-Catalogue/default/dw783ceb3e/product-pictures/6c313b76-3e79-466d-83a5-042e47b276d5_T137-407-11-091-00_shadow.png?sm=fit&sw=800&sh=800',
     priceUsd: 725,
     specs: {
       caseMaterial: '316L Stainless Steel',
@@ -213,7 +213,7 @@ const CURATED_WATCH_CATALOG: Record<
   'T1374071109100': {
     brand: 'Tissot',
     model: 'PRX Powermatic 80 Green 40mm',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://www.tissotwatches.com/dw/image/v2/BKKD_PRD/on/demandware.static/-/Sites-Tissot-Catalogue/default/dw783ceb3e/product-pictures/6c313b76-3e79-466d-83a5-042e47b276d5_T137-407-11-091-00_shadow.png?sm=fit&sw=800&sh=800',
     priceUsd: 725,
     specs: {
       caseMaterial: '316L Stainless Steel',
@@ -225,6 +225,70 @@ const CURATED_WATCH_CATALOG: Record<
       waterResistance: '100 m / 330 ft (10 bar)',
     },
   },
+  'T137.407.11.041.00': {
+    brand: 'Tissot',
+    model: 'PRX Powermatic 80 Blue 40mm',
+    imageUrl: 'https://www.tissotwatches.com/dw/image/v2/BKKD_PRD/on/demandware.static/-/Sites-Tissot-Catalogue/default/dw783ceb3e/product-pictures/6c313b76-3e79-466d-83a5-042e47b276d5_T137-407-11-091-00_shadow.png?sm=fit&sw=800&sh=800',
+    priceUsd: 725,
+    specs: {
+      caseMaterial: '316L Stainless Steel',
+      caseDiameter: '40 mm',
+      movement: 'Automatic (Powermatic 80.111)',
+      caliber: 'Calibre 11 1/2\'\'\' (80h power reserve)',
+      dialColor: 'Sunray Blue Waffle',
+      bezelMaterial: 'Polished Stainless Steel',
+      waterResistance: '100 m / 330 ft (10 bar)',
+    },
+  },
+  'T137.407.11.051.00': {
+    brand: 'Tissot',
+    model: 'PRX Powermatic 80 Black 40mm',
+    imageUrl: 'https://www.tissotwatches.com/dw/image/v2/BKKD_PRD/on/demandware.static/-/Sites-Tissot-Catalogue/default/dw783ceb3e/product-pictures/6c313b76-3e79-466d-83a5-042e47b276d5_T137-407-11-091-00_shadow.png?sm=fit&sw=800&sh=800',
+    priceUsd: 725,
+    specs: {
+      caseMaterial: '316L Stainless Steel',
+      caseDiameter: '40 mm',
+      movement: 'Automatic (Powermatic 80.111)',
+      caliber: 'Calibre 11 1/2\'\'\' (80h power reserve)',
+      dialColor: 'Classic Black Waffle',
+      bezelMaterial: 'Polished Stainless Steel',
+      waterResistance: '100 m / 330 ft (10 bar)',
+    },
+  },
+  'T137.407.11.351.00': {
+    brand: 'Tissot',
+    model: 'PRX Powermatic 80 Ice Blue 40mm',
+    imageUrl: 'https://www.tissotwatches.com/dw/image/v2/BKKD_PRD/on/demandware.static/-/Sites-Tissot-Catalogue/default/dw783ceb3e/product-pictures/6c313b76-3e79-466d-83a5-042e47b276d5_T137-407-11-091-00_shadow.png?sm=fit&sw=800&sh=800',
+    priceUsd: 725,
+    specs: {
+      caseMaterial: '316L Stainless Steel',
+      caseDiameter: '40 mm',
+      movement: 'Automatic (Powermatic 80.111)',
+      caliber: 'Calibre 11 1/2\'\'\' (80h power reserve)',
+      dialColor: 'Ice Blue Waffle',
+      bezelMaterial: 'Polished Stainless Steel',
+      waterResistance: '100 m / 330 ft (10 bar)',
+    },
+  },
+};
+
+export const findCuratedWatch = (referenceNumber: string) => {
+  const ref = cleanWatchReference(referenceNumber);
+  if (!ref) return undefined;
+  if (CURATED_WATCH_CATALOG[ref]) return CURATED_WATCH_CATALOG[ref];
+  const noDots = ref.replace(/\./g, '');
+  if (CURATED_WATCH_CATALOG[noDots]) return CURATED_WATCH_CATALOG[noDots];
+  const alphaNum = ref.replace(/[^A-Z0-9]/g, '');
+  for (const [key, val] of Object.entries(CURATED_WATCH_CATALOG)) {
+    if (key.replace(/[^A-Z0-9]/g, '') === alphaNum) {
+      return val;
+    }
+  }
+  return undefined;
+};
+
+export const resolveCuratedWatchImage = (referenceNumber: string): string | undefined => {
+  return findCuratedWatch(referenceNumber)?.imageUrl;
 };
 
 /**
@@ -246,6 +310,8 @@ export const resolveWatchPrice = async ({
   const key = apiKey?.trim() || getCachedTheWatchApiKey();
   const rate = fxRate ?? (await getUsdToEurRate());
 
+  const curated = findCuratedWatch(ref);
+
   // 1. If an API key is available, query TheWatchAPI (Edge function first, then proxy, then direct)
   if (key) {
     // 1A. Try Supabase Edge Function (avoids browser CORS)
@@ -254,18 +320,29 @@ export const resolveWatchPrice = async ({
         body: { referenceNumber: ref, apiKey: key },
       });
       if (!error && data && data.brand && !data.error) {
-        const priceUsd = typeof data.priceUsd === 'number' ? data.priceUsd : undefined;
-        const priceEur = priceUsd && priceUsd > 0 ? Math.round(priceUsd * rate * 100) / 100 : 0;
+        const priceUsd = (typeof data.priceUsd === 'number' ? data.priceUsd : undefined) ?? curated?.priceUsd;
+        const priceEur = priceUsd && priceUsd > 0
+          ? Math.round(priceUsd * rate * 100) / 100
+          : (curated ? Math.round(curated.priceUsd * rate * 100) / 100 : 0);
+        const imageUrl = (data.imageUrl as string | undefined) || curated?.imageUrl;
         return {
           referenceNumber: ref,
           brand: data.brand,
-          model: data.model || ref,
-          fullName: data.fullName || `${data.brand} ${data.model} (#${ref})`,
-          imageUrl: data.imageUrl,
+          model: data.model || curated?.model || ref,
+          fullName: data.fullName || `${data.brand} ${data.model || curated?.model || ref} (#${ref})`,
+          imageUrl,
           priceUsd,
           priceEur,
           fxRateUsed: rate,
-          specs: data.specs || {},
+          specs: {
+            caseMaterial: data.specs?.caseMaterial || curated?.specs.caseMaterial,
+            caseDiameter: data.specs?.caseDiameter || curated?.specs.caseDiameter,
+            movement: data.specs?.movement || curated?.specs.movement,
+            caliber: data.specs?.caliber || curated?.specs.caliber,
+            dialColor: data.specs?.dialColor || curated?.specs.dialColor,
+            bezelMaterial: data.specs?.bezelMaterial || curated?.specs.bezelMaterial,
+            waterResistance: data.specs?.waterResistance || curated?.specs.waterResistance,
+          },
           source: 'thewatchapi',
           dateFetched: new Date().toISOString(),
         };
@@ -303,27 +380,28 @@ export const resolveWatchPrice = async ({
 
           const watch = items[0];
           if (watch && (watch.brand || watch.model || watch.reference_number)) {
-            const brand = (watch.brand as string) || 'Luxury Watch';
-            const model = (watch.model as string) || ref;
+            const brand = (watch.brand as string) || curated?.brand || 'Luxury Watch';
+            const model = (watch.model as string) || curated?.model || ref;
             const fullName = `${brand} ${model} (#${ref})`;
             const priceUsd =
-              typeof watch.price_usd === 'number'
+              (typeof watch.price_usd === 'number'
                 ? watch.price_usd
                 : typeof watch.price === 'number'
                   ? watch.price
                   : typeof watch.average_price === 'number'
                     ? watch.average_price
-                    : undefined;
+                    : undefined) ?? curated?.priceUsd;
 
             const priceEur =
               priceUsd && priceUsd > 0
                 ? Math.round(priceUsd * rate * 100) / 100
-                : 0;
+                : (curated ? Math.round(curated.priceUsd * rate * 100) / 100 : 0);
 
             const imageUrl =
               (watch.image_url as string) ||
               (watch.image as string) ||
-              (Array.isArray(watch.images) ? (watch.images[0] as string) : undefined);
+              (Array.isArray(watch.images) ? (watch.images[0] as string) : undefined) ||
+              curated?.imageUrl;
 
             return {
               referenceNumber: ref,
@@ -335,13 +413,13 @@ export const resolveWatchPrice = async ({
               priceEur,
               fxRateUsed: rate,
               specs: {
-                caseMaterial: (watch.case_material as string) || (watch.material as string),
-                caseDiameter: (watch.case_diameter as string) || (watch.diameter as string),
-                movement: watch.movement as string,
-                caliber: (watch.caliber as string) || (watch.calibre as string),
-                dialColor: (watch.dial_color as string) || (watch.dial as string),
-                bezelMaterial: (watch.bezel_material as string) || (watch.bezel as string),
-                waterResistance: watch.water_resistance as string,
+                caseMaterial: (watch.case_material as string) || (watch.material as string) || curated?.specs.caseMaterial,
+                caseDiameter: (watch.case_diameter as string) || (watch.diameter as string) || curated?.specs.caseDiameter,
+                movement: (watch.movement as string) || curated?.specs.movement,
+                caliber: (watch.caliber as string) || (watch.calibre as string) || curated?.specs.caliber,
+                dialColor: (watch.dial_color as string) || (watch.dial as string) || curated?.specs.dialColor,
+                bezelMaterial: (watch.bezel_material as string) || (watch.bezel as string) || curated?.specs.bezelMaterial,
+                waterResistance: (watch.water_resistance as string) || curated?.specs.waterResistance,
               },
               source: 'thewatchapi',
               dateFetched: new Date().toISOString(),
@@ -355,10 +433,6 @@ export const resolveWatchPrice = async ({
   }
 
   // 2. Fall back to curated reference database if match exists
-  const curated =
-    CURATED_WATCH_CATALOG[ref] ||
-    CURATED_WATCH_CATALOG[ref.replace(/\./g, '')];
-
   if (curated) {
     const priceEur = Math.round(curated.priceUsd * rate * 100) / 100;
     return {

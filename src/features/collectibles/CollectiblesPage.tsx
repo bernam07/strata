@@ -25,6 +25,7 @@ import {
 } from '@/features/dashboard/api/usePreferences';
 import { isJapanesePokemonItem } from './api/tcgdex';
 import { isMinifigCode } from './api/brickset';
+import { resolveCuratedWatchImage } from './api/theWatchApi';
 import { CategoryIcon } from './components/CategoryIcon';
 import { AddCollectibleModal } from './components/AddCollectibleModal';
 import { EditCollectibleModal } from './components/EditCollectibleModal';
@@ -636,22 +637,34 @@ export const CollectiblesPage = () => {
               >
                 {/* Proportional, well-sized Image Showcase */}
                 <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-(--surface-sunken) p-2 sm:h-40">
-                  {item.imageUrl && (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback') as HTMLElement | null;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                      className="max-h-full max-w-full object-contain drop-shadow-sm transition duration-300 group-hover:scale-105"
-                    />
-                  )}
+                  {(() => {
+                    const displayImg =
+                      item.imageUrl ||
+                      (item.category === 'watches' && item.identifier
+                        ? resolveCuratedWatchImage(item.identifier)
+                        : undefined);
+                    if (displayImg) {
+                      return (
+                        <img
+                          src={displayImg}
+                          alt={item.name}
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback') as HTMLElement | null;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                          className="max-h-full max-w-full object-contain drop-shadow-sm transition duration-300 group-hover:scale-105"
+                        />
+                      );
+                    }
+                    return null;
+                  })()}
                   <div
                     className={`img-fallback flex flex-col items-center justify-center gap-1.5 text-(--text-muted) ${
-                      item.imageUrl ? 'hidden' : 'flex'
+                      item.imageUrl || (item.category === 'watches' && item.identifier && resolveCuratedWatchImage(item.identifier))
+                        ? 'hidden'
+                        : 'flex'
                     }`}
                   >
                     <CategoryIcon category={item.category} size={28} />
@@ -717,6 +730,25 @@ export const CollectiblesPage = () => {
                         <span className="rounded bg-emerald-950/80 border border-emerald-500/30 px-1 py-0.2 text-[9px] font-bold text-emerald-300">
                           Minifig
                         </span>
+                      )}
+                      {item.category === 'watches' && (
+                        <>
+                          {Boolean(item.metadata?.brand) && (
+                            <span className="rounded bg-purple-950/80 border border-purple-500/30 px-1 py-0.2 text-[9px] font-bold text-purple-300">
+                              {String(item.metadata.brand)}
+                            </span>
+                          )}
+                          {Boolean((item.metadata?.specs as Record<string, string> | undefined)?.caseDiameter) && (
+                            <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold text-(--text-muted)">
+                              {(item.metadata!.specs as Record<string, string>).caseDiameter}
+                            </span>
+                          )}
+                          {Boolean((item.metadata?.specs as Record<string, string> | undefined)?.movement) && (
+                            <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold text-(--text-muted)">
+                              {(item.metadata!.specs as Record<string, string>).movement}
+                            </span>
+                          )}
+                        </>
                       )}
                       {Boolean(item.metadata?.finish) && (
                         <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold uppercase tracking-wider text-(--accent)">
@@ -789,17 +821,27 @@ export const CollectiblesPage = () => {
                       className="tap cursor-pointer hover:bg-(--surface-flat)"
                     >
                       <td className="flex items-center gap-2.5 px-4 py-3">
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt=""
-                            className="h-8 w-8 rounded object-contain bg-(--surface-sunken) p-0.5"
-                          />
-                        ) : (
-                          <span className="grid h-8 w-8 place-items-center rounded bg-(--surface-sunken) text-(--text-muted)">
-                            <CategoryIcon category={item.category} size={16} />
-                          </span>
-                        )}
+                        {(() => {
+                          const displayImg =
+                            item.imageUrl ||
+                            (item.category === 'watches' && item.identifier
+                              ? resolveCuratedWatchImage(item.identifier)
+                              : undefined);
+                          if (displayImg) {
+                            return (
+                              <img
+                                src={displayImg}
+                                alt=""
+                                className="h-8 w-8 rounded object-contain bg-(--surface-sunken) p-0.5"
+                              />
+                            );
+                          }
+                          return (
+                            <span className="grid h-8 w-8 place-items-center rounded bg-(--surface-sunken) text-(--text-muted)">
+                              <CategoryIcon category={item.category} size={16} />
+                            </span>
+                          );
+                        })()}
                         <div className="min-w-0">
                           <p className="truncate font-bold text-(--text-strong)">
                             {item.name}
@@ -825,6 +867,25 @@ export const CollectiblesPage = () => {
                               <span className="rounded bg-emerald-950/80 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-bold text-emerald-300">
                                 Minifig
                               </span>
+                            )}
+                            {item.category === 'watches' && (
+                              <>
+                                {Boolean(item.metadata?.brand) && (
+                                  <span className="rounded bg-purple-950/80 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-bold text-purple-300">
+                                    {String(item.metadata.brand)}
+                                  </span>
+                                )}
+                                {Boolean((item.metadata?.specs as Record<string, string> | undefined)?.caseDiameter) && (
+                                  <span className="rounded bg-(--surface-sunken) px-1.5 py-0.2 text-[9px] font-semibold text-(--text-muted)">
+                                    {(item.metadata!.specs as Record<string, string>).caseDiameter}
+                                  </span>
+                                )}
+                                {Boolean((item.metadata?.specs as Record<string, string> | undefined)?.movement) && (
+                                  <span className="rounded bg-(--surface-sunken) px-1.5 py-0.2 text-[9px] font-semibold text-(--text-muted)">
+                                    {(item.metadata!.specs as Record<string, string>).movement}
+                                  </span>
+                                )}
+                              </>
                             )}
                             {Boolean(item.metadata?.finish) && (
                               <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold uppercase tracking-wider text-(--accent)">
