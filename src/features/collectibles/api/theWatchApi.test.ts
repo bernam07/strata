@@ -44,6 +44,25 @@ describe('theWatchApi client', () => {
     expect(res?.specs.caseMaterial).toBe('Oystersteel (904L)');
   });
 
+  it('resolves Tissot PRX Powermatic reference cleanly with or without dots', async () => {
+    const resWithDots = await resolveWatchPrice({
+      referenceNumber: 'T137.407.11.091.00',
+      fxRate: 0.90,
+    });
+    expect(resWithDots).not.toBeNull();
+    expect(resWithDots?.brand).toBe('Tissot');
+    expect(resWithDots?.model).toContain('PRX Powermatic 80');
+    expect(resWithDots?.specs.caseDiameter).toBe('40 mm');
+
+    const resWithoutDots = await resolveWatchPrice({
+      referenceNumber: 'T1374071109100',
+      fxRate: 0.90,
+    });
+    expect(resWithoutDots).not.toBeNull();
+    expect(resWithoutDots?.brand).toBe('Tissot');
+    expect(resWithoutDots?.model).toContain('PRX Powermatic 80');
+  });
+
   it('queries TheWatchAPI REST endpoint when API key is provided', async () => {
     const fakeWatch = {
       brand: 'Tudor',

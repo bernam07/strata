@@ -1,3 +1,4 @@
+import { supabase } from '@/db/supabase';
 import { getUsdToEurRate } from './tcgdex';
 
 export interface WatchSpecs {
@@ -194,11 +195,41 @@ const CURATED_WATCH_CATALOG: Record<
       waterResistance: '50 m / 165 ft',
     },
   },
+  'T137.407.11.091.00': {
+    brand: 'Tissot',
+    model: 'PRX Powermatic 80 Green 40mm',
+    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+    priceUsd: 725,
+    specs: {
+      caseMaterial: '316L Stainless Steel',
+      caseDiameter: '40 mm',
+      movement: 'Automatic (Powermatic 80.111)',
+      caliber: 'Calibre 11 1/2\'\'\' (80h power reserve)',
+      dialColor: 'Emerald Green Waffle',
+      bezelMaterial: 'Polished Stainless Steel',
+      waterResistance: '100 m / 330 ft (10 bar)',
+    },
+  },
+  'T1374071109100': {
+    brand: 'Tissot',
+    model: 'PRX Powermatic 80 Green 40mm',
+    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+    priceUsd: 725,
+    specs: {
+      caseMaterial: '316L Stainless Steel',
+      caseDiameter: '40 mm',
+      movement: 'Automatic (Powermatic 80.111)',
+      caliber: 'Calibre 11 1/2\'\'\' (80h power reserve)',
+      dialColor: 'Emerald Green Waffle',
+      bezelMaterial: 'Polished Stainless Steel',
+      waterResistance: '100 m / 330 ft (10 bar)',
+    },
+  },
 };
 
 /**
  * Fetches watch details, specifications, official image and current market value
- * from TheWatchAPI (api.thewatchapi.com) with currency conversion to EUR.
+ * from TheWatchAPI with currency conversion to EUR.
  */
 export const resolveWatchPrice = async ({
   referenceNumber,
@@ -215,71 +246,119 @@ export const resolveWatchPrice = async ({
   const key = apiKey?.trim() || getCachedTheWatchApiKey();
   const rate = fxRate ?? (await getUsdToEurRate());
 
-  // 1. If an API key is available, query TheWatchAPI REST endpoints
+  // 1. If an API key is available, query TheWatchAPI (Edge function first, then proxy, then direct)
   if (key) {
+    // 1A. Try Supabase Edge Function (avoids browser CORS)
     try {
-      const url = `https://api.thewatchapi.com/v1/reference/search?reference_number=${encodeURIComponent(
-        ref,
-      )}&api_token=${encodeURIComponent(key)}`;
-
-      const response = await fetch(url);
-      if (response.ok) {
-        const payload = await response.json();
-        // TheWatchAPI returns items in results or data arrays
-        const watch = Array.isArray(payload?.data)
-          ? payload.data[0]
-          : Array.isArray(payload?.results)
-            ? payload.results[0]
-            : payload?.data || payload;
-
-        if (watch && (watch.brand || watch.model || watch.reference_number)) {
-          const brand = watch.brand || 'Luxury Watch';
-          const model = watch.model || ref;
-          const fullName = `${brand} ${model} (#${ref})`;
-          const priceUsd =
-            typeof watch.price_usd === 'number'
-              ? watch.price_usd
-              : typeof watch.price === 'number'
-                ? watch.price
-                : typeof watch.average_price === 'number'
-                  ? watch.average_price
-                  : undefined;
-
-          const priceEur =
-            priceUsd && priceUsd > 0
-              ? Math.round(priceUsd * rate * 100) / 100
-              : 0;
-
-          return {
-            referenceNumber: ref,
-            brand,
-            model,
-            fullName,
-            imageUrl: watch.image_url || watch.image || watch.images?.[0],
-            priceUsd,
-            priceEur,
-            fxRateUsed: rate,
-            specs: {
-              caseMaterial: watch.case_material || watch.material,
-              caseDiameter: watch.case_diameter || watch.diameter,
-              movement: watch.movement,
-              caliber: watch.caliber || watch.calibre,
-              dialColor: watch.dial_color || watch.dial,
-              bezelMaterial: watch.bezel_material || watch.bezel,
-              waterResistance: watch.water_resistance,
-            },
-            source: 'thewatchapi',
-            dateFetched: new Date().toISOString(),
-          };
-        }
+      const { data, error } = await supabase.functions.invoke('thewatchapi-price', {
+        body: { referenceNumber: ref, apiKey: key },
+      });
+      if (!error && data && data.brand && !data.error) {
+        const priceUsd = typeof data.priceUsd === 'number' ? data.priceUsd : undefined;
+        const priceEur = priceUsd && priceUsd > 0 ? Math.round(priceUsd * rate * 100) / 100 : 0;
+        return {
+          referenceNumber: ref,
+          brand: data.brand,
+          model: data.model || ref,
+          fullName: data.fullName || `${data.brand} ${data.model} (#${ref})`,
+          imageUrl: data.imageUrl,
+          priceUsd,
+          priceEur,
+          fxRateUsed: rate,
+          specs: data.specs || {},
+          source: 'thewatchapi',
+          dateFetched: new Date().toISOString(),
+        };
       }
-    } catch (err) {
-      console.warn('TheWatchAPI query failed:', err);
+    } catch {
+      // Edge function not deployed or network error; fall back to proxy
+    }
+
+    // 1B. Client-side fetch via Vite proxy (/api/thewatchapi) or direct
+    const refNoDots = ref.replace(/\./g, '');
+    const endpoints = [
+      `/api/thewatchapi/v1/model/search?api_token=${encodeURIComponent(key)}&reference_number=${encodeURIComponent(ref)}`,
+      ...(refNoDots !== ref
+        ? [`/api/thewatchapi/v1/model/search?api_token=${encodeURIComponent(key)}&reference_number=${encodeURIComponent(refNoDots)}`]
+        : []),
+      `/api/thewatchapi/v1/model/search?api_token=${encodeURIComponent(key)}&search=${encodeURIComponent(ref)}&search_attributes=reference_number,model`,
+      ...(refNoDots !== ref
+        ? [`/api/thewatchapi/v1/model/search?api_token=${encodeURIComponent(key)}&search=${encodeURIComponent(refNoDots)}&search_attributes=reference_number,model`]
+        : []),
+      `https://api.thewatchapi.com/v1/model/search?api_token=${encodeURIComponent(key)}&reference_number=${encodeURIComponent(ref)}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (response.ok) {
+          const payload = await response.json();
+          const items: Array<Record<string, unknown>> = Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.results)
+              ? payload.results
+              : payload?.data
+                ? [payload.data]
+                : [];
+
+          const watch = items[0];
+          if (watch && (watch.brand || watch.model || watch.reference_number)) {
+            const brand = (watch.brand as string) || 'Luxury Watch';
+            const model = (watch.model as string) || ref;
+            const fullName = `${brand} ${model} (#${ref})`;
+            const priceUsd =
+              typeof watch.price_usd === 'number'
+                ? watch.price_usd
+                : typeof watch.price === 'number'
+                  ? watch.price
+                  : typeof watch.average_price === 'number'
+                    ? watch.average_price
+                    : undefined;
+
+            const priceEur =
+              priceUsd && priceUsd > 0
+                ? Math.round(priceUsd * rate * 100) / 100
+                : 0;
+
+            const imageUrl =
+              (watch.image_url as string) ||
+              (watch.image as string) ||
+              (Array.isArray(watch.images) ? (watch.images[0] as string) : undefined);
+
+            return {
+              referenceNumber: ref,
+              brand,
+              model,
+              fullName,
+              imageUrl,
+              priceUsd,
+              priceEur,
+              fxRateUsed: rate,
+              specs: {
+                caseMaterial: (watch.case_material as string) || (watch.material as string),
+                caseDiameter: (watch.case_diameter as string) || (watch.diameter as string),
+                movement: watch.movement as string,
+                caliber: (watch.caliber as string) || (watch.calibre as string),
+                dialColor: (watch.dial_color as string) || (watch.dial as string),
+                bezelMaterial: (watch.bezel_material as string) || (watch.bezel as string),
+                waterResistance: watch.water_resistance as string,
+              },
+              source: 'thewatchapi',
+              dateFetched: new Date().toISOString(),
+            };
+          }
+        }
+      } catch {
+        // continue trying next endpoint
+      }
     }
   }
 
   // 2. Fall back to curated reference database if match exists
-  const curated = CURATED_WATCH_CATALOG[ref];
+  const curated =
+    CURATED_WATCH_CATALOG[ref] ||
+    CURATED_WATCH_CATALOG[ref.replace(/\./g, '')];
+
   if (curated) {
     const priceEur = Math.round(curated.priceUsd * rate * 100) / 100;
     return {

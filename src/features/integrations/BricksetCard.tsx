@@ -215,7 +215,7 @@ export const BricksetCard = () => {
               </button>
             </div>
 
-            {(!connected || showGuide) && (
+            {showGuide && (
               <Surface
                 elevation="sunken"
                 className="flex flex-col gap-2 p-3.5 text-xs text-[var(--text-muted)]"

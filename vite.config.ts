@@ -17,6 +17,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/brickset/, ''),
       },
+      '/api/thewatchapi': {
+        target: 'https://api.thewatchapi.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/thewatchapi/, ''),
+      },
     },
   },
   build: {
