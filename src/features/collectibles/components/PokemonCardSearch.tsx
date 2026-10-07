@@ -97,7 +97,6 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
   const [loading, setLoading] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [results, setResults] = useState<PokemonCardSummary[]>([]);
-  const [visibleCount, setVisibleCount] = useState(12);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -115,7 +114,6 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
     let active = true;
     setLoading(true);
     setError(null);
-    setVisibleCount(12);
 
     searchPokemonCards(query, language)
       .then((cards) => {
@@ -149,8 +147,6 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
       setLoadingDetail(null);
     }
   };
-
-  const displayedResults = results.slice(0, visibleCount);
 
   return (
     <div className="flex flex-col gap-3">
@@ -230,10 +226,10 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
         </p>
       )}
 
-      {displayedResults.length > 0 && (
+      {results.length > 0 && (
         <div className="flex flex-col gap-2.5">
           <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
-            {displayedResults.map((card) => {
+            {results.map((card) => {
               const isSelecting = loadingDetail === card.id;
               return (
                 <button
@@ -257,15 +253,6 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
             })}
           </div>
 
-          {results.length > visibleCount && (
-            <button
-              type="button"
-              onClick={() => setVisibleCount((prev) => prev + 12)}
-              className="tap self-center rounded-full bg-[var(--surface-sunken)] px-3 py-1 text-xs font-semibold text-[var(--accent)] hover:underline"
-            >
-              Show more cards ({results.length - visibleCount} remaining)
-            </button>
-          )}
         </div>
       )}
     </div>

@@ -390,6 +390,27 @@ const toSummary = (card: CatalogCard, language: 'en' | 'ja'): PokemonCardSummary
   language,
 });
 
+const hydrateSummary = async (
+  card: CatalogCard,
+  language: 'en' | 'ja',
+): Promise<PokemonCardSummary> => {
+  if (card.image) return toSummary(card, language);
+
+  try {
+    const response = await fetch(
+      `https://api.tcgdex.net/v2/${language}/cards/${encodeURIComponent(card.id)}`,
+    );
+    if (response.ok) {
+      const detail = (await response.json()) as CatalogCard;
+      return toSummary({ ...card, ...detail }, language);
+    }
+  } catch {
+    // Keep the card visible even when its image request fails.
+  }
+
+  return toSummary(card, language);
+};
+
 export const searchPokemonCards = async (
   query: string,
   lang: PokemonCardLanguage = 'all',
@@ -438,13 +459,13 @@ export const searchPokemonCards = async (
     const terms = searchTerms
       .filter((term): term is string => Boolean(term))
       .map((term) => term.toLocaleLowerCase());
-    return catalog
+    const matches = catalog
       .filter((card) => {
         const searchable = `${card.name} ${card.id} ${card.localId}`.toLocaleLowerCase();
         return terms.some((term) => searchable.includes(term));
       })
-      .slice(0, 40)
-      .map((card) => toSummary(card, language));
+      .map((card) => hydrateSummary(card, language));
+    return Promise.all(matches);
   };
 
   const [enResults, jaResults] = await Promise.all([
@@ -469,10 +490,7 @@ export const searchPokemonCards = async (
     }
   }
 
-  const results =
-    lang === 'all'
-      ? [...enResults.slice(0, 40), ...jaResults.slice(0, 40)]
-      : combined.slice(0, 24);
+  const results = lang === 'all' ? [...enResults, ...jaResults] : combined;
   searchCache.set(cacheKey, results);
   return results;
 };

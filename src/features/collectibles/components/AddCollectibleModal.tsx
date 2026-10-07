@@ -313,6 +313,11 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     const qty = Number(quantity) > 0 ? Number(quantity) : 1;
     const buyPrice = Number(purchasePrice) || 0;
     const curVal = currentPrice ? Number(currentPrice) : buyPrice;
+    const persistedImageUrl =
+      imageUrl.trim() ||
+      (category === 'lego' && identifier.trim()
+        ? getLegoImageUrl(identifier.trim())
+        : null);
 
     add.mutate(
       {
@@ -323,7 +328,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         purchasePrice: buyPrice,
         currentPrice: curVal,
         condition: condition.trim() || null,
-        imageUrl: imageUrl.trim() || null,
+        imageUrl: persistedImageUrl,
         purchaseDate: purchaseDate || null,
         notes: notes.trim() || null,
         metadata,

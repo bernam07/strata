@@ -8,6 +8,7 @@ import {
   type PokemonCardFinish,
 } from './tcgdex';
 import { resolveLegoPrice } from './legoValuation';
+import { getLegoImageUrl } from './lego';
 
 export type CollectibleCategory =
   | 'pokemon'
@@ -84,6 +85,12 @@ export const useCollectibles = () =>
         const gainEur = valueEur - costEur;
         const gainPct = costEur > 0 ? gainEur / costEur : null;
 
+        const imageUrl =
+          row.image_url ||
+          (row.category === 'lego' && row.identifier
+            ? getLegoImageUrl(row.identifier)
+            : null);
+
         return {
           id: row.id,
           userId: row.user_id,
@@ -96,7 +103,7 @@ export const useCollectibles = () =>
           purchaseDate: row.purchase_date,
           currentPrice,
           condition: row.condition,
-          imageUrl: row.image_url,
+          imageUrl,
           notes: row.notes,
           metadata: (row.metadata as Record<string, unknown>) ?? {},
           createdAt: row.created_at,
