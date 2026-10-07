@@ -36,6 +36,12 @@ describe('LEGO api and utilities', () => {
         'https://images.brickset.com/sets/images/10316-1.jpg',
       );
     });
+
+    it('uses the associated Brickset set image for minifigures without a CDN image', () => {
+      expect(getLegoImageUrl('COLSPI01')).toBe(
+        'https://images.brickset.com/sets/images/71050-1.jpg',
+      );
+    });
   });
 
   describe('searchLegoSets', () => {

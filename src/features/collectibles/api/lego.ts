@@ -33,6 +33,10 @@ export const normalizeSetNumber = (raw: string): string => {
 export const getLegoImageUrl = (setNumber: string): string => {
   const cleaned = cleanLegoInput(setNumber);
   if (cleaned.itemType === 'MINIFIG') {
+    const associatedSet = getBricksetSetNumber(cleaned.itemNo);
+    if (associatedSet) {
+      return `https://images.brickset.com/sets/images/${associatedSet}-1.jpg`;
+    }
     return `https://images.brickset.com/minifigs/images/${cleaned.itemNo}.jpg`;
   }
   const base = normalizeSetNumber(cleaned.itemNo);

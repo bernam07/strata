@@ -432,11 +432,15 @@ export const CollectiblesPage = () => {
                           {isProfit ? '+' : ''}
                           {(item.gainPct * 100).toFixed(1)}%
                         </span>
+                      ) : item.costEur === 0 && item.valueEur > 0 ? (
+                        <span className="text-[11px] font-bold tabular-nums text-(--positive) sm:text-xs">
+                          +<AmountInline value={item.valueEur} /> return
+                        </span>
                       ) : (
                         <span className="text-[11px] text-(--text-muted) sm:text-xs">—</span>
                       )}
                       <p className="text-[9px] text-(--text-muted)">
-                        cost: <AmountInline value={item.costEur} />
+                        {item.costEur === 0 ? 'free' : <>cost: <AmountInline value={item.costEur} /></>}
                       </p>
                     </div>
                   </div>
@@ -522,6 +526,10 @@ export const CollectiblesPage = () => {
                           <span className={isProfit ? 'text-(--positive)' : 'text-(--negative)'}>
                             {isProfit ? '+' : ''}
                             <AmountInline value={item.gainEur} signed /> ({(item.gainPct * 100).toFixed(1)}%)
+                          </span>
+                        ) : item.costEur === 0 && item.valueEur > 0 ? (
+                          <span className="text-(--positive)">
+                            +<AmountInline value={item.valueEur} /> return (free)
                           </span>
                         ) : (
                           '—'

@@ -316,7 +316,11 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     const persistedImageUrl =
       imageUrl.trim() ||
       (category === 'lego' && identifier.trim()
-        ? getLegoImageUrl(identifier.trim())
+        ? getLegoImageUrl(
+            typeof metadata.bricksetSetNumber === 'string'
+              ? metadata.bricksetSetNumber
+              : identifier.trim(),
+          )
         : null);
 
     add.mutate(

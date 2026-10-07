@@ -85,11 +85,14 @@ export const useCollectibles = () =>
         const gainEur = valueEur - costEur;
         const gainPct = costEur > 0 ? gainEur / costEur : null;
 
+        const metadata = (row.metadata as Record<string, unknown>) ?? {};
         const imageUrl =
           row.image_url ||
-          (row.category === 'lego' && row.identifier
-            ? getLegoImageUrl(row.identifier)
-            : null);
+          (row.category === 'lego' && typeof metadata.bricksetSetNumber === 'string'
+            ? getLegoImageUrl(metadata.bricksetSetNumber)
+            : row.category === 'lego' && row.identifier
+              ? getLegoImageUrl(row.identifier)
+              : null);
 
         return {
           id: row.id,
@@ -105,7 +108,7 @@ export const useCollectibles = () =>
           condition: row.condition,
           imageUrl,
           notes: row.notes,
-          metadata: (row.metadata as Record<string, unknown>) ?? {},
+          metadata,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           costEur,
