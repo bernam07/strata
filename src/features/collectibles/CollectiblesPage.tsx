@@ -394,12 +394,7 @@ export const CollectiblesPage = () => {
                           #{item.identifier}
                         </p>
                       )}
-                      {Boolean(
-                        item.metadata?.language === 'ja' ||
-                          (item.category === 'pokemon' &&
-                            item.identifier &&
-                            /^(sv\d+[a-z]?|s\d+[a-z]?|sm\d+|pmcg)/i.test(item.identifier)),
-                      ) && (
+                      {item.category === 'pokemon' && item.metadata?.language === 'ja' && (
                         <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1 py-0.2 text-[9px] font-bold text-rose-300">
                           JA
                         </span>

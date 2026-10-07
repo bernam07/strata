@@ -415,12 +415,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                       <p className="truncate text-sm font-bold text-[var(--text-strong)]">
                         {selectedPokemon.name}
                       </p>
-                      {Boolean(
-                        metadata.language === 'ja' ||
-                          /^(sv\d+[a-z]?|s\d+[a-z]?|sm\d+|pmcg)/i.test(
-                            selectedPokemon.id,
-                          ),
-                      ) && (
+                      {metadata.language === 'ja' && (
                         <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1 py-0.2 text-[9px] font-bold text-rose-300">
                           JA
                         </span>
