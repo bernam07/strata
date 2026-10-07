@@ -173,15 +173,6 @@ describe('tcgdex utilities', () => {
   });
 
   describe('multilingual Japanese card support', () => {
-    it('provides Japanese mappings for iconic pokemon', async () => {
-      const { POKEMON_JA_NAMES, JAPANESE_SETS } = await import('./tcgdex');
-      expect(POKEMON_JA_NAMES.charizard).toBe('リザードン');
-      expect(POKEMON_JA_NAMES.pikachu).toBe('ピカチュウ');
-      expect(POKEMON_JA_NAMES.mew).toBe('ミュウ');
-      expect(JAPANESE_SETS['151']).toBe('sv2a');
-      expect(JAPANESE_SETS.sv4a).toBe('sv4a');
-    });
-
     it('resolves Japanese card pricing via Cardmarket trend when TCGplayer is null', () => {
       const japanesePricing: PokemonCardDetail['pricing'] = {
         tcgplayer: undefined,
@@ -201,7 +192,7 @@ describe('tcgdex utilities', () => {
     it('searches Japanese Zoroark cards from an English query', async () => {
       const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
         const url = String(input);
-        if (url.includes('/v2/en/cards?name=zoroark')) {
+        if (url.includes('/v2/en/cards')) {
           return new Response(
             JSON.stringify([
               {
@@ -214,7 +205,15 @@ describe('tcgdex utilities', () => {
             { status: 200 },
           );
         }
-        if (url.includes('/v2/ja/cards?name=%E3%82%BE%E3%83%AD%E3%82%A2%E3%83%BC%E3%82%AF')) {
+        if (url.includes('pokeapi.co/api/v2/pokemon-species/zoroark')) {
+          return new Response(
+            JSON.stringify({
+              names: [{ language: { name: 'ja' }, name: 'ゾロアーク' }],
+            }),
+            { status: 200 },
+          );
+        }
+        if (url.includes('/v2/ja/cards')) {
           return new Response(
             JSON.stringify([
               {
