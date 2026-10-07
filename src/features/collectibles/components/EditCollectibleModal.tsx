@@ -16,6 +16,7 @@ import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation
 import {
   getPokemonCard,
   getUsdToEurRate,
+  isJapaneseId,
   resolvePokemonPrice,
   type PokemonCardFinish,
   type PokemonPriceBreakdown,
@@ -99,19 +100,22 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     setFetchingPokemonPrice(false);
   }, [collectible]);
 
-  const handleFetchLegoValuation = async () => {
-    if (!identifier.trim()) {
+  const handleFetchLegoValuation = async (
+    overrideItemNo?: string,
+    overrideType?: 'SET' | 'MINIFIG',
+  ) => {
+    const targetItemNo = (overrideItemNo || identifier).trim();
+    if (!targetItemNo) {
       toast('Please enter a LEGO set number or minifigure code', 'error');
       return;
     }
     setFetchingLegoPrice(true);
     try {
-      const metadataType = metadata.type;
+      const metadataType = overrideType ? overrideType.toLowerCase() : metadata.type;
       const hintedType =
-        metadataType === 'minifig' || metadataType === 'MINIFIG'
-          ? 'MINIFIG'
-          : undefined;
-      const cleaned = cleanLegoInput(identifier.trim(), hintedType);
+        overrideType ||
+        (metadataType === 'minifig' || metadataType === 'MINIFIG' ? 'MINIFIG' : undefined);
+      const cleaned = cleanLegoInput(targetItemNo, hintedType);
 
       if (
         cleaned.raw !== cleaned.itemNo &&
@@ -124,28 +128,41 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         itemNo: cleaned.itemNo,
         itemType: cleaned.itemType,
         bricksetSetNumber:
-          typeof metadata.bricksetSetNumber === 'string'
-            ? metadata.bricksetSetNumber
-            : undefined,
+          cleaned.itemType === 'MINIFIG'
+            ? undefined
+            : typeof metadata.bricksetSetNumber === 'string'
+              ? metadata.bricksetSetNumber
+              : undefined,
         condition,
         currency: 'EUR',
       });
       if (res && res.resolvedEur > 0) {
         setLegoValuation(res);
         setCurrentPrice(String(res.resolvedEur));
-        if (!imageUrl) {
-          setImageUrl(getLegoImageUrl(res.itemNo));
-        }
-        if (!name || name === 'LEGO Set' || name.startsWith('LEGO Set #')) {
+        const freshImg = getLegoImageUrl(res.itemNo);
+        setImageUrl(freshImg);
+        if (
+          !name ||
+          name === 'LEGO Set' ||
+          name.startsWith('LEGO Set #') ||
+          name.startsWith('Minifigure #') ||
+          res.itemType === 'MINIFIG'
+        ) {
           if (res.name) setName(`${res.name} (#${res.itemNo})`);
         }
-        setMetadata((prev) => ({
-          ...prev,
-          type: res.itemType.toLowerCase(),
-          valuationSource: res.source,
-          ...(res.brickset ? { brickset: res.brickset } : {}),
-          ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
-        }));
+        setMetadata((prev) => {
+          const next = {
+            ...prev,
+            type: res.itemType.toLowerCase(),
+            valuationSource: res.source,
+            ...(res.brickset ? { brickset: res.brickset } : {}),
+            ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
+          };
+          if (res.itemType === 'MINIFIG') {
+            delete next.bricksetSetNumber;
+          }
+          return next;
+        });
         if (res.source === 'brickset') {
           const breakdown =
             res.priceNew && res.priceUsed
@@ -178,6 +195,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         toast('Card not found in TCGdex catalog', 'error');
         return;
       }
+      const isJa = card.language === 'ja' || isJapaneseId(card.id);
+      const cardLang: 'ja' | 'en' = isJa ? 'ja' : 'en';
+      if (!imageUrl && card.imageUrl) {
+        setImageUrl(card.imageUrl);
+      }
       const fxRate = await getUsdToEurRate();
       const preferredFinish = metadata.finish as PokemonCardFinish | undefined;
       const breakdown = resolvePokemonPrice(card.pricing, {
@@ -192,6 +214,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
         setMetadata((prev) => ({
           ...prev,
           finish: breakdown.selectedFinish,
+          language: cardLang,
           collectrPriceEur: breakdown.collectr?.priceEur,
           tcgplayerUsd: breakdown.collectr?.priceUsd,
           cardmarketPriceEur: breakdown.cardmarket?.priceEur,
@@ -378,7 +401,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                   <button
                     type="button"
                     disabled={fetchingLegoPrice}
-                    onClick={handleFetchLegoValuation}
+                    onClick={() => void handleFetchLegoValuation()}
                     className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
                   >
                     {fetchingLegoPrice ? 'Checking…' : 'Fetch live valuation'}
@@ -516,10 +539,16 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                   onClick={() => {
                     if (legoValuation.containedMinifig) {
                       const code = legoValuation.containedMinifig.code;
+                      const minifigImg = getLegoImageUrl(code);
                       setIdentifier(code);
-                      setImageUrl(getLegoImageUrl(code));
-                      setMetadata((m) => ({ ...m, type: 'minifig' }));
-                      void handleFetchLegoValuation();
+                      setImageUrl(minifigImg);
+                      setCondition('Minifigure Mint / Complete');
+                      setMetadata((m) => {
+                        const next: Record<string, unknown> = { ...m, type: 'minifig' };
+                        delete next.bricksetSetNumber;
+                        return next;
+                      });
+                      void handleFetchLegoValuation(code, 'MINIFIG');
                     }
                   }}
                   className="tap font-semibold text-emerald-400 hover:underline"

@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  clearTcgdexCacheForTesting,
   extractCardmarketPrice,
   extractCollectrPrice,
   extractTcgPlayerPrice,
   getCardImageUrl,
   getPokemonCard,
+  isJapaneseId,
+  isJapanesePokemonItem,
   resolvePokemonPrice,
   searchPokemonCards,
   type PokemonCardDetail,
@@ -12,6 +15,7 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  clearTcgdexCacheForTesting();
 });
 
 describe('tcgdex utilities', () => {
@@ -242,6 +246,82 @@ describe('tcgdex utilities', () => {
       expect(fetchMock).toHaveBeenCalled();
     });
 
+    it('searches cards by set alias e.g. 151 across EN and JA', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('/v2/en/sets')) {
+          return new Response(JSON.stringify([{ id: 'sv03.5', name: '151' }]), { status: 200 });
+        }
+        if (url.includes('/v2/ja/sets')) {
+          return new Response(JSON.stringify([{ id: 'sv2a', name: 'ポケモンカード151' }]), { status: 200 });
+        }
+        if (url.includes('/v2/en/cards')) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 'sv03.5-006',
+                localId: '006',
+                name: 'Charizard ex',
+                image: 'https://assets.tcgdex.net/en/sv/sv03.5/006',
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        if (url.includes('/v2/ja/cards')) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 'SV2a-201',
+                localId: '201',
+                name: 'リザードンex',
+                image: 'https://assets.tcgdex.net/ja/SV/SV2a/201',
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        return new Response('[]', { status: 200 });
+      });
+
+      const results = await searchPokemonCards('Charizard 151', 'all');
+      expect(results.length).toBeGreaterThanOrEqual(2);
+      expect(results.some((c) => c.id === 'sv03.5-006')).toBe(true);
+      expect(results.some((c) => c.id === 'SV2a-201')).toBe(true);
+    });
+
+    it('prioritizes cards with images before cards without images', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('/v2/en/sets') || url.includes('/v2/ja/sets')) {
+          return new Response(JSON.stringify([]), { status: 200 });
+        }
+        if (url.includes('/v2/en/cards')) {
+          return new Response(
+            JSON.stringify([
+              { id: 'base1-4', localId: '4', name: 'Charizard' },
+              {
+                id: 'sv03-125',
+                localId: '125',
+                name: 'Charizard ex',
+                image: 'https://assets.tcgdex.net/en/sv/sv03/125',
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        if (url.includes('/v2/ja/cards')) {
+          return new Response(JSON.stringify([]), { status: 200 });
+        }
+        return new Response('[]', { status: 200 });
+      });
+
+      const results = await searchPokemonCards('charizard', 'en');
+      expect(results.length).toBe(2);
+      expect(results[0]?.id).toBe('sv03-125');
+      expect(results[1]?.id).toBe('base1-4');
+    });
+
     it('uses the language returned by the fallback for an unpadded Japanese ID', async () => {
       vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
         const url = String(input);
@@ -264,6 +344,56 @@ describe('tcgdex utilities', () => {
       expect(card?.id).toBe('SV9-127');
       expect(card?.language).toBe('ja');
       expect(card?.imageUrl).toContain('/ja/SV/SV9/127');
+    });
+
+    describe('isJapaneseId and isJapanesePokemonItem', () => {
+      it('correctly identifies Japanese card identifiers with mixed-case and specific prefixes', () => {
+        expect(isJapaneseId('SV2a-201')).toBe(true);
+        expect(isJapaneseId('sv2a-001')).toBe(true);
+        expect(isJapaneseId('S12a-001')).toBe(true);
+        expect(isJapaneseId('s12a-001')).toBe(true);
+        expect(isJapaneseId('PMCG1-001')).toBe(true);
+        expect(isJapaneseId('CP6-001')).toBe(true);
+        expect(isJapaneseId('SV7a-050')).toBe(true);
+
+        expect(isJapaneseId('sv03.5-199')).toBe(false);
+        expect(isJapaneseId('swsh12-100')).toBe(false);
+        expect(isJapaneseId('base1-4')).toBe(false);
+      });
+
+      it('correctly distinguishes Japanese vs English portfolio items', () => {
+        expect(
+          isJapanesePokemonItem({
+            identifier: 'SV2a-201',
+            metadata: { language: 'ja' },
+            name: 'Charizard ex [JA]',
+          }),
+        ).toBe(true);
+
+        expect(
+          isJapanesePokemonItem({
+            identifier: 'SV2a-201',
+            metadata: {},
+            name: 'Charizard ex',
+          }),
+        ).toBe(true);
+
+        expect(
+          isJapanesePokemonItem({
+            identifier: 'sv03.5-199',
+            metadata: { language: 'en' },
+            name: 'Charizard ex (#199 - 151)',
+          }),
+        ).toBe(false);
+
+        expect(
+          isJapanesePokemonItem({
+            identifier: 'sv03.5-199',
+            metadata: {},
+            name: 'Charizard ex',
+          }),
+        ).toBe(false);
+      });
     });
   });
 });

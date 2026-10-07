@@ -12,6 +12,7 @@ import {
   resolvePokemonPrice,
   getUsdToEurRate,
   getCachedUsdToEurRate,
+  isJapaneseId,
   type PokemonCardDetail,
   type PokemonPriceBreakdown,
   type PokemonCardFinish,
@@ -129,9 +130,12 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
 
   const handleSelectPokemonCard = async (card: PokemonCardDetail) => {
     setSelectedPokemon(card);
+    const isJa = card.language === 'ja' || isJapaneseId(card.id);
+    const cardLang: 'ja' | 'en' = isJa ? 'ja' : 'en';
+    const tag = isJa ? ' [JA]' : '';
     const cardName = card.set?.name
-      ? `${card.name} (#${card.localId} - ${card.set.name})`
-      : `${card.name} (#${card.localId})`;
+      ? `${card.name}${tag} (#${card.localId} - ${card.set.name})`
+      : `${card.name}${tag} (#${card.localId})`;
     setName(cardName);
     setIdentifier(card.id);
     setImageUrl(card.imageUrl ?? '');
@@ -159,7 +163,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       rarity: card.rarity,
       localId: card.localId,
       finish: breakdown.selectedFinish,
-      language: card.language || 'en',
+      language: cardLang,
       collectrPriceEur: breakdown.collectr?.priceEur,
       tcgplayerUsd: breakdown.collectr?.priceUsd,
       cardmarketPriceEur: breakdown.cardmarket?.priceEur,
@@ -227,26 +231,62 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         if (!purchasePrice) {
           setPurchasePrice(String(res.rrp ?? res.retailPrice ?? res.resolvedEur));
         }
+        const freshImageUrl = getLegoImageUrl(res.itemNo);
+        setImageUrl(freshImageUrl);
         if (
           !name ||
           name.startsWith('Minifigure #') ||
           name.startsWith('LEGO Set #') ||
-          name === 'LEGO Set'
+          name === 'LEGO Set' ||
+          res.itemType === 'MINIFIG'
         ) {
           if (res.name) {
             setName(`${res.name} (#${res.itemNo})`);
           }
         }
-        if (!imageUrl) {
-          setImageUrl(getLegoImageUrl(res.itemNo));
-        }
-        setMetadata((prev) => ({
-          ...prev,
-          type: res.itemType.toLowerCase(),
-          valuationSource: res.source,
-          ...(res.brickset ? { brickset: res.brickset } : {}),
-          ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
-        }));
+        setSelectedLego((prev) => {
+          const isMinifig = res.itemType === 'MINIFIG';
+          const theme =
+            res.brickset?.theme || prev?.theme || (isMinifig ? 'Minifigures' : 'LEGO Set');
+          const year = res.brickset?.year ?? prev?.year;
+          const pieces = res.brickset?.pieces ?? prev?.pieces;
+          if (prev) {
+            return {
+              ...prev,
+              setNumber: res.itemNo,
+              name: res.name ? `${res.name} (#${res.itemNo})` : prev.name,
+              imageUrl: freshImageUrl,
+              type: isMinifig ? 'minifig' : 'set',
+              rrpEur: res.rrp ?? prev.rrpEur,
+              theme,
+              year,
+              pieces,
+            };
+          }
+          return {
+            setNumber: res.itemNo,
+            name: res.name ? `${res.name} (#${res.itemNo})` : res.itemNo,
+            theme,
+            imageUrl: freshImageUrl,
+            type: isMinifig ? 'minifig' : 'set',
+            rrpEur: res.rrp,
+            year,
+            pieces,
+          };
+        });
+        setMetadata((prev) => {
+          const next = {
+            ...prev,
+            type: res.itemType.toLowerCase(),
+            valuationSource: res.source,
+            ...(res.brickset ? { brickset: res.brickset } : {}),
+            ...(res.bricksetSetNumber ? { bricksetSetNumber: res.bricksetSetNumber } : {}),
+          };
+          if (res.itemType === 'MINIFIG') {
+            delete next.bricksetSetNumber;
+          }
+          return next;
+        });
 
         if (res.source === 'brickset') {
           const breakdown =
@@ -403,23 +443,38 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
             {selectedPokemon ? (
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-3 rounded-[var(--radius-field)] neu-raised p-2.5">
-                  {selectedPokemon.imageUrl && (
-                    <img
-                      src={selectedPokemon.imageUrl}
-                      alt={selectedPokemon.name}
-                      className="h-16 w-12 rounded object-contain shadow-xs"
-                    />
-                  )}
+                  <div className="relative flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--surface-sunken)] p-0.5 shadow-xs">
+                    {selectedPokemon.imageUrl ? (
+                      <img
+                        src={selectedPokemon.imageUrl}
+                        alt={selectedPokemon.name}
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center text-center text-[8px] font-mono text-[var(--text-muted)]">
+                        <span>#{selectedPokemon.localId}</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-sm font-bold text-[var(--text-strong)]">
                         {selectedPokemon.name}
                       </p>
-                      {metadata.language === 'ja' && (
-                        <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1 py-0.2 text-[9px] font-bold text-rose-300">
-                          JA
-                        </span>
-                      )}
+                      <span
+                        className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
+                          metadata.language === 'ja' || selectedPokemon.language === 'ja'
+                            ? 'bg-rose-950/80 text-rose-300 border border-rose-500/30'
+                            : 'bg-sky-950/80 text-sky-300 border border-sky-500/30'
+                        }`}
+                      >
+                        {metadata.language === 'ja' || selectedPokemon.language === 'ja'
+                          ? 'JA · Japanese Edition'
+                          : 'EN · English Edition'}
+                      </span>
                     </div>
                     <p className="text-xs text-[var(--text-muted)]">
                       {selectedPokemon.set?.name} · #{selectedPokemon.localId}
@@ -651,9 +706,18 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                           onClick={() => {
                             if (legoValuation.containedMinifig) {
                               const code = legoValuation.containedMinifig.code;
+                              const minifigImg = getLegoImageUrl(code);
                               setIdentifier(code);
-                              setImageUrl(getLegoImageUrl(code));
-                              void handleFetchLegoValuation(code, 'MINIFIG');
+                              setImageUrl(minifigImg);
+                              setSelectedLego({
+                                setNumber: code,
+                                name: `Minifigure #${code.toUpperCase()}`,
+                                theme: selectedLego.theme,
+                                imageUrl: minifigImg,
+                                type: 'minifig',
+                              });
+                              setCondition('Minifigure Mint / Complete');
+                              void handleFetchLegoValuation(code, 'MINIFIG', 'Minifigure Mint / Complete');
                             }
                           }}
                           className="tap font-semibold text-emerald-400 hover:underline"

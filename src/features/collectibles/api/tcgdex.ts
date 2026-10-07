@@ -5,6 +5,7 @@ export interface PokemonCardSummary {
   image?: string;
   imageUrl?: string;
   language?: 'en' | 'ja';
+  setId?: string;
 }
 
 export type PokemonCardLanguage = 'en' | 'ja' | 'all';
@@ -336,9 +337,15 @@ type CatalogCard = {
   image?: string;
 };
 
-const catalogCache = new Map<'en' | 'ja', Promise<CatalogCard[]>>();
+type CatalogSet = {
+  id: string;
+  name: string;
+};
 
-const getCardCatalog = (lang: 'en' | 'ja'): Promise<CatalogCard[]> => {
+const catalogCache = new Map<'en' | 'ja', Promise<CatalogCard[]>>();
+const setCatalogCache = new Map<'en' | 'ja', Promise<CatalogSet[]>>();
+
+export const getCardCatalog = (lang: 'en' | 'ja'): Promise<CatalogCard[]> => {
   const cached = catalogCache.get(lang);
   if (cached) return cached;
   const request = fetch(`https://api.tcgdex.net/v2/${lang}/cards`)
@@ -352,18 +359,131 @@ const getCardCatalog = (lang: 'en' | 'ja'): Promise<CatalogCard[]> => {
   return request;
 };
 
+export const getSetCatalog = (lang: 'en' | 'ja'): Promise<CatalogSet[]> => {
+  const cached = setCatalogCache.get(lang);
+  if (cached) return cached;
+  const request = fetch(`https://api.tcgdex.net/v2/${lang}/sets`)
+    .then(async (res) => {
+      if (!res.ok) return [];
+      const data = (await res.json()) as CatalogSet[];
+      return Array.isArray(data) ? data : [];
+    })
+    .catch(() => []);
+  setCatalogCache.set(lang, request);
+  return request;
+};
+
+export const clearTcgdexCacheForTesting = (): void => {
+  searchCache.clear();
+  catalogCache.clear();
+  setCatalogCache.clear();
+};
+
+const SET_ALIASES: Record<string, string[]> = {
+  'sv03.5': ['151', 'scarlet & violet 151', 'pokemon 151'],
+  sv2a: ['151', 'pokemon card 151', 'ポケモンカード151'],
+  'sv08.5': ['prismatic evolutions'],
+  sv8a: ['terastal festival', 'テラスタルフェスex'],
+  sv08: ['surging sparks'],
+  sv8: ['supercharged breaker', '超電ブレイカー'],
+  'sv06.5': ['shrouded fable'],
+  sv6a: ['night wanderer', 'ナイトワンダラー'],
+  sv06: ['twilight masquerade'],
+  sv6: ['mask of change', '変幻の仮面'],
+  'sv04.5': ['paldean fates'],
+  sv4a: ['shiny treasure ex', 'シャイニートレジャーex'],
+  sv02: ['paldea evolved'],
+  sv2d: ['clay burst', 'クレイバースト'],
+  sv2p: ['snow hazard', 'スノーハザード'],
+  swsh12pt5: ['crown zenith'],
+  s12a: ['vstar universe', 'vstarユニバース'],
+  swsh07: ['evolving skies'],
+  s6a: ['eevee heroes', 'イーブイヒーローズ'],
+  sm12a: ['tag all stars', 'タッグオールスターズ'],
+};
+
+const POPULAR_POKEMON_JA: Record<string, string> = {
+  charizard: 'リザードン',
+  pikachu: 'ピカチュウ',
+  mew: 'ミュウ',
+  mewtwo: 'ミュウツー',
+  gengar: 'ゲンガー',
+  blastoise: 'カメックス',
+  venusaur: 'フシギバナ',
+  eevee: 'イーブイ',
+  umbreon: 'ブラッキー',
+  rayquaza: 'レックウザ',
+  lugia: 'ルギア',
+  giratina: 'ギラティナ',
+  arceus: 'アルセウス',
+  garchomp: 'ガブリアス',
+  lucario: 'ルカリオ',
+  gardevoir: 'サーナイト',
+  dragonite: 'カイリュー',
+  tyranitar: 'バンギラス',
+  snorlax: 'カビゴン',
+  squirtle: 'ゼニガメ',
+  bulbasaur: 'フシギダネ',
+  charmander: 'ヒトカゲ',
+  gyarados: 'ギャラドス',
+  alakazam: 'フーディン',
+  zapdos: 'サンダー',
+  articuno: 'フリーザー',
+  moltres: 'ファイヤー',
+  dialga: 'ディアルガ',
+  palkia: 'パルキア',
+  mimikyu: 'ミミッキュ',
+  greninja: 'ゲッコウガ',
+  zoroark: 'ゾロアーク',
+  sylveon: 'ニンフィア',
+  espeon: 'エーフィ',
+  leafeon: 'リーフィア',
+  glaceon: 'グレイシア',
+  vaporeon: 'シャワーズ',
+  jolteon: 'サンダース',
+  flareon: 'ブースター',
+  magikarp: 'コイキング',
+  raichu: 'ライチュウ',
+  slowpoke: 'ヤドン',
+  psyduck: 'コダック',
+  scizor: 'ハッサム',
+  lapras: 'ラプラス',
+  ditto: 'メタモン',
+  machamp: 'カイリキー',
+  suicune: 'スイクン',
+  entei: 'エンテイ',
+  raikou: 'ライコウ',
+  celebi: 'セレビィ',
+  hooh: 'ホウオウ',
+  darkrai: 'ダークライ',
+  deoxys: 'デオキシス',
+  jirachi: 'ジラーチ',
+  latios: 'ラティオス',
+  latias: 'ラティアス',
+  kyogre: 'カイオーガ',
+  groudon: 'グラードン',
+  torterra: 'ドダイトス',
+  infernape: 'ゴウカザル',
+  empoleon: 'エンペルト',
+};
+
 const getJapanesePokemonName = async (query: string): Promise<string | null> => {
-  const pokemonName = query
+  const normalized = query
     .toLowerCase()
     .replace(/['’]s\b/g, '')
     .replace(/\b(ex|gx|vstar|v|break)\b/gi, '')
     .trim()
-    .split(/\s+/)
-    .pop();
-  if (!pokemonName || /[^a-z-]/i.test(pokemonName)) return null;
+    .split(/\s+/)[0];
+  if (!normalized) return null;
+  if (POPULAR_POKEMON_JA[normalized]) return POPULAR_POKEMON_JA[normalized];
+
+  const lastWord = query.toLowerCase().trim().split(/\s+/).pop();
+  if (lastWord && POPULAR_POKEMON_JA[lastWord]) return POPULAR_POKEMON_JA[lastWord];
+
+  if (/[^a-z-]/i.test(normalized)) return null;
   try {
     const res = await fetch(
-      `https://pokeapi.co/api/v2/pokemon-species/${encodeURIComponent(pokemonName)}`,
+      `https://pokeapi.co/api/v2/pokemon-species/${encodeURIComponent(normalized)}`,
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -378,37 +498,53 @@ const getJapanesePokemonName = async (query: string): Promise<string | null> => 
   }
 };
 
-const isJapaneseId = (id: string): boolean =>
-  /^[A-Z][A-Z0-9.]*-/u.test(id);
+export const isJapaneseId = (id: string): boolean => {
+  if (!id) return false;
+  // Japanese set codes in TCGdex start with capital letter: SV2a, S12a, PMCG1, CP6, etc.
+  if (/^[A-Z][a-zA-Z0-9.]*-/u.test(id)) return true;
+  // Also handle case-insensitively for user inputs like sv2a-201, s12a-001, sm12a-001, etc.
+  if (/^(sv\d+[a-z]|s\d+[a-z]|sm\d+[a-z]|cp\d|pmcg|pcg|adv)-/i.test(id)) return true;
+  return false;
+};
 
-const toSummary = (card: CatalogCard, language: 'en' | 'ja'): PokemonCardSummary => ({
-  id: card.id,
-  localId: card.localId,
-  name: card.name,
-  image: card.image,
-  imageUrl: getCardImageUrl(card.image, 'low'),
-  language,
-});
+export const isJapanesePokemonItem = (item: {
+  identifier?: string | null;
+  metadata?: Record<string, unknown> | null;
+  name?: string;
+}): boolean => {
+  if (item.metadata?.language === 'ja') return true;
+  if (item.metadata?.language === 'en') return false;
+  if (item.identifier && isJapaneseId(item.identifier)) return true;
+  if (
+    item.name &&
+    (/\[ja\]/i.test(item.name) ||
+      /[\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF]/.test(item.name))
+  ) {
+    return true;
+  }
+  return false;
+};
 
-const hydrateSummary = async (
+const toSummary = (
   card: CatalogCard,
   language: 'en' | 'ja',
-): Promise<PokemonCardSummary> => {
-  if (card.image) return toSummary(card, language);
-
-  try {
-    const response = await fetch(
-      `https://api.tcgdex.net/v2/${language}/cards/${encodeURIComponent(card.id)}`,
-    );
-    if (response.ok) {
-      const detail = (await response.json()) as CatalogCard;
-      return toSummary({ ...card, ...detail }, language);
-    }
-  } catch {
-    // Keep the card visible even when its image request fails.
+): PokemonCardSummary => {
+  const setId = card.id.includes('-')
+    ? card.id.slice(0, card.id.lastIndexOf('-'))
+    : undefined;
+  let imageUrl = getCardImageUrl(card.image, 'low');
+  if (!imageUrl && language === 'en' && setId) {
+    imageUrl = `https://images.pokemontcg.io/${setId.replace('.', '')}/${card.localId}.png`;
   }
-
-  return toSummary(card, language);
+  return {
+    id: card.id,
+    localId: card.localId,
+    name: card.name,
+    image: card.image,
+    imageUrl,
+    language,
+    setId,
+  };
 };
 
 export const searchPokemonCards = async (
@@ -438,6 +574,7 @@ export const searchPokemonCards = async (
             image: card.image,
             imageUrl: card.imageUrl,
             language: card.language,
+            setId: card.set?.id || card.id.split('-')[0],
           },
         ];
         searchCache.set(cacheKey, directResult);
@@ -451,26 +588,89 @@ export const searchPokemonCards = async (
   const isJapaneseText = /[\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF]/.test(trimmed);
   const japaneseQuery = isJapaneseText ? trimmed : await getJapanesePokemonName(trimmed);
 
+  const queryLower = trimmed.toLowerCase();
+  const rawTokens = queryLower.split(/\s+/).filter(Boolean);
+
+  const scoreCard = (card: CatalogCard): number => {
+    let score = 0;
+    // 1. CARDS WITH IMAGES COME FIRST
+    if (card.image) score += 2000;
+
+    // 2. Exact or prefix name match
+    const nameLower = card.name.toLowerCase();
+    if (nameLower === queryLower || (japaneseQuery && card.name === japaneseQuery)) {
+      score += 500;
+    } else if (nameLower.startsWith(queryLower) || (japaneseQuery && card.name.startsWith(japaneseQuery))) {
+      score += 300;
+    }
+
+    // 3. Generation recency: Scarlet & Violet (SV) > Sword & Shield (S) > Sun & Moon (SM)
+    const idUpper = card.id.toUpperCase();
+    if (idUpper.startsWith('SV')) score += 300;
+    else if (idUpper.startsWith('S') || idUpper.startsWith('SWSH')) score += 200;
+    else if (idUpper.startsWith('SM')) score += 100;
+    else if (idUpper.startsWith('XY')) score += 50;
+
+    // 4. Secret Rare / High-number cards
+    const num = parseInt(card.localId, 10);
+    if (!Number.isNaN(num) && num > 150) score += 50;
+
+    return score;
+  };
+
   const findCards = async (
     language: 'en' | 'ja',
-    searchTerms: Array<string | null>,
   ): Promise<PokemonCardSummary[]> => {
-    const catalog = await getCardCatalog(language);
-    const terms = searchTerms
-      .filter((term): term is string => Boolean(term))
-      .map((term) => term.toLocaleLowerCase());
-    const matches = catalog
-      .filter((card) => {
-        const searchable = `${card.name} ${card.id} ${card.localId}`.toLocaleLowerCase();
-        return terms.some((term) => searchable.includes(term));
-      })
-      .map((card) => hydrateSummary(card, language));
-    return Promise.all(matches);
+    const [catalog, sets] = await Promise.all([
+      getCardCatalog(language),
+      getSetCatalog(language),
+    ]);
+    const setMap = new Map<string, string>();
+    for (const s of sets) {
+      setMap.set(s.id, s.name);
+      setMap.set(s.id.toLowerCase(), s.name);
+    }
+
+    const filtered = catalog.filter((card) => {
+      const setId = card.id.includes('-')
+        ? card.id.slice(0, card.id.lastIndexOf('-'))
+        : '';
+      const setIdLower = setId.toLowerCase();
+      const setName = setMap.get(setIdLower) || setMap.get(setId) || '';
+      const aliases = (SET_ALIASES[setIdLower] || SET_ALIASES[setId] || []).join(' ');
+      const searchable = `${card.name} ${card.id} ${card.localId} ${setId} ${setName} ${aliases}`.toLowerCase();
+
+      if (language === 'ja') {
+        if (japaneseQuery && searchable.includes(japaneseQuery.toLowerCase())) return true;
+        if (searchable.includes(queryLower)) return true;
+
+        return rawTokens.every((token) => {
+          const jaWord = POPULAR_POKEMON_JA[token];
+          if (jaWord && searchable.includes(jaWord)) return true;
+          if (japaneseQuery && searchable.includes(japaneseQuery.toLowerCase())) return true;
+          return searchable.includes(token);
+        });
+      }
+
+      if (searchable.includes(queryLower)) return true;
+      return rawTokens.every((token) => searchable.includes(token));
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      const scoreDiff = scoreCard(b) - scoreCard(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      const aNum = parseInt(a.localId, 10);
+      const bNum = parseInt(b.localId, 10);
+      if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+      return a.localId.localeCompare(b.localId);
+    });
+
+    return sorted.slice(0, 120).map((c) => toSummary(c, language));
   };
 
   const [enResults, jaResults] = await Promise.all([
-    lang === 'ja' ? Promise.resolve([]) : findCards('en', [trimmed]),
-    lang === 'en' ? Promise.resolve([]) : findCards('ja', [trimmed, japaneseQuery]),
+    lang === 'ja' ? Promise.resolve([]) : findCards('en'),
+    lang === 'en' ? Promise.resolve([]) : findCards('ja'),
   ]);
 
   // Combine and deduplicate
@@ -490,7 +690,7 @@ export const searchPokemonCards = async (
     }
   }
 
-  const results = lang === 'all' ? [...enResults, ...jaResults] : combined;
+  const results = lang === 'all' ? combined : lang === 'ja' ? jaResults : enResults;
   searchCache.set(cacheKey, results);
   return results;
 };

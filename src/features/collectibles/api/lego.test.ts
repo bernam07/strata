@@ -42,6 +42,15 @@ describe('LEGO api and utilities', () => {
         'https://images.brickset.com/sets/images/71050-1.jpg',
       );
     });
+
+    it('generates BrickLink transparent PNG image URL for minifigures', () => {
+      expect(getLegoImageUrl('sh0679')).toBe(
+        'https://img.bricklink.com/ItemImage/MN/0/sh0679.png',
+      );
+      expect(getLegoImageUrl('sw0107')).toBe(
+        'https://img.bricklink.com/ItemImage/MN/0/sw0107.png',
+      );
+    });
   });
 
   describe('searchLegoSets', () => {

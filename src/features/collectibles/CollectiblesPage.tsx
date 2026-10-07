@@ -22,6 +22,7 @@ import {
   useIncludeCollectiblesInNetWorth,
   useSetIncludeCollectiblesInNetWorth,
 } from '@/features/dashboard/api/usePreferences';
+import { isJapanesePokemonItem } from './api/tcgdex';
 import { CategoryIcon } from './components/CategoryIcon';
 import { AddCollectibleModal } from './components/AddCollectibleModal';
 import { EditCollectibleModal } from './components/EditCollectibleModal';
@@ -351,19 +352,27 @@ export const CollectiblesPage = () => {
               >
                 {/* Proportional, well-sized Image Showcase */}
                 <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-(--surface-sunken) p-2 sm:h-40">
-                  {item.imageUrl ? (
+                  {item.imageUrl && (
                     <img
                       src={item.imageUrl}
                       alt={item.name}
                       loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback') as HTMLElement | null;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                       className="max-h-full max-w-full object-contain drop-shadow-sm transition duration-300 group-hover:scale-105"
                     />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-1.5 text-(--text-muted)">
-                      <CategoryIcon category={item.category} size={28} />
-                      <span className="text-[10px] font-medium">{CATEGORY_LABELS[item.category]}</span>
-                    </div>
                   )}
+                  <div
+                    className={`img-fallback flex flex-col items-center justify-center gap-1.5 text-(--text-muted) ${
+                      item.imageUrl ? 'hidden' : 'flex'
+                    }`}
+                  >
+                    <CategoryIcon category={item.category} size={28} />
+                    <span className="text-[10px] font-medium">{CATEGORY_LABELS[item.category]}</span>
+                  </div>
 
                   {/* Top Category and Condition Badges */}
                   <div className="absolute left-2 top-2 flex flex-wrap gap-1">
@@ -394,9 +403,20 @@ export const CollectiblesPage = () => {
                           #{item.identifier}
                         </p>
                       )}
-                      {item.category === 'pokemon' && item.metadata?.language === 'ja' && (
-                        <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1 py-0.2 text-[9px] font-bold text-rose-300">
-                          JA
+                      {item.category === 'pokemon' && (
+                        isJapanesePokemonItem(item) ? (
+                          <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1 py-0.2 text-[9px] font-bold text-rose-300">
+                            JA · Japanese
+                          </span>
+                        ) : (
+                          <span className="rounded bg-sky-950/80 border border-sky-500/30 px-1 py-0.2 text-[9px] font-bold text-sky-300">
+                            EN · English
+                          </span>
+                        )
+                      )}
+                      {item.category === 'lego' && item.metadata?.type === 'minifig' && (
+                        <span className="rounded bg-emerald-950/80 border border-emerald-500/30 px-1 py-0.2 text-[9px] font-bold text-emerald-300">
+                          Minifig
                         </span>
                       )}
                       {Boolean(item.metadata?.finish) && (
@@ -489,6 +509,22 @@ export const CollectiblesPage = () => {
                               <p className="text-[10px] text-(--text-muted) font-mono">
                                 #{item.identifier}
                               </p>
+                            )}
+                            {item.category === 'pokemon' && (
+                              isJapanesePokemonItem(item) ? (
+                                <span className="rounded bg-rose-950/80 border border-rose-500/30 px-1.5 py-0.2 text-[9px] font-bold text-rose-300">
+                                  JA · Japanese
+                                </span>
+                              ) : (
+                                <span className="rounded bg-sky-950/80 border border-sky-500/30 px-1.5 py-0.2 text-[9px] font-bold text-sky-300">
+                                  EN · English
+                                </span>
+                              )
+                            )}
+                            {item.category === 'lego' && item.metadata?.type === 'minifig' && (
+                              <span className="rounded bg-emerald-950/80 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-bold text-emerald-300">
+                                Minifig
+                              </span>
                             )}
                             {Boolean(item.metadata?.finish) && (
                               <span className="rounded bg-(--surface-sunken) px-1 py-0.2 text-[9px] font-semibold uppercase tracking-wider text-(--accent)">

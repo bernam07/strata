@@ -37,7 +37,7 @@ export const getLegoImageUrl = (setNumber: string): string => {
     if (associatedSet) {
       return `https://images.brickset.com/sets/images/${associatedSet}-1.jpg`;
     }
-    return `https://images.brickset.com/minifigs/images/${cleaned.itemNo}.jpg`;
+    return `https://img.bricklink.com/ItemImage/MN/0/${cleaned.itemNo}.png`;
   }
   const base = normalizeSetNumber(cleaned.itemNo);
   return `https://images.brickset.com/sets/images/${base}-1.jpg`;

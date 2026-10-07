@@ -9,6 +9,7 @@ import {
 } from './tcgdex';
 import { resolveLegoPrice } from './legoValuation';
 import { getLegoImageUrl } from './lego';
+import { isMinifigCode } from './brickset';
 
 export type CollectibleCategory =
   | 'pokemon'
@@ -86,13 +87,28 @@ export const useCollectibles = () =>
         const gainPct = costEur > 0 ? gainEur / costEur : null;
 
         const metadata = (row.metadata as Record<string, unknown>) ?? {};
-        const imageUrl =
-          row.image_url ||
-          (row.category === 'lego' && typeof metadata.bricksetSetNumber === 'string'
-            ? getLegoImageUrl(metadata.bricksetSetNumber)
-            : row.category === 'lego' && row.identifier
-              ? getLegoImageUrl(row.identifier)
-              : null);
+        const isMinifig =
+          metadata.type === 'minifig' ||
+          metadata.type === 'MINIFIG' ||
+          (Boolean(row.identifier) && isMinifigCode(row.identifier || ''));
+
+        let imageUrl = row.image_url;
+        if (
+          row.category === 'lego' &&
+          row.identifier &&
+          (!imageUrl ||
+            imageUrl.includes('images.brickset.com/minifigs/images/') ||
+            (isMinifig && imageUrl.includes('images.brickset.com/sets/images/')))
+        ) {
+          imageUrl = getLegoImageUrl(row.identifier);
+        } else if (
+          !imageUrl &&
+          row.category === 'lego' &&
+          !isMinifig &&
+          typeof metadata.bricksetSetNumber === 'string'
+        ) {
+          imageUrl = getLegoImageUrl(metadata.bricksetSetNumber);
+        }
 
         return {
           id: row.id,
