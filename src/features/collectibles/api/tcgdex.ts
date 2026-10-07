@@ -1,3 +1,9 @@
+import {
+  clearCollectiblesDb,
+  getCachedFromDb,
+  setCachedInDb,
+} from './collectiblesDb';
+
 export interface PokemonCardSummary {
   id: string;
   localId: string;
@@ -345,38 +351,71 @@ type CatalogSet = {
 const catalogCache = new Map<'en' | 'ja', Promise<CatalogCard[]>>();
 const setCatalogCache = new Map<'en' | 'ja', Promise<CatalogSet[]>>();
 
-export const getCardCatalog = (lang: 'en' | 'ja'): Promise<CatalogCard[]> => {
+export const getCardCatalog = async (lang: 'en' | 'ja'): Promise<CatalogCard[]> => {
   const cached = catalogCache.get(lang);
   if (cached) return cached;
-  const request = fetch(`https://api.tcgdex.net/v2/${lang}/cards`)
-    .then(async (res) => {
-      if (!res.ok) return [];
-      const data = (await res.json()) as CatalogCard[];
-      return Array.isArray(data) ? data : [];
-    })
-    .catch(() => []);
-  catalogCache.set(lang, request);
-  return request;
+
+  const promise = (async () => {
+    const dbCached = await getCachedFromDb<CatalogCard>('pokemon_cards', lang);
+    if (dbCached && dbCached.length > 0) {
+      return dbCached;
+    }
+
+    try {
+      const res = await fetch(`https://api.tcgdex.net/v2/${lang}/cards`);
+      if (res.ok) {
+        const data = (await res.json()) as CatalogCard[];
+        if (Array.isArray(data) && data.length > 0) {
+          void setCachedInDb('pokemon_cards', lang, data);
+          return data;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return [];
+  })();
+
+  catalogCache.set(lang, promise);
+  return promise;
 };
 
-export const getSetCatalog = (lang: 'en' | 'ja'): Promise<CatalogSet[]> => {
+export const getSetCatalog = async (lang: 'en' | 'ja'): Promise<CatalogSet[]> => {
   const cached = setCatalogCache.get(lang);
   if (cached) return cached;
-  const request = fetch(`https://api.tcgdex.net/v2/${lang}/sets`)
-    .then(async (res) => {
-      if (!res.ok) return [];
-      const data = (await res.json()) as CatalogSet[];
-      return Array.isArray(data) ? data : [];
-    })
-    .catch(() => []);
-  setCatalogCache.set(lang, request);
-  return request;
+
+  const promise = (async () => {
+    const dbCached = await getCachedFromDb<CatalogSet>('pokemon_sets', lang);
+    if (dbCached && dbCached.length > 0) {
+      return dbCached;
+    }
+
+    try {
+      const res = await fetch(`https://api.tcgdex.net/v2/${lang}/sets`);
+      if (res.ok) {
+        const data = (await res.json()) as CatalogSet[];
+        if (Array.isArray(data) && data.length > 0) {
+          void setCachedInDb('pokemon_sets', lang, data);
+          return data;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return [];
+  })();
+
+  setCatalogCache.set(lang, promise);
+  return promise;
 };
 
 export const clearTcgdexCacheForTesting = (): void => {
   searchCache.clear();
   catalogCache.clear();
   setCatalogCache.clear();
+  void clearCollectiblesDb();
 };
 
 const SET_ALIASES: Record<string, string[]> = {

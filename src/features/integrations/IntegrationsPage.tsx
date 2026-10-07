@@ -22,6 +22,7 @@ import type { SyncRun } from './api/useT212';
 import { WidgetCard } from './WidgetCard';
 import { RebrickableCard } from './RebrickableCard';
 import { BricksetCard } from './BricksetCard';
+import { TheWatchApiCard } from './TheWatchApiCard';
 import { SecretField } from './SecretField';
 import { CardTitle } from '@/ui/Heading';
 
@@ -505,6 +506,7 @@ export const IntegrationsPage = () => {
 
         <RebrickableCard />
         <BricksetCard />
+        <TheWatchApiCard />
       </section>
 
       <section className="flex flex-col gap-4">

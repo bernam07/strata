@@ -11,9 +11,9 @@ export const PageHeader = ({
   subtitle?: string;
   actions?: ReactNode;
 }) => (
-  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-x-4">
     <div className="min-w-0 flex-1">
-      <h1 className="truncate text-2xl font-bold tracking-tight text-[var(--text-strong)]">
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--text-strong)] sm:truncate">
         {title}
       </h1>
       {subtitle && (
@@ -23,7 +23,7 @@ export const PageHeader = ({
       )}
     </div>
     {actions && (
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
         {actions}
       </div>
     )}

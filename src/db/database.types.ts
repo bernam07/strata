@@ -760,6 +760,18 @@ export interface Database {
         Args: Record<never, never>;
         Returns: string | null;
       };
+      set_thewatchapi_api_key: {
+        Args: { p_key: string };
+        Returns: undefined;
+      };
+      remove_thewatchapi_api_key: {
+        Args: Record<never, never>;
+        Returns: undefined;
+      };
+      get_thewatchapi_api_key: {
+        Args: Record<never, never>;
+        Returns: string | null;
+      };
       provider_secret: {
         Args: { p_user: string; p_provider: string };
         Returns: { secret: string; use_demo: boolean }[];

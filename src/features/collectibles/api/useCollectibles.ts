@@ -10,15 +10,9 @@ import {
 import { resolveLegoPrice } from './legoValuation';
 import { getLegoImageUrl } from './lego';
 import { isMinifigCode } from './brickset';
+import { resolveWatchPrice } from './theWatchApi';
 
-export type CollectibleCategory =
-  | 'pokemon'
-  | 'lego'
-  | 'watches'
-  | 'coins_bullion'
-  | 'wine'
-  | 'art'
-  | 'other';
+export type CollectibleCategory = 'pokemon' | 'lego' | 'watches';
 
 export interface Collectible {
   id: string;
@@ -50,20 +44,12 @@ export const CATEGORY_LABELS: Record<CollectibleCategory, string> = {
   pokemon: 'Pokémon TCG',
   lego: 'LEGO & Minifigures',
   watches: 'Watches & Luxury',
-  coins_bullion: 'Coins & Bullion',
-  wine: 'Wine & Spirits',
-  art: 'Art & Antiques',
-  other: 'Other Assets',
 };
 
 export const CATEGORY_ICONS: Record<CollectibleCategory, string> = {
   pokemon: 'TCG',
   lego: 'LEGO',
   watches: 'Watch',
-  coins_bullion: 'Coin',
-  wine: 'Wine',
-  art: 'Art',
-  other: 'Asset',
 };
 
 export const useCollectibles = () =>
@@ -77,44 +63,51 @@ export const useCollectibles = () =>
 
       if (error) throw error;
 
-      return (data ?? []).map((row) => {
-        const quantity = Number(row.quantity) || 1;
-        const purchasePrice = Number(row.purchase_price) || 0;
-        const currentPrice = Number(row.current_price) || purchasePrice;
-        const costEur = quantity * purchasePrice;
-        const valueEur = quantity * currentPrice;
-        const gainEur = valueEur - costEur;
-        const gainPct = costEur > 0 ? gainEur / costEur : null;
+      return (data ?? [])
+        .filter(
+          (row) =>
+            row.category === 'pokemon' ||
+            row.category === 'lego' ||
+            row.category === 'watches',
+        )
+        .map((row) => {
+          const quantity = Number(row.quantity) || 1;
+          const purchasePrice = Number(row.purchase_price) || 0;
+          const currentPrice = Number(row.current_price) || purchasePrice;
+          const costEur = quantity * purchasePrice;
+          const valueEur = quantity * currentPrice;
+          const gainEur = valueEur - costEur;
+          const gainPct = costEur > 0 ? gainEur / costEur : null;
 
-        const metadata = (row.metadata as Record<string, unknown>) ?? {};
-        const isMinifig =
-          metadata.type === 'minifig' ||
-          metadata.type === 'MINIFIG' ||
-          (Boolean(row.identifier) && isMinifigCode(row.identifier || ''));
+          const metadata = (row.metadata as Record<string, unknown>) ?? {};
+          const isMinifig =
+            metadata.type === 'minifig' ||
+            metadata.type === 'MINIFIG' ||
+            (Boolean(row.identifier) && isMinifigCode(row.identifier || ''));
 
-        let imageUrl = row.image_url;
-        if (
-          row.category === 'lego' &&
-          row.identifier &&
-          (!imageUrl ||
-            imageUrl.includes('images.brickset.com/minifigs/images/') ||
-            (isMinifig && imageUrl.includes('images.brickset.com/sets/images/')))
-        ) {
-          imageUrl = getLegoImageUrl(row.identifier);
-        } else if (
-          !imageUrl &&
-          row.category === 'lego' &&
-          !isMinifig &&
-          typeof metadata.bricksetSetNumber === 'string'
-        ) {
-          imageUrl = getLegoImageUrl(metadata.bricksetSetNumber);
-        }
+          let imageUrl = row.image_url;
+          if (
+            row.category === 'lego' &&
+            row.identifier &&
+            (!imageUrl ||
+              imageUrl.includes('images.brickset.com/minifigs/images/') ||
+              (isMinifig && imageUrl.includes('images.brickset.com/sets/images/')))
+          ) {
+            imageUrl = getLegoImageUrl(row.identifier);
+          } else if (
+            !imageUrl &&
+            row.category === 'lego' &&
+            !isMinifig &&
+            typeof metadata.bricksetSetNumber === 'string'
+          ) {
+            imageUrl = getLegoImageUrl(metadata.bricksetSetNumber);
+          }
 
-        return {
-          id: row.id,
-          userId: row.user_id,
-          category: (row.category as CollectibleCategory) || 'other',
-          name: row.name,
+          return {
+            id: row.id,
+            userId: row.user_id,
+            category: row.category as CollectibleCategory,
+            name: row.name,
           identifier: row.identifier,
           quantity,
           purchasePrice,
@@ -342,9 +335,196 @@ export const useRefreshLegoPrices = () => {
   });
 };
 
+export interface PriceSnapshot {
+  date: string;
+  price: number;
+  source?: string;
+}
+
+export const appendPriceSnapshot = (
+  history: unknown,
+  newPrice: number,
+  source?: string,
+  initialCost?: { date?: string | null; price: number },
+): PriceSnapshot[] => {
+  const list: PriceSnapshot[] = Array.isArray(history) ? [...(history as PriceSnapshot[])] : [];
+  if (list.length === 0 && initialCost && initialCost.price > 0) {
+    list.push({
+      date: initialCost.date || new Date().toISOString(),
+      price: Math.round(initialCost.price * 100) / 100,
+      source: 'purchase',
+    });
+  }
+
+  const now = new Date().toISOString();
+  const last = list[list.length - 1];
+  if (!last || Math.abs(last.price - newPrice) >= 0.01) {
+    list.push({
+      date: now,
+      price: Math.round(newPrice * 100) / 100,
+      source,
+    });
+  }
+
+  return list.slice(-60);
+};
+
+export interface SyncSingleResult {
+  updated: boolean;
+  newPrice?: number;
+  oldPrice: number;
+}
+
+export const useSyncSingleCollectiblePrice = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (item: Collectible): Promise<SyncSingleResult> => {
+      const oldPrice = item.currentPrice;
+
+      // 1. Pokémon Cards via Collectr (TCGplayer Market EUR)
+      if (item.category === 'pokemon' && item.identifier) {
+        const detail = await getPokemonCard(item.identifier);
+        if (!detail) throw new Error('Card not found in TCG catalog');
+
+        const fxRate = await getUsdToEurRate();
+        const preferredFinish = item.metadata?.finish as PokemonCardFinish | undefined;
+        const newPrice = await extractCollectrPrice(detail.pricing, {
+          preferredFinish,
+          condition: item.condition ?? undefined,
+          rarity: detail.rarity,
+          fxRate,
+        });
+
+        if (newPrice !== null && newPrice > 0) {
+          const rawHistory = item.metadata?.priceHistory;
+          const updatedHistory = appendPriceSnapshot(
+            rawHistory,
+            newPrice,
+            'collectr',
+            { date: item.purchaseDate, price: item.purchasePrice },
+          );
+          const updatedMeta = {
+            ...(item.metadata || {}),
+            priceHistory: updatedHistory,
+            lastSyncedAt: new Date().toISOString(),
+          };
+
+          await supabase
+            .from('collectibles')
+            .update({
+              current_price: newPrice,
+              metadata: updatedMeta as unknown as Json,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+
+          return { updated: newPrice !== oldPrice, newPrice, oldPrice };
+        }
+        throw new Error('No live market price found on Collectr/TCGplayer for this card');
+      }
+
+      // 2. LEGO Sets & Minifigures via Brickset RRP
+      if (item.category === 'lego' && item.identifier) {
+        const explicitType = (item.metadata?.type as 'set' | 'minifig' | undefined)
+          ? ((item.metadata.type as string).toUpperCase() as 'SET' | 'MINIFIG')
+          : undefined;
+
+        const valRes = await resolveLegoPrice({
+          itemNo: item.identifier,
+          itemType: explicitType,
+          bricksetSetNumber:
+            typeof item.metadata?.bricksetSetNumber === 'string'
+              ? item.metadata.bricksetSetNumber
+              : undefined,
+          condition: item.condition ?? undefined,
+          currency: 'EUR',
+        });
+
+        const newPrice = valRes.resolvedEur;
+        if (newPrice > 0) {
+          const rawHistory = item.metadata?.priceHistory;
+          const updatedHistory = appendPriceSnapshot(
+            rawHistory,
+            newPrice,
+            valRes.source,
+            { date: item.purchaseDate, price: item.purchasePrice },
+          );
+          const updatedMeta = {
+            ...(item.metadata || {}),
+            valuationSource: valRes.source,
+            ...(valRes.brickset ? { brickset: valRes.brickset } : {}),
+            ...(valRes.bricksetSetNumber ? { bricksetSetNumber: valRes.bricksetSetNumber } : {}),
+            priceHistory: updatedHistory,
+            lastSyncedAt: new Date().toISOString(),
+          };
+
+          await supabase
+            .from('collectibles')
+            .update({
+              current_price: newPrice,
+              metadata: updatedMeta as unknown as Json,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+
+          return { updated: newPrice !== oldPrice, newPrice, oldPrice };
+        }
+        throw new Error('No market value found on Brickset for this LEGO item');
+      }
+
+      // 3. Luxury Watches via TheWatchAPI
+      if (item.category === 'watches' && item.identifier) {
+        const watchRes = await resolveWatchPrice({
+          referenceNumber: item.identifier,
+        });
+
+        if (watchRes && watchRes.priceEur > 0) {
+          const newPrice = watchRes.priceEur;
+          const rawHistory = item.metadata?.priceHistory;
+          const updatedHistory = appendPriceSnapshot(
+            rawHistory,
+            newPrice,
+            'thewatchapi',
+            { date: item.purchaseDate, price: item.purchasePrice },
+          );
+          const updatedMeta = {
+            ...(item.metadata || {}),
+            brand: watchRes.brand,
+            model: watchRes.model,
+            specs: {
+              ...((item.metadata?.specs as Record<string, unknown>) || {}),
+              ...watchRes.specs,
+            },
+            valuationSource: 'thewatchapi',
+            priceUsd: watchRes.priceUsd,
+            priceHistory: updatedHistory,
+            lastSyncedAt: new Date().toISOString(),
+          };
+
+          await supabase
+            .from('collectibles')
+            .update({
+              current_price: newPrice,
+              metadata: updatedMeta as unknown as Json,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+
+          return { updated: newPrice !== oldPrice, newPrice, oldPrice };
+        }
+        throw new Error('No market value found on TheWatchAPI for this watch reference');
+      }
+
+      throw new Error('This item does not have a live market identifier to sync');
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),
+  });
+};
+
 export interface SyncCollectiblePricesResult {
   pokemonUpdated: number;
   legoUpdated: number;
+  watchesUpdated: number;
   totalUpdated: number;
 }
 
@@ -354,6 +534,7 @@ export const useSyncCollectiblePrices = () => {
     mutationFn: async (collectibles: Collectible[]): Promise<SyncCollectiblePricesResult> => {
       let pokemonUpdated = 0;
       let legoUpdated = 0;
+      let watchesUpdated = 0;
 
       // 1. Refresh Pokémon cards via Collectr (TCGplayer Market EUR)
       const pokemonCards = collectibles.filter(
@@ -380,10 +561,23 @@ export const useSyncCollectiblePrices = () => {
               newPrice > 0 &&
               newPrice !== card.currentPrice
             ) {
+              const rawHistory = card.metadata?.priceHistory;
+              const updatedHistory = appendPriceSnapshot(
+                rawHistory,
+                newPrice,
+                'collectr',
+                { date: card.purchaseDate, price: card.purchasePrice },
+              );
+
               await supabase
                 .from('collectibles')
                 .update({
                   current_price: newPrice,
+                  metadata: {
+                    ...(card.metadata || {}),
+                    priceHistory: updatedHistory,
+                    lastSyncedAt: new Date().toISOString(),
+                  } as unknown as Json,
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', card.id);
@@ -419,6 +613,14 @@ export const useSyncCollectiblePrices = () => {
 
           const newPrice = valRes.resolvedEur;
           if (newPrice > 0 && newPrice !== item.currentPrice) {
+            const rawHistory = item.metadata?.priceHistory;
+            const updatedHistory = appendPriceSnapshot(
+              rawHistory,
+              newPrice,
+              valRes.source,
+              { date: item.purchaseDate, price: item.purchasePrice },
+            );
+
             const updatedMeta = {
               ...(item.metadata || {}),
               valuationSource: valRes.source,
@@ -426,6 +628,8 @@ export const useSyncCollectiblePrices = () => {
               ...(valRes.bricksetSetNumber
                 ? { bricksetSetNumber: valRes.bricksetSetNumber }
                 : {}),
+              priceHistory: updatedHistory,
+              lastSyncedAt: new Date().toISOString(),
             };
 
             await supabase
@@ -443,10 +647,62 @@ export const useSyncCollectiblePrices = () => {
         }
       }
 
+      // 3. Refresh Luxury Watches via TheWatchAPI
+      const watchItems = collectibles.filter(
+        (c) => c.category === 'watches' && Boolean(c.identifier),
+      );
+      for (const item of watchItems) {
+        if (!item.identifier) continue;
+        try {
+          const watchRes = await resolveWatchPrice({
+            referenceNumber: item.identifier,
+            fxRate,
+          });
+
+          if (watchRes && watchRes.priceEur > 0 && watchRes.priceEur !== item.currentPrice) {
+            const newPrice = watchRes.priceEur;
+            const rawHistory = item.metadata?.priceHistory;
+            const updatedHistory = appendPriceSnapshot(
+              rawHistory,
+              newPrice,
+              'thewatchapi',
+              { date: item.purchaseDate, price: item.purchasePrice },
+            );
+
+            const updatedMeta = {
+              ...(item.metadata || {}),
+              brand: watchRes.brand,
+              model: watchRes.model,
+              specs: {
+                ...((item.metadata?.specs as Record<string, unknown>) || {}),
+                ...watchRes.specs,
+              },
+              valuationSource: 'thewatchapi',
+              priceUsd: watchRes.priceUsd,
+              priceHistory: updatedHistory,
+              lastSyncedAt: new Date().toISOString(),
+            };
+
+            await supabase
+              .from('collectibles')
+              .update({
+                current_price: newPrice,
+                metadata: updatedMeta as unknown as Json,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', item.id);
+            watchesUpdated += 1;
+          }
+        } catch {
+          // ignore error
+        }
+      }
+
       return {
         pokemonUpdated,
         legoUpdated,
-        totalUpdated: pokemonUpdated + legoUpdated,
+        watchesUpdated,
+        totalUpdated: pokemonUpdated + legoUpdated + watchesUpdated,
       };
     },
     onSuccess: () => client.invalidateQueries({ queryKey: collectiblesKey }),

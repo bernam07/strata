@@ -6,21 +6,20 @@ import { toast } from '@/ui/toast';
 import {
   CATEGORY_LABELS,
   useDeleteCollectible,
+  useSyncSingleCollectiblePrice,
   useUpdateCollectible,
   type Collectible,
   type CollectibleCategory,
+  type PriceSnapshot,
 } from '../api/useCollectibles';
 import { getLegoImageUrl } from '../api/lego';
 import { cleanLegoInput } from '../api/brickset';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
 import {
-  getPokemonCard,
-  getUsdToEurRate,
-  isJapaneseId,
-  resolvePokemonPrice,
-  type PokemonCardFinish,
-  type PokemonPriceBreakdown,
-} from '../api/tcgdex';
+  resolveWatchPrice,
+  cleanWatchReference,
+  type WatchDetailsResult,
+} from '../api/theWatchApi';
 
 interface EditCollectibleModalProps {
   collectible: Collectible | null;
@@ -51,12 +50,12 @@ const LEGO_CONDITIONS = [
   { value: 'Loose / Parts', label: 'Loose / Parts' },
 ];
 
-const GENERIC_CONDITIONS = [
-  { value: 'Brand New / Mint', label: 'Brand New / Mint' },
-  { value: 'Near Mint / Excellent', label: 'Near Mint / Excellent' },
-  { value: 'Very Good', label: 'Very Good' },
-  { value: 'Good / Used', label: 'Good / Used' },
-  { value: 'Vintage / Worn', label: 'Vintage / Worn' },
+const WATCH_CONDITIONS = [
+  { value: 'Brand New / Unworn (Box & Papers)', label: 'Brand New / Unworn (Box & Papers)' },
+  { value: 'Mint / Like New (Box & Papers)', label: 'Mint / Like New (Box & Papers)' },
+  { value: 'Very Good (Watch Only)', label: 'Very Good (Watch Only)' },
+  { value: 'Good / Fair (Wear / Scratches)', label: 'Good / Fair (Wear / Scratches)' },
+  { value: 'Vintage / Serviced', label: 'Vintage / Serviced' },
 ];
 
 export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleModalProps) => {
@@ -77,8 +76,36 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
   const [metadata, setMetadata] = useState<Record<string, unknown>>({});
   const [fetchingLegoPrice, setFetchingLegoPrice] = useState(false);
   const [legoValuation, setLegoValuation] = useState<LegoValuationResult | null>(null);
-  const [fetchingPokemonPrice, setFetchingPokemonPrice] = useState(false);
-  const [pokemonBreakdown, setPokemonBreakdown] = useState<PokemonPriceBreakdown | null>(null);
+  const [fetchingWatchPrice, setFetchingWatchPrice] = useState(false);
+  const [watchValuation, setWatchValuation] = useState<WatchDetailsResult | null>(null);
+
+  const syncSingle = useSyncSingleCollectiblePrice();
+
+  const handleQuickSync = () => {
+    if (!collectible) return;
+    syncSingle.mutate(collectible, {
+      onSuccess: (res) => {
+        if (res.newPrice !== undefined) {
+          setCurrentPrice(String(res.newPrice));
+          setMetadata((prev) => ({
+            ...prev,
+            lastSyncedAt: new Date().toISOString(),
+          }));
+          toast(
+            `Live market price updated: €${res.newPrice.toFixed(2)}${
+              res.newPrice !== res.oldPrice
+                ? ` (was €${res.oldPrice.toFixed(2)})`
+                : ' (unchanged)'
+            }`,
+            'success',
+          );
+        }
+      },
+      onError: (err) => {
+        toast(err instanceof Error ? err.message : 'Failed to sync price', 'error');
+      },
+    });
+  };
 
   useEffect(() => {
     if (!collectible) return;
@@ -96,9 +123,59 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
     setConfirmDelete(false);
     setLegoValuation(null);
     setFetchingLegoPrice(false);
-    setPokemonBreakdown(null);
-    setFetchingPokemonPrice(false);
+    setWatchValuation(null);
+    setFetchingWatchPrice(false);
   }, [collectible]);
+
+  const handleFetchWatchValuation = async (overrideRef?: string) => {
+    const targetRef = (overrideRef || identifier).trim();
+    if (!targetRef) {
+      toast('Please enter a watch reference number (e.g. 126610LN)', 'error');
+      return;
+    }
+    setFetchingWatchPrice(true);
+    try {
+      const cleaned = cleanWatchReference(targetRef);
+      setIdentifier(cleaned);
+      const res = await resolveWatchPrice({ referenceNumber: cleaned });
+      if (res) {
+        setWatchValuation(res);
+        if (res.priceEur > 0) {
+          setCurrentPrice(String(res.priceEur));
+        }
+        if (res.imageUrl && !imageUrl) {
+          setImageUrl(res.imageUrl);
+        }
+        if (!name || name === 'Luxury Watch' || name.startsWith('Watch #')) {
+          setName(res.fullName);
+        }
+        setMetadata((prev) => ({
+          ...prev,
+          brand: res.brand,
+          model: res.model,
+          specs: res.specs,
+          priceUsd: res.priceUsd,
+          valuationSource: 'thewatchapi',
+        }));
+        toast(
+          `TheWatchAPI valuation loaded: ${res.brand} ${res.model} (€${res.priceEur.toFixed(2)})`,
+          'success',
+        );
+      } else {
+        toast(
+          'No match found on TheWatchAPI for this reference. You can configure your API token in Settings → Integrations.',
+          'error',
+        );
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : 'Failed to fetch watch details',
+        'error',
+      );
+    } finally {
+      setFetchingWatchPrice(false);
+    }
+  };
 
   const handleFetchLegoValuation = async (
     overrideItemNo?: string,
@@ -180,73 +257,6 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
       );
     } finally {
       setFetchingLegoPrice(false);
-    }
-  };
-
-  const handleFetchPokemonPrice = async () => {
-    if (!identifier.trim()) {
-      toast('Please enter a card identifier (e.g. sv03.5-199)', 'error');
-      return;
-    }
-    setFetchingPokemonPrice(true);
-    try {
-      const card = await getPokemonCard(identifier.trim());
-      if (!card) {
-        toast('Card not found in TCGdex catalog', 'error');
-        return;
-      }
-      const isJa = card.language === 'ja' || isJapaneseId(card.id);
-      const cardLang: 'ja' | 'en' = isJa ? 'ja' : 'en';
-      if (!imageUrl && card.imageUrl) {
-        setImageUrl(card.imageUrl);
-      }
-      const fxRate = await getUsdToEurRate();
-      const preferredFinish = metadata.finish as PokemonCardFinish | undefined;
-      const breakdown = resolvePokemonPrice(card.pricing, {
-        preferredFinish,
-        condition,
-        rarity: card.rarity,
-        fxRate,
-      });
-      setPokemonBreakdown(breakdown);
-      if (breakdown.resolvedEur > 0) {
-        setCurrentPrice(String(breakdown.resolvedEur));
-        setMetadata((prev) => ({
-          ...prev,
-          finish: breakdown.selectedFinish,
-          language: cardLang,
-          collectrPriceEur: breakdown.collectr?.priceEur,
-          tcgplayerUsd: breakdown.collectr?.priceUsd,
-          cardmarketPriceEur: breakdown.cardmarket?.priceEur,
-        }));
-        toast(
-          `Collectr market price loaded: €${breakdown.resolvedEur.toFixed(2)}`,
-          'success',
-        );
-      } else {
-        toast('No market pricing available for this card', 'error');
-      }
-    } catch (err) {
-      toast(
-        err instanceof Error ? err.message : 'Failed to fetch Collectr price',
-        'error',
-      );
-    } finally {
-      setFetchingPokemonPrice(false);
-    }
-  };
-
-  const handleSelectPokemonFinish = (finish: PokemonCardFinish) => {
-    if (!pokemonBreakdown) return;
-    const opt = pokemonBreakdown.finishes.find((f) => f.finish === finish);
-    if (opt && opt.priceEur > 0) {
-      setCurrentPrice(String(opt.priceEur));
-      setMetadata((prev) => ({
-        ...prev,
-        finish,
-        collectrPriceEur: opt.priceEur,
-        tcgplayerUsd: opt.priceUsd,
-      }));
     }
   };
 
@@ -347,7 +357,7 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
                 ? POKEMON_CONDITIONS
                 : category === 'lego'
                   ? LEGO_CONDITIONS
-                  : GENERIC_CONDITIONS
+                  : WATCH_CONDITIONS
               ).map((cond) => (
                 <option key={cond.value} value={cond.value}>
                   {cond.label}
@@ -397,24 +407,14 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             label={
               <div className="flex items-center justify-between">
                 <span>Current Value (€)</span>
-                {category === 'lego' && identifier.trim() && (
+                {identifier.trim() && (category === 'pokemon' || category === 'lego' || category === 'watches') && (
                   <button
                     type="button"
-                    disabled={fetchingLegoPrice}
-                    onClick={() => void handleFetchLegoValuation()}
-                    className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
+                    disabled={syncSingle.isPending || fetchingLegoPrice || fetchingWatchPrice}
+                    onClick={handleQuickSync}
+                    className="tap inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--accent)] hover:underline"
                   >
-                    {fetchingLegoPrice ? 'Checking…' : 'Fetch live valuation'}
-                  </button>
-                )}
-                {category === 'pokemon' && identifier.trim() && (
-                  <button
-                    type="button"
-                    disabled={fetchingPokemonPrice}
-                    onClick={handleFetchPokemonPrice}
-                    className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
-                  >
-                    {fetchingPokemonPrice ? 'Checking…' : 'Fetch Collectr'}
+                    {syncSingle.isPending ? 'Syncing…' : 'Sync Live Market Price'}
                   </button>
                 )}
               </div>
@@ -426,61 +426,6 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             />
           </Labelled>
         </div>
-
-        {pokemonBreakdown?.collectr ? (
-          <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
-                Collectr Valuation (TCGplayer Market)
-              </span>
-              <span className="font-bold text-[var(--positive)]">
-                €{pokemonBreakdown.collectr.priceEur.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-              <span>Market: ${pokemonBreakdown.collectr.priceUsd.toFixed(2)} USD</span>
-              <span>FX: €{pokemonBreakdown.fxRateUsed.toFixed(4)} / $</span>
-            </div>
-            {pokemonBreakdown.finishes.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[11px] text-[var(--text-muted)]">Finish:</span>
-                {pokemonBreakdown.finishes.map((f) => (
-                  <button
-                    key={f.finish}
-                    type="button"
-                    onClick={() => handleSelectPokemonFinish(f.finish)}
-                    className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
-                      metadata.finish === f.finish
-                        ? 'bg-[var(--accent)] text-white shadow-xs'
-                        : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--text-strong)]'
-                    }`}
-                  >
-                    {f.label}: €{f.priceEur.toFixed(2)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : pokemonBreakdown?.cardmarket ? (
-          <div className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--positive)_30%,transparent)] bg-[color-mix(in_srgb,var(--positive)_8%,transparent)] p-2.5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 font-semibold text-[var(--positive)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)]" />
-                Cardmarket Valuation (EU Market Trend)
-              </span>
-              <span className="font-bold text-[var(--positive)]">
-                €{pokemonBreakdown.cardmarket.priceEur.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-              <span>Japanese Market (Cardmarket EU)</span>
-              {pokemonBreakdown.cardmarket.avgEur && (
-                <span>Avg: €{pokemonBreakdown.cardmarket.avgEur.toFixed(2)}</span>
-              )}
-            </div>
-          </div>
-        ) : null}
 
         {legoValuation?.source === 'brickset' && (
           <div className="flex flex-col gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
@@ -595,6 +540,88 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
           </div>
         )}
 
+        {category === 'watches' && (
+          <div className="flex flex-col gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 p-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-purple-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+                TheWatchAPI Reference Valuation
+              </span>
+              <button
+                type="button"
+                disabled={fetchingWatchPrice || !identifier.trim()}
+                onClick={() => handleFetchWatchValuation()}
+                className="tap text-[10px] font-semibold text-purple-300 hover:underline"
+              >
+                {fetchingWatchPrice ? 'Checking…' : 'Refetch Watch Details'}
+              </button>
+            </div>
+
+            {(watchValuation || metadata.brand || metadata.specs) ? (
+              <div className="flex flex-col gap-1.5 text-[11px] text-[var(--text-muted)]">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[var(--text-strong)]">
+                    {watchValuation
+                      ? `${watchValuation.brand} ${watchValuation.model}`
+                      : `${String(metadata.brand ?? '')} ${String(metadata.model ?? '')}`.trim() || 'Watch Details'}
+                  </span>
+                  {Boolean(watchValuation?.priceEur || metadata.priceUsd) && (
+                    <span className="font-bold text-purple-400">
+                      {watchValuation
+                        ? `€${watchValuation.priceEur.toFixed(2)}`
+                        : metadata.priceUsd
+                          ? `$${Number(metadata.priceUsd).toLocaleString('en-US')}`
+                          : ''}
+                    </span>
+                  )}
+                </div>
+
+                {(() => {
+                  const specs =
+                    watchValuation?.specs ||
+                    (metadata.specs as Record<string, string | undefined> | undefined);
+                  if (!specs) return null;
+                  return (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-purple-500/20 text-[10px]">
+                      {specs.caseDiameter && (
+                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                          {specs.caseDiameter}
+                        </span>
+                      )}
+                      {specs.caseMaterial && (
+                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                          {specs.caseMaterial}
+                        </span>
+                      )}
+                      {specs.movement && (
+                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                          {specs.movement}
+                        </span>
+                      )}
+                      {specs.caliber && (
+                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                          {specs.caliber}
+                        </span>
+                      )}
+                      {specs.waterResistance && (
+                        <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                          {specs.waterResistance}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              <p className="text-[11px] text-[var(--text-muted)]">
+                {identifier.trim()
+                  ? 'Click "Refetch Watch Details" to retrieve model info, specs and live secondary valuation.'
+                  : 'Enter a watch reference number above to sync market details.'}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Labelled label="Acquisition Date">
             <TextInput
@@ -619,6 +646,77 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
             onChange={(e) => setNotes(e.target.value)}
           />
         </Labelled>
+
+        {/* Price History & Valuation Trend */}
+        {(() => {
+          const history = (metadata.priceHistory as PriceSnapshot[] | undefined) || [];
+          const hasMultiplePoints = history.length > 1;
+          const hasPriceDiff = Number(purchasePrice) > 0 && Number(currentPrice) > 0 && Number(purchasePrice) !== Number(currentPrice);
+
+          if (!hasMultiplePoints && !hasPriceDiff) return null;
+
+          const basePrice = (history[0]?.price ?? Number(purchasePrice)) || Number(currentPrice);
+          const latestPrice = Number(currentPrice) || basePrice;
+          const diff = latestPrice - basePrice;
+          const diffPct = basePrice > 0 ? (diff / basePrice) * 100 : 0;
+          const isUp = diff >= 0;
+
+          return (
+            <div className="flex flex-col gap-2 rounded-[var(--radius-field)] neu-sunken p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[var(--text-strong)]">
+                  Price History &amp; Trend
+                </span>
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    isUp ? 'text-[var(--positive)]' : 'text-[var(--negative)]'
+                  }`}
+                >
+                  {isUp ? '+' : ''}€{diff.toFixed(2)} ({isUp ? '+' : ''}{diffPct.toFixed(1)}%)
+                </span>
+              </div>
+
+              <div className="flex max-h-36 flex-col gap-1.5 overflow-y-auto pr-1 text-[11px]">
+                {history.length > 0 ? (
+                  history
+                    .slice()
+                    .reverse()
+                    .map((entry, idx) => (
+                      <div
+                        key={`${entry.date}-${idx}`}
+                        className="flex items-center justify-between rounded bg-[var(--surface-raised)] px-2.5 py-1.5 shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[var(--text-muted)]">
+                            {new Date(entry.date).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                          {entry.source && (
+                            <span className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider text-[var(--accent)]">
+                              {entry.source}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono font-bold text-[var(--text-strong)]">
+                          €{entry.price.toFixed(2)}
+                        </span>
+                      </div>
+                    ))
+                ) : (
+                  <div className="flex items-center justify-between rounded bg-[var(--surface-raised)] px-2.5 py-1.5 text-[var(--text-muted)]">
+                    <span>Acquisition Cost Basis</span>
+                    <span className="font-mono font-bold text-[var(--text-strong)]">
+                      €{Number(purchasePrice).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-3">
           <button

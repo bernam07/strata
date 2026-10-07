@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TextInput } from '@/ui/Field';
 import {
   getPokemonCard,
@@ -21,10 +21,35 @@ const CardImageThumbnail = ({
   card: PokemonCardSummary;
   isSelecting: boolean;
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [currentSrc, setCurrentSrc] = useState<string | undefined>(card.imageUrl);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setInView(true);
+      return;
+    }
+
+    const node = containerRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '250px' },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setLoaded(false);
@@ -56,15 +81,18 @@ const CardImageThumbnail = ({
   const isJapanese = card.language === 'ja';
 
   return (
-    <div className="relative aspect-[2.5/3.5] w-full overflow-hidden rounded-md bg-[var(--surface-sunken)] p-1">
-      {/* Skeleton placeholder while image is downloading */}
-      {!loaded && !error && currentSrc && (
+    <div
+      ref={containerRef}
+      className="relative aspect-[2.5/3.5] w-full overflow-hidden rounded-md bg-[var(--surface-sunken)] p-1"
+    >
+      {/* Skeleton placeholder while image is in view and downloading */}
+      {(!loaded || !inView) && !error && currentSrc && (
         <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-sunken)]">
           <div className="h-full w-full animate-pulse rounded bg-[var(--surface-flat)] opacity-60" />
         </div>
       )}
 
-      {currentSrc && !error ? (
+      {inView && currentSrc && !error ? (
         <img
           src={currentSrc}
           alt={card.name}

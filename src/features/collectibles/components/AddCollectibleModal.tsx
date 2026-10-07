@@ -20,6 +20,11 @@ import {
 import { getLegoImageUrl, type LegoSetResult } from '../api/lego';
 import { cleanLegoInput } from '../api/brickset';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
+import {
+  resolveWatchPrice,
+  cleanWatchReference,
+  type WatchDetailsResult,
+} from '../api/theWatchApi';
 import { CategoryIcon } from './CategoryIcon';
 import { PokemonCardSearch } from './PokemonCardSearch';
 import { LegoSetSearch } from './LegoSetSearch';
@@ -53,12 +58,12 @@ const LEGO_CONDITIONS = [
   { value: 'Loose / Parts', label: 'Loose / Parts' },
 ];
 
-const GENERIC_CONDITIONS = [
-  { value: 'Brand New / Mint', label: 'Brand New / Mint' },
-  { value: 'Near Mint / Excellent', label: 'Near Mint / Excellent' },
-  { value: 'Very Good', label: 'Very Good' },
-  { value: 'Good / Used', label: 'Good / Used' },
-  { value: 'Vintage / Worn', label: 'Vintage / Worn' },
+const WATCH_CONDITIONS = [
+  { value: 'Brand New / Unworn (Box & Papers)', label: 'Brand New / Unworn (Box & Papers)' },
+  { value: 'Mint / Like New (Box & Papers)', label: 'Mint / Like New (Box & Papers)' },
+  { value: 'Very Good (Watch Only)', label: 'Very Good (Watch Only)' },
+  { value: 'Good / Fair (Wear / Scratches)', label: 'Good / Fair (Wear / Scratches)' },
+  { value: 'Vintage / Serviced', label: 'Vintage / Serviced' },
 ];
 
 export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps) => {
@@ -79,6 +84,8 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
   const [metadata, setMetadata] = useState<Record<string, unknown>>({});
   const [fetchingLegoPrice, setFetchingLegoPrice] = useState(false);
   const [legoValuation, setLegoValuation] = useState<LegoValuationResult | null>(null);
+  const [fetchingWatchPrice, setFetchingWatchPrice] = useState(false);
+  const [watchValuation, setWatchValuation] = useState<WatchDetailsResult | null>(null);
   const [pokemonBreakdown, setPokemonBreakdown] = useState<PokemonPriceBreakdown | null>(null);
   const [selectedFinish, setSelectedFinish] = useState<PokemonCardFinish | null>(null);
   const [activePriceSource, setActivePriceSource] = useState<'collectr' | 'cardmarket'>('collectr');
@@ -89,6 +96,8 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     setImageUrl('');
     setLegoValuation(null);
     setFetchingLegoPrice(false);
+    setWatchValuation(null);
+    setFetchingWatchPrice(false);
     setPokemonBreakdown(null);
     setSelectedFinish(null);
     setActivePriceSource('collectr');
@@ -99,7 +108,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
         ? 'Near Mint (NM)'
         : category === 'lego'
           ? 'Factory Sealed (MISB)'
-          : 'Brand New / Mint',
+          : 'Brand New / Unworn (Box & Papers)',
     );
     setQuantity('1');
     setPurchasePrice('');
@@ -124,7 +133,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     } else if (newCat === 'lego') {
       setCondition('Factory Sealed (MISB)');
     } else {
-      setCondition('Brand New / Mint');
+      setCondition('Brand New / Unworn (Box & Papers)');
     }
   };
 
@@ -343,6 +352,57 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     );
   };
 
+  const handleFetchWatchValuation = async (overrideRef?: string) => {
+    const targetRef = (overrideRef || identifier).trim();
+    if (!targetRef) {
+      toast('Please enter a watch reference number (e.g. 126610LN)', 'error');
+      return;
+    }
+    setFetchingWatchPrice(true);
+    try {
+      const cleaned = cleanWatchReference(targetRef);
+      setIdentifier(cleaned);
+      const res = await resolveWatchPrice({ referenceNumber: cleaned });
+      if (res) {
+        setWatchValuation(res);
+        if (res.priceEur > 0) {
+          setCurrentPrice(String(res.priceEur));
+        }
+        if (res.imageUrl) {
+          setImageUrl(res.imageUrl);
+        }
+        if (!name || name === 'Luxury Watch' || name.startsWith('Watch #')) {
+          setName(res.fullName);
+        }
+        setCondition((prev) => prev || 'Brand New / Unworn (Box & Papers)');
+        setMetadata((prev) => ({
+          ...prev,
+          brand: res.brand,
+          model: res.model,
+          specs: res.specs,
+          priceUsd: res.priceUsd,
+          valuationSource: 'thewatchapi',
+        }));
+        toast(
+          `TheWatchAPI valuation loaded: ${res.brand} ${res.model} (€${res.priceEur.toFixed(2)})`,
+          'success',
+        );
+      } else {
+        toast(
+          'No match found on TheWatchAPI for this reference. You can configure your API token in Settings → Integrations.',
+          'error',
+        );
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : 'Failed to fetch watch details',
+        'error',
+      );
+    } finally {
+      setFetchingWatchPrice(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -394,7 +454,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
     <BottomSheet
       open={open}
       title="Add Alternative Asset"
-      subtitle="Pokémon cards, LEGO sets & minifigures, watches, coins or other collectibles"
+      subtitle="Pokémon cards, LEGO sets & minifigures, and luxury watches"
       onClose={() => {
         resetForm();
         onClose();
@@ -403,13 +463,13 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* Category Selector */}
         <Labelled label="Category">
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-2">
             {(Object.keys(CATEGORY_LABELS) as CollectibleCategory[]).map((cat) => (
               <button
                 key={cat}
                 type="button"
                 onClick={() => handleCategoryChange(cat)}
-                className={`tap flex flex-col items-center justify-center gap-1.5 rounded-[var(--radius-field)] p-2 text-center text-xs font-semibold transition ${
+                className={`tap flex flex-col items-center justify-center gap-1.5 rounded-[var(--radius-field)] p-2.5 text-center text-xs font-semibold transition ${
                   category === cat
                     ? 'neu-raised border border-[var(--accent)] bg-[var(--surface-raised)] text-[var(--accent)]'
                     : 'neu-sunken text-[var(--text-muted)] hover:text-[var(--text-strong)]'
@@ -778,6 +838,104 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
           </div>
         )}
 
+        {/* Watch Flow via TheWatchAPI */}
+        {category === 'watches' && (
+          <div className="flex flex-col gap-3 rounded-[var(--radius-field)] neu-sunken p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                TheWatchAPI Watch Lookup
+              </span>
+              <span className="rounded bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-bold text-purple-400">
+                TheWatchAPI
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-[var(--text-muted)]">
+                Enter a model reference (e.g. <strong className="text-[var(--text-strong)]">126610LN</strong>, <strong className="text-[var(--text-strong)]">310.30.42.50.01.002</strong> or <strong className="text-[var(--text-strong)]">WSSA0029</strong>) to retrieve brand, model name, catalog photo, specs and live market valuation.
+              </p>
+
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <TextInput
+                    value={identifier}
+                    placeholder="e.g. 126610LN, 126710BLRO, 310.30.42.50.01.002"
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleFetchWatchValuation();
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  disabled={fetchingWatchPrice || !identifier.trim()}
+                  onClick={() => handleFetchWatchValuation()}
+                  className="shrink-0"
+                >
+                  {fetchingWatchPrice ? 'Checking…' : 'Fetch Watch Details'}
+                </Button>
+              </div>
+            </div>
+
+            {watchValuation && (
+              <div className="flex flex-col gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 p-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-semibold text-purple-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+                    {watchValuation.brand} {watchValuation.model}
+                  </span>
+                  <span className="font-bold text-purple-400">
+                    €{watchValuation.priceEur.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-[var(--text-muted)]">
+                  {watchValuation.priceUsd && (
+                    <span>
+                      USD Market Price:{' '}
+                      <strong className="text-[var(--text-strong)]">
+                        ${watchValuation.priceUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </span>
+                  )}
+                  <span>FX: €{watchValuation.fxRateUsed.toFixed(4)} / $</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-purple-500/20 text-[10px]">
+                  {watchValuation.specs.caseDiameter && (
+                    <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                      {watchValuation.specs.caseDiameter}
+                    </span>
+                  )}
+                  {watchValuation.specs.caseMaterial && (
+                    <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                      {watchValuation.specs.caseMaterial}
+                    </span>
+                  )}
+                  {watchValuation.specs.movement && (
+                    <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                      {watchValuation.specs.movement}
+                    </span>
+                  )}
+                  {watchValuation.specs.caliber && (
+                    <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                      {watchValuation.specs.caliber}
+                    </span>
+                  )}
+                  {watchValuation.specs.waterResistance && (
+                    <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[var(--text-muted)]">
+                      {watchValuation.specs.waterResistance}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* General Details */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -841,7 +999,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                 ? POKEMON_CONDITIONS
                 : category === 'lego'
                   ? LEGO_CONDITIONS
-                  : GENERIC_CONDITIONS
+                  : WATCH_CONDITIONS
               ).map((cond) => (
                 <option key={cond.value} value={cond.value}>
                   {cond.label}
@@ -884,6 +1042,16 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
                     className="tap text-[10px] font-semibold text-[var(--accent)] hover:underline"
                   >
                     {fetchingLegoPrice ? 'Checking…' : 'Check live valuation'}
+                  </button>
+                )}
+                {category === 'watches' && identifier.trim() && (
+                  <button
+                    type="button"
+                    disabled={fetchingWatchPrice}
+                    onClick={() => handleFetchWatchValuation(identifier.trim())}
+                    className="tap text-[10px] font-semibold text-purple-400 hover:underline"
+                  >
+                    {fetchingWatchPrice ? 'Checking…' : 'Fetch watch valuation'}
                   </button>
                 )}
               </div>
