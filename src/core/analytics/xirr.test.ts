@@ -67,4 +67,15 @@ describe('xirr', () => {
     expect(rate).not.toBeNull();
     expect(rate!).toBeLessThan(-0.9);
   });
+
+  it('safely ignores invalid dates and NaN amounts in flows', () => {
+    const rate = xirr([
+      flow(-1000, '2021-01-01T00:00:00Z'),
+      { amount: NaN, when: new Date('2021-06-01T00:00:00Z') },
+      { amount: 50, when: new Date('invalid-date') },
+      flow(1100, '2022-01-01T00:00:00Z'),
+    ]);
+    expect(rate).not.toBeNull();
+    expect(rate!).toBeCloseTo(0.1, 4);
+  });
 });

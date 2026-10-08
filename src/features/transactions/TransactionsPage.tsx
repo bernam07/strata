@@ -273,6 +273,10 @@ export const TransactionsPage = () => {
       visibleTransactions,
       (id) => (id ? accountName.get(id) ?? '' : ''),
       (id) => (id ? instruments?.get(id)?.name ?? instruments?.get(id)?.ticker ?? '' : ''),
+      (txId) => {
+        const catId = txId ? assignments?.get(txId) : undefined;
+        return catId ? categoryNameById.get(catId) ?? '' : '';
+      },
     );
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);

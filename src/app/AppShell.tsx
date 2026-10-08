@@ -43,7 +43,13 @@ interface NavSection {
   items: NavEntry[];
 }
 
-const PORTFOLIO_PREFIXES = ['/positions', '/dividends', '/crypto', '/search'];
+const PORTFOLIO_PREFIXES = [
+  '/positions',
+  '/dividends',
+  '/crypto',
+  '/collectibles',
+  '/search',
+];
 const SETTINGS_PREFIXES = ['/settings', '/integrations'];
 
 const navItemClass = (isActive: boolean): string =>

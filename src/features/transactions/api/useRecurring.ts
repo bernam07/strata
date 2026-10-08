@@ -234,6 +234,7 @@ export const useProcessRecurring = () => {
     onSuccess: (posted) => {
       if (posted > 0) {
         client.invalidateQueries({ queryKey: ['transactions'] });
+        client.invalidateQueries({ queryKey: ['category-assignments'] });
         client.invalidateQueries({ queryKey: recurringKey });
       }
     },

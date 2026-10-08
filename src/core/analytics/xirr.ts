@@ -56,20 +56,25 @@ export const xirr = (
   guess = 0.1,
   tolerance = 1e-7,
 ): number | null => {
-  const hasPositive = flows.some((flow) => flow.amount > 0);
-  const hasNegative = flows.some((flow) => flow.amount < 0);
+  const valid = flows.filter(
+    (flow) =>
+      Number.isFinite(flow.amount) &&
+      !Number.isNaN(flow.when.getTime()),
+  );
+  const hasPositive = valid.some((flow) => flow.amount > 0);
+  const hasNegative = valid.some((flow) => flow.amount < 0);
   if (!hasPositive || !hasNegative) return null;
 
-  const origin = flows.reduce(
+  const origin = valid.reduce(
     (earliest, flow) => (flow.when < earliest ? flow.when : earliest),
-    flows[0]!.when,
+    valid[0]!.when,
   );
 
   let rate = guess;
   for (let i = 0; i < 100; i += 1) {
-    const value = npv(rate, flows, origin);
+    const value = npv(rate, valid, origin);
     if (Math.abs(value) < tolerance) return rate;
-    const derivative = dNpv(rate, flows, origin);
+    const derivative = dNpv(rate, valid, origin);
     if (derivative === 0) break;
     const next = rate - value / derivative;
     if (!Number.isFinite(next) || next <= -1) break;
@@ -77,5 +82,5 @@ export const xirr = (
     rate = next;
   }
 
-  return bisection(flows, origin, tolerance);
+  return bisection(valid, origin, tolerance);
 };

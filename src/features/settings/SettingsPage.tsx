@@ -38,8 +38,6 @@ interface BackupPayload {
   tables: Record<string, Record<string, unknown>[]>;
 }
 
-// Only config the user authors and that doesn't depend on the synced ledger
-// (accounts/instruments). Restoring these is safe and idempotent.
 const restoreTables: RestoreTable[] = [
   { table: 'categories', conflict: 'id', parentsFirst: true },
   { table: 'budgets', conflict: 'user_id,category_id' },
@@ -47,6 +45,8 @@ const restoreTables: RestoreTable[] = [
   { table: 'watchlist', conflict: 'user_id,symbol' },
   { table: 'user_preferences', conflict: 'user_id' },
   { table: 'crypto_holdings', conflict: 'user_id,symbol' },
+  { table: 'collectibles', conflict: 'id' },
+  { table: 'recurring_transactions', conflict: 'id' },
 ];
 
 const stripMeta = (row: Record<string, unknown>): Record<string, unknown> => {
@@ -70,6 +70,9 @@ const backupTables = [
   'instrument_notes',
   'user_preferences',
   'net_worth_snapshots',
+  'crypto_holdings',
+  'collectibles',
+  'recurring_transactions',
 ] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

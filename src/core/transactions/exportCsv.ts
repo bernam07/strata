@@ -7,6 +7,7 @@ const header = [
   'Kind',
   'Amount EUR',
   'Account',
+  'Category',
   'Instrument',
   'Quantity',
   'Note',
@@ -28,6 +29,7 @@ export const transactionsToCsv = (
   transactions: readonly Transaction[],
   accountName: Label,
   instrumentName: Label,
+  categoryName?: Label,
 ): string => {
   const rows = [...transactions]
     .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1))
@@ -37,6 +39,7 @@ export const transactionsToCsv = (
         transaction.kind,
         Number(transaction.amount).toFixed(2),
         accountName(transaction.accountId),
+        categoryName ? categoryName(transaction.id) : '',
         transaction.instrumentId ? instrumentName(transaction.instrumentId) : '',
         transaction.quantity ?? '',
         transaction.note ?? '',

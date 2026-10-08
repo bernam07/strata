@@ -19,7 +19,7 @@ const guardedFetch: typeof fetch = async (input, init) => {
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
-if (!isSupabaseConfigured) {
+if (!isSupabaseConfigured && import.meta.env.MODE !== 'test') {
   console.warn(
     'Missing VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Copy .env.example to .env and rebuild.',
   );
