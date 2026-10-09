@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { icons } from '@/app/icons';
 import { AmountInline } from '@/ui/Amount';
@@ -23,8 +23,9 @@ import {
   useIncludeCollectiblesInNetWorth,
   useSetIncludeCollectiblesInNetWorth,
 } from '@/features/dashboard/api/usePreferences';
-import { isJapanesePokemonItem } from './api/tcgdex';
+import { isJapanesePokemonItem, getPokemonImageFallbacks } from './api/tcgdex';
 import { isMinifigCode } from './api/brickset';
+import { getLegoImageUrl } from './api/lego';
 import { resolveCuratedWatchImage } from './api/theWatchApi';
 import { CategoryIcon } from './components/CategoryIcon';
 import { AddCollectibleModal } from './components/AddCollectibleModal';
@@ -38,6 +39,96 @@ export type CollectibleSortOption =
   | 'name-asc'
   | 'recent'
   | 'oldest';
+
+const CollectibleThumbnail = ({
+  item,
+  view,
+}: {
+  item: Collectible;
+  view: 'grid' | 'table';
+}) => {
+  const candidates = useMemo(() => {
+    const list: string[] = [];
+    const add = (u?: string | null) => {
+      if (u && !list.includes(u)) list.push(u);
+    };
+
+    if (item.imageUrl) add(item.imageUrl);
+
+    if (item.category === 'pokemon' && item.identifier) {
+      const fallbacks = getPokemonImageFallbacks(item.identifier, {
+        language: item.metadata?.language as 'en' | 'ja' | undefined,
+        quality: view === 'grid' ? 'high' : 'low',
+      });
+      for (const u of fallbacks) add(u);
+    } else if (item.category === 'watches' && item.identifier) {
+      add(resolveCuratedWatchImage(item.identifier));
+    } else if (item.category === 'lego' && item.identifier) {
+      add(getLegoImageUrl(item.identifier));
+    }
+
+    return list;
+  }, [item.imageUrl, item.category, item.identifier, item.metadata?.language, view]);
+
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+    setHasError(false);
+  }, [candidates]);
+
+  const currentSrc = !hasError ? candidates[candidateIndex] : undefined;
+
+  const handleError = () => {
+    if (candidateIndex + 1 < candidates.length) {
+      setCandidateIndex((prev) => prev + 1);
+    } else {
+      setHasError(true);
+    }
+  };
+
+  if (view === 'table') {
+    if (currentSrc) {
+      return (
+        <img
+          src={currentSrc}
+          alt={item.name}
+          onError={handleError}
+          className="h-8 w-8 rounded object-contain bg-(--surface-sunken) p-0.5"
+        />
+      );
+    }
+    return (
+      <span className="grid h-8 w-8 place-items-center rounded bg-(--surface-sunken) text-(--text-muted)">
+        <CategoryIcon category={item.category} size={16} />
+      </span>
+    );
+  }
+
+  // Grid view
+  return (
+    <>
+      {currentSrc ? (
+        <img
+          src={currentSrc}
+          alt={item.name}
+          loading="lazy"
+          onError={handleError}
+          className="max-h-full max-w-full object-contain drop-shadow-sm transition duration-300 group-hover:scale-105"
+        />
+      ) : null}
+      <div
+        className={`img-fallback flex flex-col items-center justify-center gap-1.5 text-(--text-muted) ${
+          currentSrc ? 'hidden' : 'flex'
+        }`}
+      >
+        <CategoryIcon category={item.category} size={28} />
+        <span className="text-[10px] font-medium">{CATEGORY_LABELS[item.category]}</span>
+      </div>
+    </>
+  );
+};
 
 export const CollectiblesPage = () => {
   const { data: collectibles = [], isLoading } = useCollectibles();
@@ -637,39 +728,7 @@ export const CollectiblesPage = () => {
               >
                 {/* Proportional, well-sized Image Showcase */}
                 <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-(--surface-sunken) p-2 sm:h-40">
-                  {(() => {
-                    const displayImg =
-                      item.imageUrl ||
-                      (item.category === 'watches' && item.identifier
-                        ? resolveCuratedWatchImage(item.identifier)
-                        : undefined);
-                    if (displayImg) {
-                      return (
-                        <img
-                          src={displayImg}
-                          alt={item.name}
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback') as HTMLElement | null;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                          className="max-h-full max-w-full object-contain drop-shadow-sm transition duration-300 group-hover:scale-105"
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
-                  <div
-                    className={`img-fallback flex flex-col items-center justify-center gap-1.5 text-(--text-muted) ${
-                      item.imageUrl || (item.category === 'watches' && item.identifier && resolveCuratedWatchImage(item.identifier))
-                        ? 'hidden'
-                        : 'flex'
-                    }`}
-                  >
-                    <CategoryIcon category={item.category} size={28} />
-                    <span className="text-[10px] font-medium">{CATEGORY_LABELS[item.category]}</span>
-                  </div>
+                  <CollectibleThumbnail item={item} view="grid" />
 
                   {/* Top Category and Condition Badges */}
                   <div className="absolute left-2 top-2 flex flex-wrap gap-1">
@@ -821,27 +880,7 @@ export const CollectiblesPage = () => {
                       className="tap cursor-pointer hover:bg-(--surface-flat)"
                     >
                       <td className="flex items-center gap-2.5 px-4 py-3">
-                        {(() => {
-                          const displayImg =
-                            item.imageUrl ||
-                            (item.category === 'watches' && item.identifier
-                              ? resolveCuratedWatchImage(item.identifier)
-                              : undefined);
-                          if (displayImg) {
-                            return (
-                              <img
-                                src={displayImg}
-                                alt=""
-                                className="h-8 w-8 rounded object-contain bg-(--surface-sunken) p-0.5"
-                              />
-                            );
-                          }
-                          return (
-                            <span className="grid h-8 w-8 place-items-center rounded bg-(--surface-sunken) text-(--text-muted)">
-                              <CategoryIcon category={item.category} size={16} />
-                            </span>
-                          );
-                        })()}
+                        <CollectibleThumbnail item={item} view="table" />
                         <div className="min-w-0">
                           <p className="truncate font-bold text-(--text-strong)">
                             {item.name}

@@ -154,6 +154,137 @@ export const getCardImageUrl = (
   return `${baseUrl.replace(/\/+$/, '')}/${quality}.webp`;
 };
 
+export const getPioSetId = (setId: string): string => {
+  const lower = setId.toLowerCase();
+  if (lower === 'sv03.5' || lower === 'sv3.5') return 'sv3pt5';
+  if (lower === 'sv04.5' || lower === 'sv4.5') return 'sv4pt5';
+  if (lower === 'sv06.5' || lower === 'sv6.5') return 'sv6pt5';
+  if (lower === 'sv08.5' || lower === 'sv8.5') return 'sv8pt5';
+  if (lower.startsWith('sv') && lower.includes('.5')) {
+    return lower.replace('.5', 'pt5').replace(/^sv0/, 'sv');
+  }
+  if (lower === 'swsh04.5' || lower === 'swsh4.5') return 'swsh45';
+  if (lower === 'swsh4.5sv') return 'swsh45sv';
+  if (lower === 'swsh12.5' || lower === 'swsh12pt5') return 'swsh12pt5';
+  if (lower === 'swsh12.5gg' || lower === 'swsh12pt5gg') return 'swsh12pt5gg';
+  if (lower === 'sm07.5' || lower === 'sm7.5') return 'sm75';
+  if (lower === 'sm03.5' || lower === 'sm3.5') return 'sm35';
+  if (lower === 'sm11.5' || lower === 'sm115') return 'sm115';
+  return lower.replace(/\./g, '');
+};
+
+export const getJapaneseSeriesForSet = (setId: string): string[] => {
+  const upper = setId.toUpperCase();
+  if (upper.startsWith('SV')) return ['SV'];
+  if (upper.startsWith('S') && !upper.startsWith('SM')) return ['S'];
+  if (upper.startsWith('SM')) return ['SM'];
+  if (upper.startsWith('CP') || upper.startsWith('XY')) return ['XYb', 'XY'];
+  if (upper.startsWith('BW')) return ['BW'];
+  if (upper.startsWith('DP') || upper.startsWith('PT')) return ['DP'];
+  if (upper.startsWith('L') || upper.startsWith('LEGEND')) return ['L'];
+  if (upper.startsWith('ADV')) return ['ADV'];
+  if (upper.startsWith('PCG')) return ['PCG'];
+  if (upper.startsWith('PMCG') || upper.startsWith('BS')) return ['PMCG'];
+  return ['SV', 'S', 'SM'];
+};
+
+export const getEnglishSeriesForSet = (setId: string): string[] => {
+  const lower = setId.toLowerCase();
+  if (lower.startsWith('sv')) return ['sv'];
+  if (lower.startsWith('swsh')) return ['swsh'];
+  if (lower.startsWith('sm')) return ['sm'];
+  if (lower.startsWith('xy')) return ['xy'];
+  if (lower.startsWith('bw')) return ['bw'];
+  if (lower.startsWith('hgss') || lower.startsWith('col')) return ['hgss'];
+  if (lower.startsWith('dp') || lower.startsWith('pl')) return ['dp'];
+  if (lower.startsWith('ex')) return ['ex'];
+  if (lower.startsWith('base') || lower.startsWith('gym') || lower.startsWith('neo')) return ['base'];
+  return ['sv', 'swsh', 'sm'];
+};
+
+export interface PokemonImageFallbackOptions {
+  image?: string;
+  language?: 'en' | 'ja';
+  quality?: 'low' | 'high';
+}
+
+export const getPokemonImageFallbacks = (
+  id: string,
+  options?: PokemonImageFallbackOptions,
+): string[] => {
+  const urls: string[] = [];
+  const add = (u?: string) => {
+    if (u && !urls.includes(u)) urls.push(u);
+  };
+
+  const q = options?.quality ?? 'high';
+  const altQ = q === 'high' ? 'low' : 'high';
+
+  if (options?.image) {
+    add(getCardImageUrl(options.image, q));
+    add(getCardImageUrl(options.image, altQ));
+  }
+
+  if (!id || !id.includes('-')) return urls;
+  const lastDash = id.lastIndexOf('-');
+  const setId = id.slice(0, lastDash);
+  const localId = id.slice(lastDash + 1);
+  const unpaddedLocalId = localId.replace(/^0+/, '') || '0';
+
+  const isJa =
+    options?.language === 'ja' ||
+    isJapaneseId(id) ||
+    /^[A-Z][a-zA-Z0-9.]*-/u.test(id);
+
+  if (isJa) {
+    const seriesList = getJapaneseSeriesForSet(setId);
+    for (const series of seriesList) {
+      add(`https://assets.tcgdex.net/ja/${series}/${setId}/${localId}/${q}.webp`);
+      add(`https://assets.tcgdex.net/ja/${series}/${setId}/${localId}/${altQ}.webp`);
+      if (unpaddedLocalId !== localId) {
+        add(`https://assets.tcgdex.net/ja/${series}/${setId}/${unpaddedLocalId}/${q}.webp`);
+        add(`https://assets.tcgdex.net/ja/${series}/${setId}/${unpaddedLocalId}/${altQ}.webp`);
+      }
+    }
+  } else {
+    // English
+    const seriesList = getEnglishSeriesForSet(setId);
+    for (const series of seriesList) {
+      add(`https://assets.tcgdex.net/en/${series}/${setId}/${localId}/${q}.webp`);
+      add(`https://assets.tcgdex.net/en/${series}/${setId}/${localId}/${altQ}.webp`);
+    }
+
+    const pioSet = getPioSetId(setId);
+    add(`https://images.pokemontcg.io/${pioSet}/${localId}.png`);
+    if (unpaddedLocalId !== localId) {
+      add(`https://images.pokemontcg.io/${pioSet}/${unpaddedLocalId}.png`);
+    }
+
+    // Also support alt pokemontcg.io notation if .5 set
+    if (setId.toLowerCase().includes('.5')) {
+      const altPio = setId.toLowerCase().replace('.', '');
+      add(`https://images.pokemontcg.io/${altPio}/${localId}.png`);
+      if (unpaddedLocalId !== localId) {
+        add(`https://images.pokemontcg.io/${altPio}/${unpaddedLocalId}.png`);
+      }
+    }
+  }
+
+  return urls;
+};
+
+export const resolvePokemonImageUrl = (
+  id: string,
+  options?: PokemonImageFallbackOptions,
+): string | undefined => {
+  if (options?.image) {
+    const direct = getCardImageUrl(options.image, options.quality ?? 'high');
+    if (direct) return direct;
+  }
+  const fallbacks = getPokemonImageFallbacks(id, options);
+  return fallbacks[0];
+};
+
 export const extractCardmarketPrice = (
   pricing?: PokemonCardDetail['pricing'],
 ): number | null => {
@@ -571,10 +702,13 @@ const toSummary = (
   const setId = card.id.includes('-')
     ? card.id.slice(0, card.id.lastIndexOf('-'))
     : undefined;
-  let imageUrl = getCardImageUrl(card.image, 'low');
-  if (!imageUrl && language === 'en' && setId) {
-    imageUrl = `https://images.pokemontcg.io/${setId.replace('.', '')}/${card.localId}.png`;
-  }
+  const imageUrl =
+    getCardImageUrl(card.image, 'low') ||
+    resolvePokemonImageUrl(card.id, {
+      image: card.image,
+      language,
+      quality: 'low',
+    });
   return {
     id: card.id,
     localId: card.localId,
@@ -752,10 +886,17 @@ export const getPokemonCard = async (
     );
     if (res.ok) {
       const card = (await res.json()) as PokemonCardDetail;
+      const imageUrl =
+        getCardImageUrl(card.image, 'high') ||
+        resolvePokemonImageUrl(card.id, {
+          image: card.image,
+          language: primaryLang,
+          quality: 'high',
+        });
       return {
         ...card,
         language: primaryLang,
-        imageUrl: getCardImageUrl(card.image, 'high') || getCardImageUrl(card.image, 'low'),
+        imageUrl,
       };
     }
   } catch {
@@ -769,10 +910,17 @@ export const getPokemonCard = async (
     );
     if (fallbackRes.ok) {
       const card = (await fallbackRes.json()) as PokemonCardDetail;
+      const imageUrl =
+        getCardImageUrl(card.image, 'high') ||
+        resolvePokemonImageUrl(card.id, {
+          image: card.image,
+          language: fallbackLang,
+          quality: 'high',
+        });
       return {
         ...card,
         language: fallbackLang,
-        imageUrl: getCardImageUrl(card.image, 'high') || getCardImageUrl(card.image, 'low'),
+        imageUrl,
       };
     }
   } catch {

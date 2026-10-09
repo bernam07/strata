@@ -10,6 +10,7 @@ import {
 } from '../api/useCollectibles';
 import {
   resolvePokemonPrice,
+  resolvePokemonImageUrl,
   getUsdToEurRate,
   getCachedUsdToEurRate,
   isJapaneseId,
@@ -148,7 +149,13 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       : `${card.name}${tag} (#${card.localId})`;
     setName(cardName);
     setIdentifier(card.id);
-    setImageUrl(card.imageUrl ?? '');
+    const resolvedImg =
+      card.imageUrl ||
+      resolvePokemonImageUrl(card.id, {
+        image: card.image,
+        language: cardLang,
+      });
+    setImageUrl(resolvedImg ?? '');
 
     const fxRate = await getUsdToEurRate();
     const breakdown = resolvePokemonPrice(card.pricing, {
@@ -433,6 +440,11 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
               ? metadata.bricksetSetNumber
               : identifier.trim(),
           )
+        : null) ||
+      (category === 'pokemon' && identifier.trim()
+        ? resolvePokemonImageUrl(identifier.trim(), {
+            language: metadata?.language as 'en' | 'ja' | undefined,
+          })
         : null);
 
     const mergedMetadata = {

@@ -5,6 +5,7 @@ import {
   extractCollectrPrice,
   getPokemonCard,
   getUsdToEurRate,
+  resolvePokemonImageUrl,
   type PokemonCardFinish,
 } from './tcgdex';
 import { resolveLegoPrice } from './legoValuation';
@@ -395,6 +396,13 @@ export const useSyncSingleCollectiblePrice = () => {
           fxRate,
         });
 
+        const resolvedImg =
+          detail.imageUrl ||
+          resolvePokemonImageUrl(item.identifier, {
+            image: detail.image,
+            language: item.metadata?.language as 'en' | 'ja' | undefined,
+          });
+
         if (newPrice !== null && newPrice > 0) {
           const rawHistory = item.metadata?.priceHistory;
           const updatedHistory = appendPriceSnapshot(
@@ -409,13 +417,18 @@ export const useSyncSingleCollectiblePrice = () => {
             lastSyncedAt: new Date().toISOString(),
           };
 
+          const updatePayload: Database['public']['Tables']['collectibles']['Update'] = {
+            current_price: newPrice,
+            metadata: updatedMeta as unknown as Json,
+            updated_at: new Date().toISOString(),
+          };
+          if (!item.imageUrl && resolvedImg) {
+            updatePayload.image_url = resolvedImg;
+          }
+
           await supabase
             .from('collectibles')
-            .update({
-              current_price: newPrice,
-              metadata: updatedMeta as unknown as Json,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', item.id);
 
           return { updated: newPrice !== oldPrice, newPrice, oldPrice };
@@ -561,6 +574,18 @@ export const useSyncCollectiblePrices = () => {
               rarity: detail.rarity,
               fxRate,
             });
+            const resolvedImg =
+              detail.imageUrl ||
+              resolvePokemonImageUrl(card.identifier, {
+                image: detail.image,
+                language: card.metadata?.language as 'en' | 'ja' | undefined,
+              });
+
+            const updates: Database['public']['Tables']['collectibles']['Update'] = {
+              updated_at: new Date().toISOString(),
+            };
+            let shouldUpdate = false;
+
             if (
               newPrice !== null &&
               newPrice > 0 &&
@@ -574,19 +599,28 @@ export const useSyncCollectiblePrices = () => {
                 { date: card.purchaseDate, price: card.purchasePrice },
               );
 
+              updates.current_price = newPrice;
+              updates.metadata = {
+                ...(card.metadata || {}),
+                priceHistory: updatedHistory,
+                lastSyncedAt: new Date().toISOString(),
+              } as unknown as Json;
+              shouldUpdate = true;
+            }
+
+            if (!card.imageUrl && resolvedImg) {
+              updates.image_url = resolvedImg;
+              shouldUpdate = true;
+            }
+
+            if (shouldUpdate) {
               await supabase
                 .from('collectibles')
-                .update({
-                  current_price: newPrice,
-                  metadata: {
-                    ...(card.metadata || {}),
-                    priceHistory: updatedHistory,
-                    lastSyncedAt: new Date().toISOString(),
-                  } as unknown as Json,
-                  updated_at: new Date().toISOString(),
-                })
+                .update(updates)
                 .eq('id', card.id);
-              pokemonUpdated += 1;
+              if (updates.current_price !== undefined) {
+                pokemonUpdated += 1;
+              }
             }
           }
         } catch {
@@ -617,6 +651,12 @@ export const useSyncCollectiblePrices = () => {
           });
 
           const newPrice = valRes.resolvedEur;
+          const freshImg = getLegoImageUrl(item.identifier);
+          const updates: Database['public']['Tables']['collectibles']['Update'] = {
+            updated_at: new Date().toISOString(),
+          };
+          let shouldUpdate = false;
+
           if (newPrice > 0 && newPrice !== item.currentPrice) {
             const rawHistory = item.metadata?.priceHistory;
             const updatedHistory = appendPriceSnapshot(
@@ -637,15 +677,24 @@ export const useSyncCollectiblePrices = () => {
               lastSyncedAt: new Date().toISOString(),
             };
 
+            updates.current_price = newPrice;
+            updates.metadata = updatedMeta as unknown as Json;
+            shouldUpdate = true;
+          }
+
+          if (!item.imageUrl && freshImg) {
+            updates.image_url = freshImg;
+            shouldUpdate = true;
+          }
+
+          if (shouldUpdate) {
             await supabase
               .from('collectibles')
-              .update({
-                current_price: newPrice,
-                metadata: updatedMeta as unknown as Json,
-                updated_at: new Date().toISOString(),
-              })
+              .update(updates)
               .eq('id', item.id);
-            legoUpdated += 1;
+            if (updates.current_price !== undefined) {
+              legoUpdated += 1;
+            }
           }
         } catch {
           // ignore error

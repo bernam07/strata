@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TextInput } from '@/ui/Field';
 import {
   getPokemonCard,
+  getPokemonImageFallbacks,
+  resolvePokemonImageUrl,
   searchPokemonCards,
   type PokemonCardDetail,
   type PokemonCardLanguage,
@@ -25,8 +27,16 @@ const CardImageThumbnail = ({
   const [inView, setInView] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [currentSrc, setCurrentSrc] = useState<string | undefined>(card.imageUrl);
+
+  const fallbacks = useMemo(() => {
+    return getPokemonImageFallbacks(card.id, {
+      image: card.image,
+      language: card.language,
+      quality: 'low',
+    });
+  }, [card.id, card.image, card.language]);
+
+  const [fallbackIndex, setFallbackIndex] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
@@ -54,28 +64,17 @@ const CardImageThumbnail = ({
   useEffect(() => {
     setLoaded(false);
     setError(false);
-    setAttempt(0);
-    setCurrentSrc(card.imageUrl);
-  }, [card.imageUrl]);
+    setFallbackIndex(0);
+  }, [card.id, card.imageUrl, fallbacks]);
+
+  const currentSrc = fallbacks[fallbackIndex] || card.imageUrl;
 
   const handleError = () => {
-    // If low.webp failed, attempt high.webp
-    if (attempt === 0 && currentSrc && currentSrc.includes('/low.webp')) {
-      setAttempt(1);
-      setCurrentSrc(currentSrc.replace('/low.webp', '/high.webp'));
-      return;
+    if (fallbackIndex + 1 < fallbacks.length) {
+      setFallbackIndex((prev) => prev + 1);
+    } else {
+      setError(true);
     }
-    // Fallback for English cards to pokemontcg.io if TCGdex assets are unreachable
-    if (attempt < 2 && card.language === 'en' && card.setId) {
-      const pioSetId = card.setId.replace('.', '').toLowerCase();
-      const pioUrl = `https://images.pokemontcg.io/${pioSetId}/${card.localId}.png`;
-      if (currentSrc !== pioUrl) {
-        setAttempt(2);
-        setCurrentSrc(pioUrl);
-        return;
-      }
-    }
-    setError(true);
   };
 
   const isJapanese = card.language === 'ja';
@@ -214,7 +213,18 @@ export const PokemonCardSearch = ({ onSelect }: PokemonCardSearchProps) => {
       setLoadingDetail(cardSummary.id);
       const detail = await getPokemonCard(cardSummary.id, cardSummary.language);
       if (detail) {
-        onSelect(detail);
+        const resolvedImage =
+          detail.imageUrl ||
+          cardSummary.imageUrl ||
+          resolvePokemonImageUrl(detail.id, {
+            image: detail.image,
+            language: detail.language,
+            quality: 'high',
+          });
+        onSelect({
+          ...detail,
+          imageUrl: resolvedImage,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card details');

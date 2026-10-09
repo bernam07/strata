@@ -15,6 +15,7 @@ import {
 import { getLegoImageUrl } from '../api/lego';
 import { cleanLegoInput } from '../api/brickset';
 import { resolveLegoPrice, type LegoValuationResult } from '../api/legoValuation';
+import { resolvePokemonImageUrl } from '../api/tcgdex';
 import {
   resolveWatchPrice,
   cleanWatchReference,
@@ -121,6 +122,14 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
       collectible.imageUrl ||
       (collectible.category === 'watches' && collectible.identifier
         ? resolveCuratedWatchImage(collectible.identifier) || ''
+        : '') ||
+      (collectible.category === 'pokemon' && collectible.identifier
+        ? resolvePokemonImageUrl(collectible.identifier, {
+            language: collectible.metadata?.language as 'en' | 'ja' | undefined,
+          }) || ''
+        : '') ||
+      (collectible.category === 'lego' && collectible.identifier
+        ? getLegoImageUrl(collectible.identifier) || ''
         : '');
     setImageUrl(initialImg);
     setPurchaseDate(collectible.purchaseDate ?? '');
@@ -297,6 +306,11 @@ export const EditCollectibleModal = ({ collectible, onClose }: EditCollectibleMo
               ? metadata.bricksetSetNumber
               : identifier.trim(),
           )
+        : null) ||
+      (category === 'pokemon' && identifier.trim()
+        ? resolvePokemonImageUrl(identifier.trim(), {
+            language: metadata?.language as 'en' | 'ja' | undefined,
+          })
         : null) ||
       null;
 
