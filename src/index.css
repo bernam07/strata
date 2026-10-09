@@ -255,6 +255,16 @@ body {
   animation-delay: 105ms;
 }
 
+@utility defer-day-group {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 220px;
+}
+
+@utility defer-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 180px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton-shimmer,
   .page-enter,
@@ -262,3 +272,4 @@ body {
     animation: none !important;
   }
 }
+

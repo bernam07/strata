@@ -349,10 +349,13 @@ export const TransactionList = ({
 
   return (
     <div className="flex flex-col gap-5">
-      {dayGroups.map((group) => {
+      {dayGroups.map((group, groupIndex) => {
         const heading = formatDayHeading(group.dayKey);
         return (
-          <div key={group.dayKey} className="flex flex-col gap-2">
+          <div
+            key={group.dayKey}
+            className={`flex flex-col gap-2 ${groupIndex >= 2 ? 'defer-day-group' : ''}`}
+          >
             <div className="sticky top-0 z-10 -mx-1 flex items-center justify-between rounded-lg bg-[var(--bg)]/90 px-2.5 py-1.5 backdrop-blur-md border-b border-[var(--line)]/50">
               <div className="flex items-center gap-2">
                 <span className={`text-[11px] font-bold uppercase tracking-[0.12em] ${heading.isToday ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>

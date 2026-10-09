@@ -718,13 +718,13 @@ export const CollectiblesPage = () => {
         </Card>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {filteredItems.map((item) => {
+          {filteredItems.map((item, idx) => {
             const isProfit = item.gainEur >= 0;
             return (
               <div
                 key={item.id}
                 onClick={() => setEditingItem(item)}
-                className="tap group relative flex cursor-pointer flex-col overflow-hidden rounded-(--radius-card) border border-(--line) bg-(--surface-raised) transition duration-200 hover:-translate-y-1 hover:border-(--accent) hover:shadow-lg"
+                className={`tap group relative flex cursor-pointer flex-col overflow-hidden rounded-(--radius-card) border border-(--line) bg-(--surface-raised) transition duration-200 hover:-translate-y-1 hover:border-(--accent) hover:shadow-lg ${idx >= 8 ? 'defer-card' : ''}`}
               >
                 {/* Proportional, well-sized Image Showcase */}
                 <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-(--surface-sunken) p-2 sm:h-40">

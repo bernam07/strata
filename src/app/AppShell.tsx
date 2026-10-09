@@ -1,18 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { deriveBalances } from '@/core/balances/deriveBalances';
-import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
-import { money, sum, toNumber, type Money } from '@/core/money/money';
-import { useAccounts } from '@/features/accounts/api/useAccounts';
-import {
-  applyBrokerBalances,
-  useBrokerAccounts,
-} from '@/features/accounts/api/useBrokerAccounts';
-import { useTransactions } from '@/features/transactions/api/useTransactions';
-import { usePositions } from '@/features/positions/api/usePositions';
-import { useCrypto } from '@/features/crypto/api/useCrypto';
-import { useCollectibles } from '@/features/collectibles/api/useCollectibles';
-import { useIncludeCollectiblesInNetWorth } from '@/features/dashboard/api/usePreferences';
 import { useWatchlist } from '@/features/search/api/useMarket';
 import { useT212Connection } from '@/features/integrations/api/useT212';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -27,6 +14,8 @@ import { useViewportHeal } from './useViewportHeal';
 import { togglePrivacy, usePrivacy } from '@/ui/privacy';
 import { Toaster } from '@/ui/Toaster';
 import { icons, StrataMark, type IconName } from './icons';
+import { useNetWorthSummary } from '@/features/dashboard/api/useNetWorthSummary';
+import { preloadCoreRoutes, preloadRoute } from './router';
 
 interface NavEntry {
   to: string;
@@ -60,69 +49,22 @@ const navItemClass = (isActive: boolean): string =>
   }`;
 
 const SidebarNetWorth = () => {
-  const accountsQuery = useAccounts();
-  const transactionsQuery = useTransactions();
-  const brokersQuery = useBrokerAccounts();
-  const positionsQuery = usePositions();
-  const { data: crypto = [] } = useCrypto();
-  const { data: collectibles = [] } = useCollectibles();
-  const { data: includeCollectibles = true } = useIncludeCollectiblesInNetWorth();
+  const {
+    netNumber: net,
+    dayChangeEur,
+    accounts,
+    cryptoTotal,
+    collectiblesTotal,
+    positions,
+  } = useNetWorthSummary();
 
-  const summary = useMemo(() => {
-    const accounts = accountsQuery.data ?? [];
-    const transactions = transactionsQuery.data ?? [];
-    const brokers = brokersQuery.data ?? new Map();
-    const balances = applyBrokerBalances(
-      deriveBalances(transactions),
-      accounts,
-      brokers,
-    );
-    const netWorth =
-      accounts.length === 0
-        ? emptyNetWorth()
-        : computeNetWorth(accounts, balances);
-    const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
-    const cryptoDay = crypto.reduce(
-      (total, item) => total + item.dayChangeEur,
-      0,
-    );
-    const collectiblesTotal = collectibles.reduce(
-      (total, item) => total + item.valueEur,
-      0,
-    );
-    const effectiveCollectibles = includeCollectibles ? collectiblesTotal : 0;
-    const net = toNumber(
-      netWorth.net.plus(money(cryptoTotal)).plus(money(effectiveCollectibles)),
-    );
+  const hasData =
+    accounts.length > 0 || cryptoTotal > 0 || collectiblesTotal > 0;
+  if (!hasData) return null;
 
-    const positions = positionsQuery.data?.positions ?? [];
-    const changes = positions
-      .map((position) => position.dayChange)
-      .filter((change): change is Money => change !== null);
-    const todayPl =
-      changes.length === 0 && cryptoDay === 0
-        ? null
-        : toNumber(sum(changes).plus(money(cryptoDay)));
-
-    return {
-      net,
-      todayPl,
-      hasData:
-        accounts.length > 0 || crypto.length > 0 || collectibles.length > 0,
-    };
-  }, [
-    accountsQuery.data,
-    transactionsQuery.data,
-    brokersQuery.data,
-    positionsQuery.data,
-    crypto,
-    collectibles,
-    includeCollectibles,
-  ]);
-
-  if (!summary.hasData) return null;
-
-  const dayUp = (summary.todayPl ?? 0) >= 0;
+  const todayPl =
+    positions.length === 0 && dayChangeEur === 0 ? null : dayChangeEur;
+  const dayUp = (todayPl ?? 0) >= 0;
 
   return (
     <Link
@@ -133,19 +75,19 @@ const SidebarNetWorth = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Net worth
         </span>
-        {summary.todayPl !== null && summary.todayPl !== 0 && (
+        {todayPl !== null && todayPl !== 0 && (
           <span
             className="text-[11px] font-semibold tabular-nums"
             style={{
               color: dayUp ? 'var(--positive)' : 'var(--negative)',
             }}
           >
-            <AmountInline value={summary.todayPl} signed /> today
+            <AmountInline value={todayPl} signed /> today
           </span>
         )}
       </div>
       <div className="text-base font-extrabold tracking-tight tabular-nums text-[var(--text-strong)]">
-        <AmountInline value={summary.net} />
+        <AmountInline value={net} />
       </div>
     </Link>
   );
@@ -153,14 +95,11 @@ const SidebarNetWorth = () => {
 
 const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
   const { signOut } = useAuth();
-  const { data: accounts = [] } = useAccounts();
-  const { data: positionsData } = usePositions();
-  const { data: crypto = [] } = useCrypto();
-  const { data: collectibles = [] } = useCollectibles();
+  const summary = useNetWorthSummary();
   const { data: watchlist = [] } = useWatchlist();
   const connection = useT212Connection();
 
-  const holdingsCount = (positionsData?.positions.length ?? 0) + crypto.length;
+  const holdingsCount = summary.positions.length + summary.cryptoCount;
   const t212Connected =
     connection.data !== null && connection.data !== undefined;
 
@@ -179,7 +118,7 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
           to: '/accounts',
           label: 'Accounts',
           icon: 'accounts',
-          badge: accounts.length > 0 ? accounts.length : undefined,
+          badge: summary.accounts.length > 0 ? summary.accounts.length : undefined,
         },
       ],
     },
@@ -198,13 +137,13 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
           to: '/crypto',
           label: 'Crypto',
           icon: 'crypto',
-          badge: crypto.length > 0 ? crypto.length : undefined,
+          badge: summary.cryptoCount > 0 ? summary.cryptoCount : undefined,
         },
         {
           to: '/collectibles',
           label: 'Collectibles',
           icon: 'collectibles',
-          badge: collectibles.length > 0 ? collectibles.length : undefined,
+          badge: summary.collectiblesCount > 0 ? summary.collectiblesCount : undefined,
         },
         {
           to: '/search',
@@ -267,6 +206,8 @@ const Sidebar = ({ onCommand }: { onCommand: () => void }) => {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                onMouseEnter={() => preloadRoute(item.to)}
+                onTouchStart={() => preloadRoute(item.to)}
                 className={({ isActive }) => navItemClass(isActive)}
               >
                 <span className="h-[18px] w-[18px] shrink-0 [&>svg]:h-full [&>svg]:w-full">
@@ -417,6 +358,8 @@ const BottomBar = ({
             key={item.label}
             to={item.to}
             end={item.end}
+            onMouseEnter={() => preloadRoute(item.to)}
+            onTouchStart={() => preloadRoute(item.to)}
             style={{
               height: 'var(--bottom-bar-item-h)',
               fontSize: 'var(--bottom-bar-font)',
@@ -506,6 +449,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, [paletteOpen, scheduleHeal]);
 
   useEffect(() => {
+    preloadCoreRoutes();
     if (ranRecurring.current) return;
     ranRecurring.current = true;
     recurring.mutate();

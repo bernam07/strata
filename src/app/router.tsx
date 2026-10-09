@@ -58,6 +58,46 @@ const CollectiblesPage = lazyPage(
   'CollectiblesPage',
 );
 
+export const routeLoaders: Record<string, () => Promise<unknown>> = {
+  '/accounts': () => import('@/features/accounts/AccountsPage'),
+  '/transactions': () => import('@/features/transactions/TransactionsPage'),
+  '/positions': () => import('@/features/positions/PositionsPage'),
+  '/collectibles': () => import('@/features/collectibles/CollectiblesPage'),
+  '/expenses': () => import('@/features/expenses/ExpensesPage'),
+  '/dividends': () => import('@/features/dividends/DividendsPage'),
+  '/crypto': () => import('@/features/crypto/CryptoPage'),
+  '/search': () => import('@/features/search/SearchPage'),
+  '/settings': () => import('@/features/settings/SettingsPage'),
+  '/integrations': () => import('@/features/integrations/IntegrationsPage'),
+};
+
+export const preloadRoute = (path: string): void => {
+  const [firstPart] = path.split('?');
+  const clean = (firstPart ?? '').split('#')[0] ?? '';
+  const target = Object.keys(routeLoaders).find((route) => clean.startsWith(route));
+  if (target) {
+    const loader = routeLoaders[target];
+    if (loader) {
+      void loader();
+    }
+  }
+};
+
+export const preloadCoreRoutes = (): void => {
+  const priority = ['/accounts', '/transactions', '/positions', '/collectibles', '/expenses'];
+  const runner = () => {
+    for (const p of priority) {
+      void routeLoaders[p]?.();
+    }
+  };
+
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(runner, { timeout: 2000 });
+  } else {
+    setTimeout(runner, 250);
+  }
+};
+
 import { isSupabaseConfigured } from '@/db/supabase';
 
 const PageFallback = () => (
@@ -73,7 +113,20 @@ export const AppRouter = () => {
       <div className="flex min-h-screen items-center justify-center p-6 text-center bg-[var(--bg)] text-[var(--text-strong)]">
         <div className="max-w-sm rounded-[var(--radius-card)] border border-[var(--negative)]/40 bg-[var(--surface-raised)] p-6 shadow-2xl">
           <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--negative)_16%,transparent)] text-xl text-[var(--negative)]">
-            ⚠️
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
           </div>
           <h2 className="text-base font-bold text-[var(--text-strong)]">Configuração em falta</h2>
           <p className="mt-3 text-xs leading-relaxed text-[var(--text-2)]">

@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { deriveBalances } from '@/core/balances/deriveBalances';
-import { monthlyCashflow } from '@/core/analytics/cashflow';
-import { computeNetWorth, emptyNetWorth } from '@/core/networth/netWorth';
-import { isNegative, money, sum, toNumber, zero, type Money } from '@/core/money/money';
-import { useAccounts } from '@/features/accounts/api/useAccounts';
-import {
-  applyBrokerBalances,
-  useBrokerAccounts,
-} from '@/features/accounts/api/useBrokerAccounts';
-import { useTransactions } from '@/features/transactions/api/useTransactions';
+import { toNumber } from '@/core/money/money';
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
-import { useCrypto } from '@/features/crypto/api/useCrypto';
-import { useCollectibles } from '@/features/collectibles/api/useCollectibles';
 import { NetWorthChart } from '@/features/analytics/NetWorthChart';
 import { Skeleton } from '@/ui/Skeleton';
 import { PageHeader } from '@/ui/PageHeader';
@@ -28,77 +17,51 @@ import { Movers } from './Movers';
 import { FinancialTimeline } from './FinancialTimeline';
 import { WealthLayersBar } from './WealthLayersBar';
 import { useNetWorthHistory, useRecordNetWorth } from './api/useNetWorthHistory';
-import { useIncludeCollectiblesInNetWorth } from './api/usePreferences';
+import { useNetWorthSummary } from './api/useNetWorthSummary';
 
 export const DashboardPage = () => {
   const [heroView, setHeroView] = useState<'allocation' | 'trajectory'>('allocation');
-  const accountsQuery = useAccounts();
-  const transactionsQuery = useTransactions();
-  const brokersQuery = useBrokerAccounts();
+  const summary = useNetWorthSummary();
   const { data: instruments } = useInstruments();
   const positionsQuery = usePositions();
-  const { data: crypto = [] } = useCrypto();
-  const { data: collectibles = [] } = useCollectibles();
-  const { data: includeCollectibles = true } = useIncludeCollectiblesInNetWorth();
   const { data: snapshots = [] } = useNetWorthHistory();
   const recordNetWorth = useRecordNetWorth();
 
-  const model = useMemo(() => {
-    const accounts = accountsQuery.data ?? [];
-    const transactions = transactionsQuery.data ?? [];
-    const brokers = brokersQuery.data ?? new Map();
-    const balances = applyBrokerBalances(
-      deriveBalances(transactions),
-      accounts,
-      brokers,
-    );
-    const netWorth =
-      accounts.length === 0
-        ? emptyNetWorth()
-        : computeNetWorth(accounts, balances);
-    const assets = [...netWorth.assets].sort((a, b) =>
-      b.balance.comparedTo(a.balance),
-    );
-    const liabilities = [...netWorth.liabilities].sort((a, b) =>
-      a.balance.comparedTo(b.balance),
-    );
-    return {
-      netWorth,
-      assets,
-      liabilities,
-    };
-  }, [accountsQuery.data, transactionsQuery.data, brokersQuery.data]);
-
-  const loading = accountsQuery.isLoading || transactionsQuery.isLoading;
-  const accounts = accountsQuery.data ?? [];
+  const loading = summary.loading;
+  const accounts = summary.accounts;
   const empty =
     !loading &&
     accounts.length === 0 &&
-    crypto.length === 0 &&
-    collectibles.length === 0;
-  const positions = positionsQuery.data?.positions ?? [];
+    summary.cryptoTotal === 0 &&
+    summary.collectiblesTotal === 0;
+  const positions = summary.positions;
   const positionInstruments = positionsQuery.data?.instruments ?? new Map();
   const rankablePositions = positions.filter(
     (position) => position.unrealizedPct !== null,
   ).length;
 
-  const cryptoTotal = crypto.reduce((total, item) => total + item.valueEur, 0);
-  const cryptoDay = crypto.reduce((total, item) => total + item.dayChangeEur, 0);
-  const collectiblesTotal = collectibles.reduce(
-    (total, item) => total + item.valueEur,
-    0,
-  );
-  const effectiveCollectiblesValue = includeCollectibles ? collectiblesTotal : 0;
-  const netWithAll = model.netWorth.net
-    .plus(money(cryptoTotal))
-    .plus(money(effectiveCollectiblesValue));
+  const cryptoTotal = summary.cryptoTotal;
+  const collectiblesTotal = summary.collectiblesTotal;
+  const effectiveCollectiblesValue = summary.effectiveCollectibles;
+  const netWithAll = summary.netWithAll;
+  const investments = summary.investments;
+  const mealTotal = summary.mealTotal;
+  const liquidCash = summary.liquidCash;
+  const avgMonthlySavings = summary.avgMonthlySavings;
+  const dataReady = summary.dataReady;
+
+  const model = {
+    netWorth: summary.netWorth,
+    assets: summary.assets,
+    liabilities: summary.liabilities,
+  };
 
   const extraSegments = useMemo(() => {
     const list = [];
     if (cryptoTotal > 0) {
       list.push({ id: 'crypto', name: 'Crypto', value: cryptoTotal, to: '/crypto' });
     }
-    if (includeCollectibles && collectiblesTotal > 0) {
+    if (summary.includeCollectibles && collectiblesTotal > 0) {
       list.push({
         id: 'collectibles',
         name: 'Alternative Assets',
@@ -107,42 +70,7 @@ export const DashboardPage = () => {
       });
     }
     return list;
-  }, [cryptoTotal, collectiblesTotal, includeCollectibles]);
-
-  const investments = useMemo(() => {
-    const brokers = brokersQuery.data ?? new Map();
-    let total = zero();
-    for (const snapshot of brokers.values()) total = total.plus(money(snapshot.total));
-    return total;
-  }, [brokersQuery.data]);
-
-  const mealTotal = useMemo(() => {
-    let total = 0;
-    for (const entry of model.netWorth.assets) {
-      if (entry.account.institutionId === 'edenred') {
-        total += Math.max(0, toNumber(entry.balance));
-      }
-    }
-    return total;
-  }, [model.netWorth.assets]);
-
-  const liquidCash = Math.max(
-    0,
-    toNumber(model.netWorth.totalAssets) - toNumber(investments) - mealTotal,
-  );
-
-  const avgMonthlySavings = useMemo(() => {
-    const rows = monthlyCashflow(transactionsQuery.data ?? []).slice(0, 3);
-    if (rows.length === 0) return 0;
-    const sumNet = rows.reduce((acc, row) => acc + toNumber(row.net), 0);
-    return Math.max(0, sumNet / rows.length);
-  }, [transactionsQuery.data]);
-
-  const dataReady =
-    !loading &&
-    !brokersQuery.isLoading &&
-    accounts.length > 0 &&
-    !positionsQuery.isLoading;
+  }, [cryptoTotal, collectiblesTotal, summary.includeCollectibles]);
 
   useEffect(() => {
     if (!dataReady) return;
@@ -158,14 +86,6 @@ export const DashboardPage = () => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataReady, netWithAll.toString()]);
-
-  const todayPl = useMemo<Money | null>(() => {
-    const changes = positions
-      .map((position) => position.dayChange)
-      .filter((change): change is Money => change !== null);
-    if (changes.length === 0 && cryptoDay === 0) return null;
-    return sum(changes).plus(money(cryptoDay));
-  }, [positions, cryptoDay]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -223,10 +143,10 @@ export const DashboardPage = () => {
                   ) : undefined
                 }
                 aside={
-                  todayPl !== null ? (
+                  summary.todayPl !== null ? (
                     <DeltaPill
-                      value={toNumber(todayPl)}
-                      tone={isNegative(todayPl) ? 'negative' : 'positive'}
+                      value={summary.todayPlNumber}
+                      tone={summary.todayPlNegative ? 'negative' : 'positive'}
                       note="today"
                     />
                   ) : undefined
@@ -253,7 +173,7 @@ export const DashboardPage = () => {
             />
 
             <MonthlyPulseCard
-              transactions={transactionsQuery.data ?? []}
+              transactions={summary.transactions}
               liquidCash={liquidCash}
               snapshots={snapshots}
             />
@@ -276,9 +196,9 @@ export const DashboardPage = () => {
             )}
 
             <FinancialTimeline
-              transactions={transactionsQuery.data ?? []}
+              transactions={summary.transactions}
               accounts={accounts}
-              instruments={instruments}
+              instruments={instruments ?? new Map()}
             />
           </div>
         </>

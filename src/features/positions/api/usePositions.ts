@@ -147,27 +147,25 @@ export const usePositions = () =>
   useQuery<PositionsData>({
     queryKey: ['positions'],
     queryFn: async () => {
-      const [holdingsRes, transactionsRes, instrumentsRes, pricesRes, fxRes] =
+      const [holdingsRes, instrumentsRes, pricesRes, fxRes] =
         await Promise.all([
           supabase
             .from('holdings')
             .select(
               'instrument_id, quantity, average_price, current_price, previous_close, currency',
             ),
-          supabase
-            .from('transactions')
-            .select('*')
-            .not('instrument_id', 'is', null),
           supabase.from('instruments').select('id, ticker, isin, name, currency, yahoo_symbol, sector'),
           supabase
             .from('prices')
             .select('instrument_id, close, currency, as_of')
-            .order('as_of', { ascending: false }),
+            .order('as_of', { ascending: false })
+            .limit(200),
           supabase
             .from('fx_rates')
             .select('base, rate, as_of')
             .eq('quote', 'EUR')
-            .order('as_of', { ascending: false }),
+            .order('as_of', { ascending: false })
+            .limit(25),
         ]);
 
       if (instrumentsRes.error) throw instrumentsRes.error;
@@ -235,6 +233,13 @@ export const usePositions = () =>
         });
         return { positions, instruments, fromBroker: true };
       }
+
+      const transactionsRes = await supabase
+        .from('transactions')
+        .select('*')
+        .not('instrument_id', 'is', null);
+
+      if (transactionsRes.error) throw transactionsRes.error;
 
       const transactions = (transactionsRes.data ?? []).map(toTransaction);
       const latestPrice = latestByKey(
