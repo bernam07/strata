@@ -154,6 +154,46 @@ export const getCardImageUrl = (
   return `${baseUrl.replace(/\/+$/, '')}/${quality}.webp`;
 };
 
+export const EN_SET_TO_SERIES: Record<string, string> = {
+  miscp: 'misc', jumbo: 'misc',
+  base1: 'base', base2: 'base', basep: 'base', wp: 'base', base3: 'base', base4: 'base', base5: 'base',
+  gym1: 'gym', gym2: 'gym',
+  neo1: 'neo', neo2: 'neo', si1: 'neo', neo3: 'neo', neo4: 'neo',
+  lc: 'lc',
+  sp: 'ecard', ecard1: 'ecard', bog: 'ecard', ecard2: 'ecard', ecard3: 'ecard',
+  ex1: 'ex', ex2: 'ex', ex3: 'ex', ex4: 'ex', ex5: 'ex', 'ex5.5': 'ex', ex6: 'ex', ex7: 'ex', ex8: 'ex', ex9: 'ex', ex10: 'ex', exu: 'ex', ex11: 'ex', ex12: 'ex', ex13: 'ex', ex14: 'ex', ex15: 'ex', ex16: 'ex',
+  np: 'pop', pop1: 'pop', pop2: 'pop', pop3: 'pop', pop4: 'pop', pop5: 'pop', pop6: 'pop', pop7: 'pop', pop8: 'pop', pop9: 'pop',
+  'tk-ex-latio': 'tk', 'tk-ex-latia': 'tk', 'tk-ex-m': 'tk', 'tk-ex-p': 'tk', 'tk-dp-m': 'tk', 'tk-dp-l': 'tk', 'tk-hs-g': 'tk', 'tk-hs-r': 'tk', 'tk-bw-z': 'tk', 'tk-bw-e': 'tk', 'tk-xy-n': 'tk', 'tk-xy-sy': 'tk', 'tk-xy-w': 'tk', 'tk-xy-b': 'tk', 'tk-xy-latio': 'tk', 'tk-xy-latia': 'tk', 'tk-xy-p': 'tk', 'tk-xy-su': 'tk', 'tk-sm-r': 'tk', 'tk-sm-l': 'tk',
+  dp1: 'dp', dpp: 'dp', dp2: 'dp', dp3: 'dp', dp4: 'dp', dp5: 'dp', dp6: 'dp', dp7: 'dp',
+  pl1: 'pl', pl2: 'pl', pl3: 'pl', pl4: 'pl', ru1: 'pl',
+  hgss1: 'hgss', hgssp: 'hgss', hgss2: 'hgss', hgss3: 'hgss', hgss4: 'hgss',
+  col1: 'col',
+  bw1: 'bw', bwp: 'bw', bw2: 'bw', bw3: 'bw', bw4: 'bw', bw5: 'bw', bw6: 'bw', dv1: 'bw', bw7: 'bw', bw8: 'bw', bw9: 'bw', bw10: 'bw', rc: 'bw', bw11: 'bw',
+  '2011bw': 'mc', '2012bw': 'mc', '2014xy': 'mc', '2015xy': 'mc', '2016xy': 'mc', '2017sm': 'mc', '2018sm': 'mc', '2019sm': 'mc', '2021swsh': 'mc', '2022swsh': 'mc', '2023sv': 'mc', '2024sv': 'mc',
+  xyp: 'xy', xy0: 'xy', xya: 'xy', xy1: 'xy', xy2: 'xy', xy3: 'xy', xy4: 'xy', xy5: 'xy', dc1: 'xy', xy6: 'xy', xy7: 'xy', xy8: 'xy', xy9: 'xy', g1: 'xy', xy10: 'xy', xy11: 'xy', xy12: 'xy',
+  sm1: 'sm', smp: 'sm', sm2: 'sm', sm3: 'sm', 'sm3.5': 'sm', sm4: 'sm', sm5: 'sm', sm6: 'sm', sm7: 'sm', 'sm7.5': 'sm', sm8: 'sm', sm9: 'sm', det1: 'sm', sm10: 'sm', sm11: 'sm', sma: 'sm', sm115: 'sm', sm12: 'sm',
+  swshp: 'swsh', swsh1: 'swsh', swsh2: 'swsh', swsh3: 'swsh', fut2020: 'swsh', 'swsh3.5': 'swsh', swsh4: 'swsh', 'swsh4.5': 'swsh', 'swsh4.5sv': 'swsh', swsh5: 'swsh', swsh6: 'swsh', swsh7: 'swsh', cel25cc: 'swsh', cel25: 'swsh', swsh8: 'swsh', swsh9: 'swsh', swsh9tg: 'swsh', swsh10: 'swsh', swsh10tg: 'swsh', 'swsh10.5': 'swsh', swsh11tg: 'swsh', swsh11: 'swsh', swsh12: 'swsh', swsh12tg: 'swsh', 'swsh12.5': 'swsh', 'swsh12.5gg': 'swsh',
+  svp: 'sv', sve: 'sv', sv01: 'sv', sv02: 'sv', sv03: 'sv', 'sv03.5': 'sv', mfb: 'sv', sv04: 'sv', 'sv04.5': 'sv', sv05: 'sv', sv06: 'sv', 'sv06.5': 'sv', sv07: 'sv', sv08: 'sv', 'sv08.5': 'sv', sv09: 'sv', sv10: 'sv', 'sv10.5b': 'sv', 'sv10.5w': 'sv',
+  'P-A': 'tcgp', A1: 'tcgp', A1a: 'tcgp', A2: 'tcgp', A2a: 'tcgp', A2b: 'tcgp', A3: 'tcgp', A3a: 'tcgp', A3b: 'tcgp', A4: 'tcgp', A4a: 'tcgp', B1: 'tcgp', B1a: 'tcgp', B2: 'tcgp', B2a: 'tcgp',
+  mee: 'me', me01: 'me', mep: 'me', me02: 'me', 'me02.5': 'me', me03: 'me', me04: 'me', me05: 'me', '30th': 'me', '30th-c': 'me',
+};
+
+export const JA_SET_TO_SERIES: Record<string, string> = {
+  PMCG1: 'PMCG', PMCG2: 'PMCG', PMCG3: 'PMCG', PMCG4: 'PMCG', PMCG5: 'PMCG', PMCG6: 'PMCG',
+  neo1: 'neo', neo2: 'neo', neo3: 'neo', neo4: 'neo',
+  VS1: 'VS', web1: 'web',
+  E1: 'e', E2: 'e', E3: 'e', E4: 'e', E5: 'e',
+  ADV1: 'ADV', ADV2: 'ADV', ADV3: 'ADV', ADV4: 'ADV', ADV5: 'ADV',
+  PCG1: 'PCG', PCG2: 'PCG', PCG3: 'PCG', PCG4: 'PCG', PCG5: 'PCG', PCG6: 'PCG', PCG7: 'PCG', PCG8: 'PCG', PCG9: 'PCG', PCG10: 'PCG',
+  L1a: 'L', L1b: 'L', L2: 'L', LL: 'L', L3: 'L',
+  XY1a: 'XY', XY1b: 'XY', XY2: 'XY', XY4: 'XY', XY3: 'XY', XY5b: 'XY', XY5a: 'XY', CP1: 'XY', XY6: 'XY', XY7: 'XY', CP2: 'XY',
+  XY8b: 'XYb', XY8a: 'XYb', XY9: 'XYb', CP3: 'XYb', XY10: 'XYb', CP4: 'XYb', XY11a: 'XYb', XY11b: 'XYb', CP5: 'XYb', CP6: 'XYb',
+  SM0: 'SM', SM1S: 'SM', SM1M: 'SM', 'SM1+': 'SM', SM2K: 'SM', SM2L: 'SM', 'sm2+': 'SM', SM3H: 'SM', SM3N: 'SM', 'SM3+': 'SM', SM4A: 'SM', SM4S: 'SM', 'SM4+': 'SM', SM5M: 'SM', SM5S: 'SM', 'SM5+': 'SM', SM6: 'SM', SM6a: 'SM', SM6b: 'SM', SM7: 'SM', SM7a: 'SM', SM7b: 'SM', SM8: 'SM', SM8b: 'SM', SM8a: 'SM', SM9: 'SM', SM9a: 'SM', SM9b: 'SM', SM10: 'SM', SM10a: 'SM', SM10b: 'SM', SMP2: 'SM', SM11: 'SM', SM11a: 'SM', SM11b: 'SM', SM12: 'SM', SM12a: 'SM', SM2p: 'SM', SM3p: 'SM', SM4p: 'SM', SM1p: 'SM', SM5p: 'SM',
+  S1H: 'S', S1W: 'S', S1a: 'S', S2: 'S', S3: 'S', S3a: 'S', CS4: 'S', CS4b: 'S', CS1a: 'S', CS4Da: 'S', CS3b: 'S', CS2a: 'S', CS1b: 'S', CS3a: 'S', CS3D: 'S', CSA: 'S', 'CS1.5': 'S', CS4a: 'S', CS2b: 'S', 'CS2.5': 'S', 'CS3.5': 'S', S10b: 'S', S12a: 'S', S4a: 'S', S9a: 'S', S2a: 'S', S4: 'S', S10P: 'S', S10a: 'S', S6a: 'S', S8b: 'S', S6H: 'S', S8: 'S', S6K: 'S', S11a: 'S', S5I: 'S', S11: 'S', S5a: 'S', S5R: 'S', S8a: 'S', S10D: 'S', S9: 'S', S7D: 'S', S7R: 'S', S12: 'S',
+  M3: 'M', 'M-P': 'M', M4: 'M', M1L: 'M', M2: 'M', M1S: 'M', M6: 'M', MF: 'M', M6a: 'M', M2a: 'M', M5: 'M', MC: 'M',
+  SV1V: 'SV', SV5M: 'SV', SV7: 'SV', SV11W: 'SV', SV2P: 'SV', SV9a: 'SV', SVK: 'SV', SV1S: 'SV', SV4M: 'SV', SV9: 'SV', SV5K: 'SV', SV8a: 'SV', SVLS: 'SV', SV3a: 'SV', SV1a: 'SV', SV8: 'SV', 'SV-P': 'SV', SV11B: 'SV', SV10: 'SV', SV2D: 'SV', SV6: 'SV', SV2a: 'SV', SV3: 'SV', SVLN: 'SV', SV4a: 'SV', SV4K: 'SV', SV6a: 'SV', SV5a: 'SV', SV7a: 'SV',
+};
+
 export const getPioSetId = (setId: string): string => {
   const lower = setId.toLowerCase();
   if (lower === 'sv03.5' || lower === 'sv3.5') return 'sv3pt5';
@@ -161,7 +201,7 @@ export const getPioSetId = (setId: string): string => {
   if (lower === 'sv06.5' || lower === 'sv6.5') return 'sv6pt5';
   if (lower === 'sv08.5' || lower === 'sv8.5') return 'sv8pt5';
   if (lower.startsWith('sv') && lower.includes('.5')) {
-    return lower.replace('.5', 'pt5').replace(/^sv0/, 'sv');
+    return lower.replace('.5', 'pt5').replace(/^sv0?/, 'sv');
   }
   if (lower === 'swsh04.5' || lower === 'swsh4.5') return 'swsh45';
   if (lower === 'swsh4.5sv') return 'swsh45sv';
@@ -170,10 +210,24 @@ export const getPioSetId = (setId: string): string => {
   if (lower === 'sm07.5' || lower === 'sm7.5') return 'sm75';
   if (lower === 'sm03.5' || lower === 'sm3.5') return 'sm35';
   if (lower === 'sm11.5' || lower === 'sm115') return 'sm115';
+  if (/^sv0\d+$/.test(lower)) {
+    return lower.replace(/^sv0/, 'sv');
+  }
+  if (/^swsh0\d+$/.test(lower)) {
+    return lower.replace(/^swsh0/, 'swsh');
+  }
+  if (/^sm0\d+$/.test(lower)) {
+    return lower.replace(/^sm0/, 'sm');
+  }
   return lower.replace(/\./g, '');
 };
 
 export const getJapaneseSeriesForSet = (setId: string): string[] => {
+  const direct =
+    JA_SET_TO_SERIES[setId] ||
+    JA_SET_TO_SERIES[setId.toUpperCase()] ||
+    JA_SET_TO_SERIES[setId.toLowerCase()];
+  if (direct) return [direct];
   const upper = setId.toUpperCase();
   if (upper.startsWith('SV')) return ['SV'];
   if (upper.startsWith('S') && !upper.startsWith('SM')) return ['S'];
@@ -185,20 +239,32 @@ export const getJapaneseSeriesForSet = (setId: string): string[] => {
   if (upper.startsWith('ADV')) return ['ADV'];
   if (upper.startsWith('PCG')) return ['PCG'];
   if (upper.startsWith('PMCG') || upper.startsWith('BS')) return ['PMCG'];
+  if (upper.startsWith('NEO')) return ['neo'];
+  if (upper.startsWith('E')) return ['e'];
+  if (upper.startsWith('VS')) return ['VS'];
   return ['SV', 'S', 'SM'];
 };
 
 export const getEnglishSeriesForSet = (setId: string): string[] => {
+  const direct =
+    EN_SET_TO_SERIES[setId] ||
+    EN_SET_TO_SERIES[setId.toLowerCase()];
+  if (direct) return [direct];
   const lower = setId.toLowerCase();
   if (lower.startsWith('sv')) return ['sv'];
   if (lower.startsWith('swsh')) return ['swsh'];
   if (lower.startsWith('sm')) return ['sm'];
   if (lower.startsWith('xy')) return ['xy'];
   if (lower.startsWith('bw')) return ['bw'];
-  if (lower.startsWith('hgss') || lower.startsWith('col')) return ['hgss'];
-  if (lower.startsWith('dp') || lower.startsWith('pl')) return ['dp'];
+  if (lower.startsWith('hgss')) return ['hgss'];
+  if (lower.startsWith('col')) return ['col'];
+  if (lower.startsWith('dp')) return ['dp'];
+  if (lower.startsWith('pl')) return ['pl'];
   if (lower.startsWith('ex')) return ['ex'];
-  if (lower.startsWith('base') || lower.startsWith('gym') || lower.startsWith('neo')) return ['base'];
+  if (lower.startsWith('neo')) return ['neo'];
+  if (lower.startsWith('gym')) return ['gym'];
+  if (lower.startsWith('ecard')) return ['ecard'];
+  if (lower.startsWith('base')) return ['base'];
   return ['sv', 'swsh', 'sm'];
 };
 
@@ -206,6 +272,7 @@ export interface PokemonImageFallbackOptions {
   image?: string;
   language?: 'en' | 'ja';
   quality?: 'low' | 'high';
+  tcgplayerProductId?: number;
 }
 
 export const getPokemonImageFallbacks = (
@@ -225,11 +292,18 @@ export const getPokemonImageFallbacks = (
     add(getCardImageUrl(options.image, altQ));
   }
 
+  if (options?.tcgplayerProductId) {
+    add(`https://product-images.tcgplayer.com/fit-in/437x437/${options.tcgplayerProductId}.jpg`);
+    add(`https://tcgplayer-cdn.tcgplayer.com/product/${options.tcgplayerProductId}_in_1000x1000.jpg`);
+  }
+
   if (!id || !id.includes('-')) return urls;
   const lastDash = id.lastIndexOf('-');
   const setId = id.slice(0, lastDash);
   const localId = id.slice(lastDash + 1);
   const unpaddedLocalId = localId.replace(/^0+/, '') || '0';
+  const padded3 = localId.padStart(3, '0');
+  const padded2 = localId.padStart(2, '0');
 
   const isJa =
     options?.language === 'ja' ||
@@ -238,34 +312,49 @@ export const getPokemonImageFallbacks = (
 
   if (isJa) {
     const seriesList = getJapaneseSeriesForSet(setId);
+    const variants = [localId];
+    if (padded3 !== localId) variants.push(padded3);
+    if (unpaddedLocalId !== localId && !variants.includes(unpaddedLocalId)) variants.push(unpaddedLocalId);
+    if (padded2 !== localId && !variants.includes(padded2)) variants.push(padded2);
+
     for (const series of seriesList) {
-      add(`https://assets.tcgdex.net/ja/${series}/${setId}/${localId}/${q}.webp`);
-      add(`https://assets.tcgdex.net/ja/${series}/${setId}/${localId}/${altQ}.webp`);
-      if (unpaddedLocalId !== localId) {
-        add(`https://assets.tcgdex.net/ja/${series}/${setId}/${unpaddedLocalId}/${q}.webp`);
-        add(`https://assets.tcgdex.net/ja/${series}/${setId}/${unpaddedLocalId}/${altQ}.webp`);
+      for (const v of variants) {
+        add(`https://assets.tcgdex.net/ja/${series}/${setId}/${v}/${q}.webp`);
+        add(`https://assets.tcgdex.net/ja/${series}/${setId}/${v}/${altQ}.webp`);
       }
     }
   } else {
     // English
+    const pioSet = getPioSetId(setId);
+
+    // If options.image is missing from TCGdex catalog, try pokemontcg.io first
+    if (!options?.image) {
+      add(`https://images.pokemontcg.io/${pioSet}/${localId}.png`);
+      add(`https://images.pokemontcg.io/${pioSet}/${localId}_hires.png`);
+      if (unpaddedLocalId !== localId) {
+        add(`https://images.pokemontcg.io/${pioSet}/${unpaddedLocalId}.png`);
+        add(`https://images.pokemontcg.io/${pioSet}/${unpaddedLocalId}_hires.png`);
+      }
+      if (padded3 !== localId) {
+        add(`https://images.pokemontcg.io/${pioSet}/${padded3}.png`);
+      }
+    }
+
     const seriesList = getEnglishSeriesForSet(setId);
     for (const series of seriesList) {
       add(`https://assets.tcgdex.net/en/${series}/${setId}/${localId}/${q}.webp`);
       add(`https://assets.tcgdex.net/en/${series}/${setId}/${localId}/${altQ}.webp`);
+      if (padded3 !== localId) {
+        add(`https://assets.tcgdex.net/en/${series}/${setId}/${padded3}/${q}.webp`);
+        add(`https://assets.tcgdex.net/en/${series}/${setId}/${padded3}/${altQ}.webp`);
+      }
     }
 
-    const pioSet = getPioSetId(setId);
-    add(`https://images.pokemontcg.io/${pioSet}/${localId}.png`);
-    if (unpaddedLocalId !== localId) {
-      add(`https://images.pokemontcg.io/${pioSet}/${unpaddedLocalId}.png`);
-    }
-
-    // Also support alt pokemontcg.io notation if .5 set
-    if (setId.toLowerCase().includes('.5')) {
-      const altPio = setId.toLowerCase().replace('.', '');
-      add(`https://images.pokemontcg.io/${altPio}/${localId}.png`);
+    if (options?.image) {
+      add(`https://images.pokemontcg.io/${pioSet}/${localId}.png`);
+      add(`https://images.pokemontcg.io/${pioSet}/${localId}_hires.png`);
       if (unpaddedLocalId !== localId) {
-        add(`https://images.pokemontcg.io/${altPio}/${unpaddedLocalId}.png`);
+        add(`https://images.pokemontcg.io/${pioSet}/${unpaddedLocalId}.png`);
       }
     }
   }
@@ -886,12 +975,19 @@ export const getPokemonCard = async (
     );
     if (res.ok) {
       const card = (await res.json()) as PokemonCardDetail;
+      const tcgplayerProductId =
+        card.pricing?.tcgplayer?.normal?.productId ||
+        card.pricing?.tcgplayer?.holofoil?.productId ||
+        card.pricing?.tcgplayer?.['reverse-holofoil']?.productId ||
+        card.pricing?.tcgplayer?.['1st-edition']?.productId ||
+        card.pricing?.tcgplayer?.['1st-edition-holofoil']?.productId;
       const imageUrl =
         getCardImageUrl(card.image, 'high') ||
         resolvePokemonImageUrl(card.id, {
           image: card.image,
           language: primaryLang,
           quality: 'high',
+          tcgplayerProductId,
         });
       return {
         ...card,
@@ -910,12 +1006,19 @@ export const getPokemonCard = async (
     );
     if (fallbackRes.ok) {
       const card = (await fallbackRes.json()) as PokemonCardDetail;
+      const tcgplayerProductId =
+        card.pricing?.tcgplayer?.normal?.productId ||
+        card.pricing?.tcgplayer?.holofoil?.productId ||
+        card.pricing?.tcgplayer?.['reverse-holofoil']?.productId ||
+        card.pricing?.tcgplayer?.['1st-edition']?.productId ||
+        card.pricing?.tcgplayer?.['1st-edition-holofoil']?.productId;
       const imageUrl =
         getCardImageUrl(card.image, 'high') ||
         resolvePokemonImageUrl(card.id, {
           image: card.image,
           language: fallbackLang,
           quality: 'high',
+          tcgplayerProductId,
         });
       return {
         ...card,

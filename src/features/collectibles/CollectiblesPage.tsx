@@ -53,12 +53,29 @@ const CollectibleThumbnail = ({
       if (u && !list.includes(u)) list.push(u);
     };
 
-    if (item.imageUrl) add(item.imageUrl);
+    const isLegacyBroken =
+      item.imageUrl &&
+      (item.imageUrl.includes('/en/base/neo') ||
+        item.imageUrl.includes('/en/base/gym') ||
+        item.imageUrl.includes('/sv01/') ||
+        item.imageUrl.includes('/sv02/') ||
+        item.imageUrl.includes('/sv03/') ||
+        item.imageUrl.includes('/sv04/') ||
+        item.imageUrl.includes('/sv05/') ||
+        item.imageUrl.includes('/sv06/') ||
+        item.imageUrl.includes('/sv07/') ||
+        item.imageUrl.includes('/sv08/'));
+
+    if (item.imageUrl && !isLegacyBroken) add(item.imageUrl);
 
     if (item.category === 'pokemon' && item.identifier) {
+      const tcgplayerProductId =
+        (item.metadata?.tcgplayerProductId as number | undefined) ||
+        (item.metadata?.productId as number | undefined);
       const fallbacks = getPokemonImageFallbacks(item.identifier, {
         language: item.metadata?.language as 'en' | 'ja' | undefined,
         quality: view === 'grid' ? 'high' : 'low',
+        tcgplayerProductId,
       });
       for (const u of fallbacks) add(u);
     } else if (item.category === 'watches' && item.identifier) {
@@ -67,8 +84,10 @@ const CollectibleThumbnail = ({
       add(getLegoImageUrl(item.identifier));
     }
 
+    if (item.imageUrl && isLegacyBroken) add(item.imageUrl);
+
     return list;
-  }, [item.imageUrl, item.category, item.identifier, item.metadata?.language, view]);
+  }, [item.imageUrl, item.category, item.identifier, item.metadata?.language, item.metadata?.tcgplayerProductId, item.metadata?.productId, view]);
 
   const [candidateIndex, setCandidateIndex] = useState(0);
   const [hasError, setHasError] = useState(false);

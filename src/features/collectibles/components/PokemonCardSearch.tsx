@@ -104,34 +104,35 @@ const CardImageThumbnail = ({
           }`}
         />
       ) : (
-        /* Stylized Collectible Pokémon Card Frame Placeholder */
-        <div className="relative flex h-full w-full flex-col items-center justify-between overflow-hidden rounded border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-2 text-center select-none shadow-inner">
+        /* Clean Front Card Placeholder */
+        <div className="relative flex h-full w-full flex-col items-center justify-between overflow-hidden rounded border border-[var(--line)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-2 text-center select-none shadow-xs">
           <div className="flex w-full items-center justify-between text-[8px] font-mono text-[var(--text-muted)]">
             <span className="truncate max-w-[50px] font-bold uppercase">{card.setId || 'TCG'}</span>
             <span>#{card.localId}</span>
           </div>
 
-          <div className="relative my-auto flex flex-col items-center justify-center">
-            {/* Pokéball watermark */}
+          <div className="relative my-auto flex flex-col items-center justify-center gap-1">
             <svg
-              className="h-10 w-10 text-[var(--text-muted)] opacity-20"
-              viewBox="0 0 100 100"
+              className="h-7 w-7 text-[var(--text-muted)] opacity-40"
+              viewBox="0 0 24 24"
               fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="6" />
-              <line x1="5" y1="50" x2="95" y2="50" stroke="currentColor" strokeWidth="6" />
-              <circle cx="50" cy="50" r="16" fill="var(--surface-sunken)" stroke="currentColor" strokeWidth="6" />
-              <circle cx="50" cy="50" r="8" fill="currentColor" />
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
             </svg>
-            <span className="mt-1 line-clamp-2 px-0.5 text-[9px] font-bold leading-tight text-[var(--text-strong)]">
+            <span className="line-clamp-2 px-0.5 text-[9px] font-bold leading-tight text-[var(--text-strong)]">
               {card.name}
             </span>
           </div>
 
           <div className="flex w-full items-center justify-center">
             <span className="rounded bg-[var(--surface-flat)] px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              No Official Scan
+              No Scan
             </span>
           </div>
         </div>

@@ -149,11 +149,18 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       : `${card.name}${tag} (#${card.localId})`;
     setName(cardName);
     setIdentifier(card.id);
+    const tcgplayerProductId =
+      card.pricing?.tcgplayer?.normal?.productId ||
+      card.pricing?.tcgplayer?.holofoil?.productId ||
+      card.pricing?.tcgplayer?.['reverse-holofoil']?.productId ||
+      card.pricing?.tcgplayer?.['1st-edition']?.productId;
+
     const resolvedImg =
       card.imageUrl ||
       resolvePokemonImageUrl(card.id, {
         image: card.image,
         language: cardLang,
+        tcgplayerProductId,
       });
     setImageUrl(resolvedImg ?? '');
 
@@ -181,6 +188,7 @@ export const AddCollectibleModal = ({ open, onClose }: AddCollectibleModalProps)
       localId: card.localId,
       finish: breakdown.selectedFinish,
       language: cardLang,
+      tcgplayerProductId,
       collectrPriceEur: breakdown.collectr?.priceEur,
       tcgplayerUsd: breakdown.collectr?.priceUsd,
       cardmarketPriceEur: breakdown.cardmarket?.priceEur,

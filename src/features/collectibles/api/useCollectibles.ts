@@ -5,6 +5,7 @@ import {
   extractCollectrPrice,
   getPokemonCard,
   getUsdToEurRate,
+  isJapaneseId,
   resolvePokemonImageUrl,
   type PokemonCardFinish,
 } from './tcgdex';
@@ -102,6 +103,30 @@ export const useCollectibles = () =>
             typeof metadata.bricksetSetNumber === 'string'
           ) {
             imageUrl = getLegoImageUrl(metadata.bricksetSetNumber);
+          } else if (row.category === 'pokemon' && row.identifier) {
+            const isLegacyBroken =
+              imageUrl &&
+              (imageUrl.includes('/en/base/neo') ||
+                imageUrl.includes('/en/base/gym') ||
+                imageUrl.includes('/sv01/') ||
+                imageUrl.includes('/sv02/') ||
+                imageUrl.includes('/sv03/') ||
+                imageUrl.includes('/sv04/') ||
+                imageUrl.includes('/sv05/') ||
+                imageUrl.includes('/sv06/') ||
+                imageUrl.includes('/sv07/') ||
+                imageUrl.includes('/sv08/'));
+
+            if (!imageUrl || isLegacyBroken) {
+              const lang =
+                (metadata.language as 'en' | 'ja' | undefined) ??
+                (isJapaneseId(row.identifier) ? 'ja' : 'en');
+              const healed = resolvePokemonImageUrl(row.identifier, {
+                language: lang,
+                quality: 'high',
+              });
+              if (healed) imageUrl = healed;
+            }
           }
 
           return {
