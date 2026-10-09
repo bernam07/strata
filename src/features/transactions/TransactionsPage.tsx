@@ -886,6 +886,8 @@ export const TransactionsPage = () => {
           transactions={visibleTransactions}
           accounts={accounts}
           instruments={instruments}
+          initialLimit={25}
+          pageSize={25}
           onReverse={onReverse}
           onDelete={onDelete}
           onEdit={(transaction) => {

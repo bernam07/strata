@@ -13,6 +13,7 @@ import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 import { AmountInline } from '@/ui/Amount';
 import { Card } from '@/ui/Card';
 import { SectionTitle } from '@/ui/SectionTitle';
+import { KindIcon } from '@/features/transactions/components/TransactionList';
 
 const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -140,22 +141,25 @@ export const FinancialTimeline = ({
                   className="tap flex items-center justify-between gap-3 rounded-[var(--radius-field)] neu-flat px-3.5 py-2.5 hover:border-[var(--accent)]/40"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    {logoAccount && (
-                      <div className="relative shrink-0">
-                        <InstitutionLogo
-                          institutionId={logoAccount.institutionId}
-                          size={34}
+                    <div className="relative shrink-0">
+                      <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--surface-sunken)] border border-[var(--line)]">
+                        <KindIcon
+                          kind={isMergedTransfer ? 'transfer' : transaction.kind}
+                          negative={isNegative(amount)}
                         />
-                        {isMergedTransfer && (
-                          <span
-                            aria-hidden="true"
-                            className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--accent)] text-[9px] font-bold text-[var(--accent-ink)] shadow-sm"
-                          >
-                            ⇄
-                          </span>
-                        )}
                       </div>
-                    )}
+                      {logoAccount && (
+                        <div
+                          className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--surface)] ring-1 ring-[var(--line)] shadow-xs overflow-hidden"
+                          title={logoAccount.name}
+                        >
+                          <InstitutionLogo
+                            institutionId={logoAccount.institutionId}
+                            size={14}
+                          />
+                        </div>
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[var(--text-strong)]">
                         {title}

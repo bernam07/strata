@@ -12,6 +12,7 @@ import {
 import { tileStyle } from '@/features/expenses/categoryColors';
 import type { InstrumentMeta } from '@/features/positions/api/usePositions';
 import { AmountInline } from '@/ui/Amount';
+import { Button } from '@/ui/Button';
 import {
   dayMonthYear as dateFormatter,
   qty4 as quantityFormatter,
@@ -61,13 +62,35 @@ const formatDayHeading = (dayKey: string): DayHeadingInfo => {
   };
 };
 
-const KindIcon = ({ kind }: { kind: Transaction['kind'] }) => {
+export const KindIcon = ({
+  kind,
+  negative = false,
+}: {
+  kind: Transaction['kind'];
+  negative?: boolean;
+}) => {
+  if (kind === 'adjustment') {
+    if (negative) {
+      return (
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--negative)]">
+          <polyline points="17 7 7 7 7 17" />
+          <line x1="17" y1="17" x2="7" y2="7" />
+        </svg>
+      );
+    }
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--positive)]">
+        <polyline points="7 17 17 17 17 7" />
+        <line x1="7" y1="7" x2="17" y2="17" />
+      </svg>
+    );
+  }
+
   switch (kind) {
     case 'deposit':
     case 'income':
     case 'dividend':
     case 'interest':
-    case 'adjustment':
       return (
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--positive)]">
           <polyline points="7 17 17 17 17 7" />
@@ -125,6 +148,8 @@ export const TransactionList = ({
   instruments,
   showAccount = true,
   instrumentView = false,
+  initialLimit,
+  pageSize = 25,
   onReverse,
   onDelete,
   onEdit,
@@ -137,6 +162,8 @@ export const TransactionList = ({
   instruments?: Map<string, InstrumentMeta>;
   showAccount?: boolean;
   instrumentView?: boolean;
+  initialLimit?: number;
+  pageSize?: number;
   onReverse?: (transaction: Transaction) => void;
   onDelete?: (transaction: Transaction) => void;
   onEdit?: (transaction: Transaction) => void;
@@ -219,6 +246,30 @@ export const TransactionList = ({
     [accounts],
   );
 
+  const [limit, setLimit] = useState<number>(() => initialLimit ?? Number.POSITIVE_INFINITY);
+
+  useEffect(() => {
+    if (initialLimit !== undefined) {
+      setLimit(initialLimit);
+    }
+  }, [initialLimit, transactions]);
+
+  const displayedTransactions = useMemo(() => {
+    if (!Number.isFinite(limit) || transactions.length <= limit) {
+      return transactions;
+    }
+    let end = limit;
+    const boundaryTx = transactions[end - 1];
+    if (boundaryTx?.transferGroupId && end < transactions.length) {
+      if (transactions[end]?.transferGroupId === boundaryTx.transferGroupId) {
+        end += 1;
+      }
+    }
+    return transactions.slice(0, end);
+  }, [transactions, limit]);
+
+  const isLimited = Number.isFinite(limit) && transactions.length > displayedTransactions.length;
+
   const dayGroups = useMemo(() => {
     const groups: {
       dayKey: string;
@@ -230,7 +281,7 @@ export const TransactionList = ({
       { dayKey: string; net: number; rawItems: Transaction[]; items: DisplayItem[] }
     >();
 
-    for (const tx of transactions) {
+    for (const tx of displayedTransactions) {
       const dayKey = tx.occurredAt.slice(0, 10);
       let group = byDay.get(dayKey);
       if (!group) {
@@ -292,7 +343,7 @@ export const TransactionList = ({
     }
 
     return groups;
-  }, [transactions, showAccount, accountsById]);
+  }, [displayedTransactions, showAccount, accountsById]);
 
   if (transactions.length === 0) {
     return (
@@ -493,37 +544,34 @@ export const TransactionList = ({
                       }}
                       className={`flex w-full min-w-0 items-center gap-3.5 ${hasActions ? 'cursor-pointer' : ''}`}
                     >
-                      {/* Left icon: dual logos for transfers, institution logo or kind icon */}
-                      {isMergedTransfer && pairedTransfer?.fromAccount && pairedTransfer?.toAccount ? (
-                        <div className="relative shrink-0 flex items-center pr-1">
-                          <InstitutionLogo
-                            institutionId={pairedTransfer.fromAccount.institutionId}
-                            size={32}
+                      {/* Left icon: transaction kind arrow in sunken square, with optional mini institution badge */}
+                      <div className="relative shrink-0">
+                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--surface-sunken)] border border-[var(--line)]">
+                          <KindIcon
+                            kind={isMergedTransfer ? 'transfer' : transaction.kind}
+                            negative={negative}
                           />
-                          <div className="-ml-2 z-10 grid h-5 w-5 place-items-center rounded-full bg-[var(--surface)] text-[var(--accent)] border border-[var(--line)] shadow-xs">
-                            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                          </div>
-                          <div className="-ml-1">
+                        </div>
+                        {showAccount && (account || pairedTransfer?.toAccount) && (
+                          <div
+                            className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--surface)] ring-1 ring-[var(--line)] shadow-xs overflow-hidden"
+                            title={
+                              isMergedTransfer
+                                ? `${fromName} → ${toName}`
+                                : account?.name
+                            }
+                          >
                             <InstitutionLogo
-                              institutionId={pairedTransfer.toAccount.institutionId}
-                              size={32}
+                              institutionId={
+                                (isMergedTransfer
+                                  ? pairedTransfer?.toAccount?.institutionId
+                                  : account?.institutionId) ?? ''
+                              }
+                              size={14}
                             />
                           </div>
-                        </div>
-                      ) : showAccount && account ? (
-                        <div className="relative shrink-0">
-                          <InstitutionLogo
-                            institutionId={account.institutionId}
-                            size={36}
-                          />
-                        </div>
-                      ) : (
-                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-sunken)] border border-[var(--line)]">
-                          <KindIcon kind={transaction.kind} />
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 min-w-0">
@@ -990,6 +1038,51 @@ export const TransactionList = ({
           </div>
         );
       })}
+
+      {isLimited && (
+        <div className="mt-3 flex flex-col items-center justify-center gap-2 rounded-2xl bg-[var(--surface-sunken)] p-4 border border-[var(--line)]">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setLimit((prev) => prev + (pageSize ?? 25))}
+              className="font-semibold shadow-xs"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1.5 text-[var(--text-muted)]"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+              Show more ({transactions.length - displayedTransactions.length} remaining)
+            </Button>
+            {transactions.length - displayedTransactions.length > (pageSize ?? 25) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLimit(transactions.length)}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-strong)]"
+              >
+                Show all ({transactions.length})
+              </Button>
+            )}
+          </div>
+          <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
+            Showing {displayedTransactions.length} of {transactions.length} movements
+          </span>
+        </div>
+      )}
+      {!isLimited && Number.isFinite(limit) && transactions.length > (initialLimit ?? 0) && (
+        <div className="mt-2 text-center text-xs text-[var(--text-muted)] py-2">
+          Showing all {transactions.length} movements
+        </div>
+      )}
     </div>
   );
 };
