@@ -60,6 +60,11 @@ const Row = ({
           placeholder="—"
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.currentTarget.blur();
+            }
+          }}
           onBlur={commit}
         />
         <span className="text-xs text-[var(--text-muted)]">%</span>

@@ -21,17 +21,17 @@ export const Amount = ({
   /** Show a leading + / − for gains and losses. */
   sign?: boolean;
 }) => {
-  const negative = value < 0;
   const abs = Math.abs(value);
-  const whole = grouped.format(Math.floor(abs));
-  const cents = Math.round((abs - Math.floor(abs)) * 100)
-    .toString()
-    .padStart(2, '0');
+  const fixed = abs.toFixed(2);
+  const [wholeStr, cents] = fixed.split('.');
+  const whole = grouped.format(Number(wholeStr));
+  const negative = value < -0.005;
+  const isPositive = value > 0.005;
   const s = scale[size];
 
   return (
     <span className="inline-flex items-start font-extrabold leading-none tabular-nums text-[var(--text-strong)]">
-      {sign && (
+      {sign && (isPositive || negative) && (
         <span className={`${s.cents} mr-0.5 font-bold`}>{negative ? '−' : '+'}</span>
       )}
       <span className={s.whole}>{whole}</span>
@@ -56,8 +56,10 @@ export const AmountInline = ({
   value: number;
   signed?: boolean;
 }) => {
+  const isNeg = value < -0.005;
+  const isPos = value > 0.005;
   const formatted = inline.format(Math.abs(value));
-  const sign = value < 0 ? '−' : signed ? '+' : '';
+  const sign = isNeg ? '−' : signed && isPos ? '+' : '';
   const length = sign.length + formatted.length + 2;
   const fontSize =
     length > 18 ? '0.64em' : length > 15 ? '0.72em' : length > 10 ? '0.84em' : undefined;

@@ -54,7 +54,18 @@ describe('transactionsToCsv', () => {
       accountName,
       instrumentName,
     );
-    expect(csv).toContain('-100.00,Revolut,Apple,3');
+    expect(csv).toContain('-100.00,Revolut,,Apple,3');
+  });
+
+  it('includes resolved category name when categoryName labeler is provided', () => {
+    const categoryName = () => 'Dining Out';
+    const csv = transactionsToCsv(
+      [{ ...base, id: 't1', kind: 'expense', amount: '-45.00' }],
+      accountName,
+      instrumentName,
+      categoryName,
+    );
+    expect(csv).toContain('-45.00,Revolut,Dining Out,,,');
   });
 
   it('neutralizes formula-injection notes without mangling negative amounts', () => {

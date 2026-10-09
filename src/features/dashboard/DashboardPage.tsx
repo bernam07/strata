@@ -249,7 +249,7 @@ export const DashboardPage = () => {
               cash={liquidCash}
               meal={mealTotal}
               crypto={cryptoTotal}
-              collectibles={collectiblesTotal}
+              collectibles={effectiveCollectiblesValue}
             />
 
             <MonthlyPulseCard
@@ -263,7 +263,7 @@ export const DashboardPage = () => {
             <InsightsStrip
               cash={liquidCash + mealTotal}
               investments={
-                toNumber(investments) + cryptoTotal + collectiblesTotal
+                toNumber(investments) + cryptoTotal + effectiveCollectiblesValue
               }
             />
 
