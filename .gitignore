@@ -6,8 +6,34 @@ dist-ssr
 .env.*
 !.env.example
 .DS_Store
+Thumbs.db
+desktop.ini
 coverage
 .vite
 supabase/.temp
 
+# TypeScript & build caches
 *.tsbuildinfo
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Keystores and certificates
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+
+# Android local properties
+local.properties
+google-services.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
