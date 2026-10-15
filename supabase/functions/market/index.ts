@@ -1114,6 +1114,7 @@ Deno.serve(async (req) => {
     if (!scope.all && !scope.userId) {
       return json({ ok: false, error: 'unauthorized' }, 401);
     }
+    const targetUserId = scope.all ? (params.userId ?? undefined) : scope.userId;
     const db = admin();
     await db
       .from('institutions')
@@ -1130,9 +1131,9 @@ Deno.serve(async (req) => {
         { onConflict: 'id' },
       )
       .then(() => undefined, () => undefined);
-    const result = await refresh(db, scope.userId);
-    await refreshCrypto(db, scope.userId).catch(() => undefined);
-    await evaluateAlerts(db, scope.userId).catch(() => undefined);
+    const result = await refresh(db, targetUserId);
+    await refreshCrypto(db, targetUserId).catch(() => undefined);
+    await evaluateAlerts(db, targetUserId).catch(() => undefined);
     return json({ ok: true, ...result });
   } catch (error) {
     return json({ ok: false, error: msg(error) }, 500);

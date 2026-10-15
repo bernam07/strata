@@ -240,14 +240,14 @@ export const useRefreshPrices = () => {
         .eq('provider', 't212')
         .maybeSingle();
 
+      if (cred) {
+        await supabase.functions.invoke('t212-sync', { body: {} });
+      }
+
       const { data, error } = await supabase.functions.invoke('market', {
         body: { action: 'refresh' },
       });
       if (error) throw error;
-
-      if (cred) {
-        await supabase.functions.invoke('t212-sync', { body: {} });
-      }
 
       return data as { updated?: number; stale?: number; errors?: string[] };
     },

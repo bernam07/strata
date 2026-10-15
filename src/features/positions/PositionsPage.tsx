@@ -418,8 +418,10 @@ export const PositionsPage = () => {
                     label="Today's change"
                     value={<AmountInline value={toNumber(totalDayChange)} signed />}
                     hint={
-                      totalDayPct !== null && !totalDayChange.equals(zero())
-                        ? `${dayNegative ? '−' : '+'}${percent.format(Math.abs(totalDayPct))}`
+                      totalDayPct !== null
+                        ? totalDayChange.equals(zero())
+                          ? '0.0%'
+                          : `${dayNegative ? '−' : '+'}${percent.format(Math.abs(totalDayPct))}`
                         : undefined
                     }
                     tone={

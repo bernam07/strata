@@ -18,10 +18,6 @@ export const useGlobalSync = () => {
         .eq('provider', 't212')
         .maybeSingle();
 
-      await supabase.functions
-        .invoke('market', { body: { action: 'refresh' } })
-        .catch(() => undefined);
-
       let inserted = 0;
       if (cred) {
         const res = await supabase.functions.invoke<{
@@ -32,6 +28,10 @@ export const useGlobalSync = () => {
           inserted = res.data.inserted;
         }
       }
+
+      await supabase.functions
+        .invoke('market', { body: { action: 'refresh' } })
+        .catch(() => undefined);
 
       return { inserted, t212Connected: Boolean(cred) };
     },

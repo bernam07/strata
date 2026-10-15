@@ -204,6 +204,7 @@ export const usePositions = () =>
           const costBasis = mul(quantity, averageCost);
           const marketValue = mul(quantity, currentEur);
           const unrealized = subtract(marketValue, costBasis);
+          const today = new Date().toISOString().slice(0, 10);
           const previous = holding.previous_close;
           const prevNum = previous !== null ? Number(previous) : 0;
           const prevIsSane =
@@ -212,10 +213,26 @@ export const usePositions = () =>
             isSanePrice(prevNum, saneCurrentNum) &&
             Math.abs(prevNum - saneCurrentNum) / Math.max(saneCurrentNum, 0.0001) <= 0.35;
 
+          let effectivePrevNum: number | null = prevIsSane ? prevNum : null;
+          if (effectivePrevNum === null) {
+            const priorPrice = pricesList.find(
+              (p) =>
+                p.instrument_id === holding.instrument_id &&
+                p.as_of < today &&
+                isSanePrice(Number(p.close), saneCurrentNum) &&
+                Math.abs(Number(p.close) - saneCurrentNum) /
+                  Math.max(saneCurrentNum, 0.0001) <=
+                  0.35,
+            );
+            if (priorPrice) {
+              effectivePrevNum = Number(priorPrice.close);
+            }
+          }
+
           let dayChange: Position['dayChange'] = null;
           let dayChangePct: Position['dayChangePct'] = null;
-          if (prevIsSane && previous !== null) {
-            const previousEur = mul(money(previous), fx);
+          if (effectivePrevNum !== null && effectivePrevNum > 0) {
+            const previousEur = mul(money(effectivePrevNum), fx);
             dayChange = mul(quantity, subtract(currentEur, previousEur));
             dayChangePct = ratio(subtract(currentEur, previousEur), previousEur);
           }

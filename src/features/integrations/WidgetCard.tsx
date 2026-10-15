@@ -56,9 +56,10 @@ if (OPEN_WITH === "shortcut") {
 w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
 
 const eur0 = (n) => "€" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
-const pct1 = (n) => (n >= 0 ? "+" : "") + Number(n).toFixed(1) + "%";
-const arrow = (n) => (n >= 0 ? "▲" : "▼");
-const tone = (n) => (n >= 0 ? UP : DOWN);
+const pct1 = (n) => (n > 0 ? "+" : "") + Number(n).toFixed(1) + "%";
+const arrow = (n) => (n > 0 ? "▲" : n < 0 ? "▼" : "");
+const moveBadge = (n) => (arrow(n) ? arrow(n) + " " : "") + pct1(n);
+const tone = (n) => (n > 0 ? UP : n < 0 ? DOWN : SUBTLE);
 const lock =
   family === "accessoryInline" ||
   family === "accessoryCircular" ||
@@ -144,7 +145,7 @@ function totalBlock(bigFont) {
   w.addSpacer(2);
   const chip = w.addStack();
   chip.centerAlignContent();
-  const day = chip.addText(arrow(data.dayChangePct) + " " + pct1(data.dayChangePct));
+  const day = chip.addText(moveBadge(data.dayChangePct));
   day.font = Font.semiboldSystemFont(13);
   day.textColor = tone(data.dayChangePct);
   const sep = chip.addText("  today");
@@ -184,7 +185,7 @@ function renderSmall() {
   label.font = Font.semiboldSystemFont(9);
   label.textColor = SUBTLE;
   top.addSpacer();
-  const d = top.addText(arrow(data.dayChangePct) + " " + pct1(data.dayChangePct));
+  const d = top.addText(moveBadge(data.dayChangePct));
   d.font = Font.semiboldSystemFont(10);
   d.textColor = tone(data.dayChangePct);
 
@@ -225,7 +226,7 @@ function renderMedium() {
   v.textColor = INK;
   v.minimumScaleFactor = 0.7;
   left.addSpacer(2);
-  const day = left.addText(arrow(data.dayChangePct) + " " + pct1(data.dayChangePct) + " today");
+  const day = left.addText(moveBadge(data.dayChangePct) + " today");
   day.font = Font.semiboldSystemFont(12);
   day.textColor = tone(data.dayChangePct);
   left.addSpacer(6);
@@ -266,7 +267,7 @@ function renderLarge() {
 
 function renderInline() {
   // Inline sits beside the clock; single line, system-tinted.
-  w.addText(eur0(data.total) + "  " + arrow(data.dayChangePct) + " " + pct1(data.dayChangePct));
+  w.addText(eur0(data.total) + "  " + moveBadge(data.dayChangePct));
 }
 
 function renderCircular() {

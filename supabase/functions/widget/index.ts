@@ -229,29 +229,50 @@ Deno.serve(async (req) => {
     });
   }
 
-  const [holdingsRes, instrumentsRes, fxRes, historyRes] = await Promise.all([
-    db
-      .from('holdings')
-      .select(
-        'instrument_id, quantity, average_price, current_price, previous_close, currency',
-      )
-      .eq('user_id', owner.user_id),
-    db
-      .from('instruments')
-      .select('id, ticker, name')
-      .eq('user_id', owner.user_id),
-    db
-      .from('fx_rates')
-      .select('base, rate, as_of')
-      .eq('quote', 'EUR')
-      .order('as_of', { ascending: false }),
-    db
-      .from('net_worth_snapshots')
-      .select('as_of, investments')
-      .eq('user_id', owner.user_id)
-      .order('as_of', { ascending: false })
-      .limit(30),
-  ]);
+  const [holdingsRes, cryptoRes, instrumentsRes, fxRes, historyRes, pricesRes] =
+    await Promise.all([
+      db
+        .from('holdings')
+        .select(
+          'instrument_id, quantity, average_price, current_price, previous_close, currency',
+        )
+        .eq('user_id', owner.user_id),
+      db
+        .from('crypto_holdings')
+        .select(
+          'symbol, name, quantity, average_price, current_price, previous_close, currency',
+        )
+        .eq('user_id', owner.user_id),
+      db
+        .from('instruments')
+        .select('id, ticker, name')
+        .eq('user_id', owner.user_id),
+      db
+        .from('fx_rates')
+        .select('base, rate, as_of')
+        .eq('quote', 'EUR')
+        .order('as_of', { ascending: false }),
+      db
+        .from('net_worth_snapshots')
+        .select('as_of, investments, net')
+        .eq('user_id', owner.user_id)
+        .order('as_of', { ascending: false })
+        .limit(30),
+      db
+        .from('prices')
+        .select('instrument_id, close, currency, as_of')
+        .eq('user_id', owner.user_id)
+        .order('as_of', { ascending: false })
+        .limit(100),
+    ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const priorPrices = new Map<string, number>();
+  for (const row of pricesRes.data ?? []) {
+    if (row.as_of < today && !priorPrices.has(row.instrument_id)) {
+      priorPrices.set(row.instrument_id, Number(row.close));
+    }
+  }
 
   const names = new Map(
     (instrumentsRes.data ?? []).map((row) => [
@@ -268,39 +289,140 @@ Deno.serve(async (req) => {
 
   let totalValue = 0;
   let totalCost = 0;
-  let dayBase = 0; // value at yesterday's close, for the day move
-  const positions = (holdingsRes.data ?? []).map((holding) => {
+  let dayBase = 0;
+  let hasValidDayBase = false;
+
+  const positions: Array<{
+    ticker: string;
+    name: string;
+    value: number;
+    changePct: number;
+    dayPct: number;
+  }> = [];
+
+  for (const holding of holdingsRes.data ?? []) {
     const rate = rateOf(holding.currency);
     const qty = Number(holding.quantity);
+    if (qty <= 0) continue;
     const avg = Number(holding.average_price);
     const current = Number(holding.current_price);
-    const prevClose = Number(holding.previous_close ?? 0);
+    let prevClose = Number(holding.previous_close ?? 0);
+    if (prevClose <= 0) {
+      prevClose = priorPrices.get(holding.instrument_id) ?? 0;
+    }
+
     const value = qty * current * rate;
     const cost = qty * avg * rate;
     totalValue += value;
     totalCost += cost;
-    if (prevClose > 0) dayBase += qty * prevClose * rate;
+
+    if (prevClose > 0) {
+      dayBase += qty * prevClose * rate;
+      hasValidDayBase = true;
+    } else {
+      dayBase += value;
+    }
+
     const meta = names.get(holding.instrument_id);
-    return {
+    positions.push({
       ticker: meta?.ticker ?? '',
       name: meta?.name ?? meta?.ticker ?? '',
       value: round2(value),
       changePct: avg > 0 ? round2(((current - avg) / avg) * 100) : 0,
       dayPct: prevClose > 0 ? round2(((current - prevClose) / prevClose) * 100) : 0,
-    };
-  });
+    });
+  }
+
+  for (const coin of cryptoRes.data ?? []) {
+    const qty = Number(coin.quantity);
+    if (qty <= 0) continue;
+    const avg = Number(coin.average_price);
+    const current = Number(coin.current_price);
+    const prevClose = Number(coin.previous_close ?? 0);
+    const rate = rateOf(coin.currency ?? 'EUR');
+
+    const value = qty * current * rate;
+    const cost = qty * avg * rate;
+    totalValue += value;
+    totalCost += cost;
+
+    if (prevClose > 0) {
+      dayBase += qty * prevClose * rate;
+      hasValidDayBase = true;
+    } else {
+      dayBase += value;
+    }
+
+    positions.push({
+      ticker: coin.symbol,
+      name: coin.name || coin.symbol,
+      value: round2(value),
+      changePct: avg > 0 ? round2(((current - avg) / avg) * 100) : 0,
+      dayPct: prevClose > 0 ? round2(((current - prevClose) / prevClose) * 100) : 0,
+    });
+  }
+
+  if (!hasValidDayBase || dayBase <= 0) {
+    const priorSnap = (historyRes.data ?? []).find(
+      (s) => s.as_of < today && Number(s.investments ?? s.net ?? 0) > 0,
+    );
+    if (priorSnap) {
+      dayBase = Number(priorSnap.investments || priorSnap.net);
+      hasValidDayBase = true;
+    }
+  }
 
   positions.sort((a, b) => b.value - a.value);
 
-  const dayChange = dayBase > 0 ? totalValue - dayBase : 0;
+  const dayChange = hasValidDayBase && dayBase > 0 ? totalValue - dayBase : 0;
+  const dayChangePct =
+    hasValidDayBase && dayBase > 0
+      ? round2(((totalValue - dayBase) / dayBase) * 100)
+      : 0;
 
   // Oldest → newest investment values for the sparkline. Ends on the live total
   // so the line always meets the number shown above it.
   const history = (historyRes.data ?? [])
-    .map((row) => round2(Number(row.investments)))
+    .map((row) => round2(Number(row.investments ?? row.net)))
     .filter((value) => value > 0)
     .reverse();
-  if (history.length > 0) history[history.length - 1] = round2(totalValue);
+  if (history.length > 0) {
+    history[history.length - 1] = round2(totalValue);
+  } else if (totalValue > 0) {
+    history.push(round2(dayBase > 0 ? dayBase : totalValue), round2(totalValue));
+  }
+
+  // Trigger non-blocking background refresh if quotes are missing
+  try {
+    const missingStockQuotes = (holdingsRes.data ?? []).some(
+      (h) => !h.previous_close || Number(h.previous_close) <= 0,
+    );
+    const missingCryptoQuotes = (cryptoRes.data ?? []).some(
+      (c) => !c.previous_close || Number(c.previous_close) <= 0,
+    );
+    if (missingStockQuotes || missingCryptoQuotes) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supabaseUrl && serviceRoleKey) {
+        const bg = fetch(`${supabaseUrl}/functions/v1/market`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({ action: 'refresh', userId: owner.user_id }),
+        }).catch(() => undefined);
+
+        // @ts-ignore
+        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+          // @ts-ignore
+          EdgeRuntime.waitUntil(bg);
+        }
+      }
+    }
+  } catch {
+    // non-blocking background refresh
+  }
 
   return json({
     updatedAt: new Date().toISOString(),
@@ -308,7 +430,7 @@ Deno.serve(async (req) => {
     totalChangePct:
       totalCost > 0 ? round2(((totalValue - totalCost) / totalCost) * 100) : 0,
     dayChange: round2(dayChange),
-    dayChangePct: dayBase > 0 ? round2((dayChange / dayBase) * 100) : 0,
+    dayChangePct,
     positions,
     history,
   });
