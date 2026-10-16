@@ -57,9 +57,9 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
     if (!file) return;
 
     try {
-      const csvText = await file.text();
+      const buffer = await file.arrayBuffer();
       const result = await importReport.mutateAsync({
-        csvText,
+        fileData: buffer,
         accountId,
       });
       toast(
@@ -72,7 +72,9 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
       );
     } catch (err) {
       toast(
-        err instanceof Error ? err.message : 'Could not import XTB CSV report',
+        err instanceof Error
+          ? err.message
+          : 'Could not import XTB Excel (.xlsx) report',
         'error',
       );
     }
@@ -141,7 +143,7 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
               </div>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">
-                Import xStation CSV reports or manage holdings with live Yahoo Finance quotes
+                Import xStation Excel (.xlsx) reports or manage holdings with live Yahoo Finance quotes
               </p>
             )}
           </div>
@@ -151,7 +153,7 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -160,7 +162,7 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
             disabled={importReport.isPending}
             onClick={() => fileInputRef.current?.click()}
           >
-            {importReport.isPending ? 'Importing…' : 'Import CSV report'}
+            {importReport.isPending ? 'Importing…' : 'Import XLSX report'}
           </Button>
           <Button
             size={compact ? 'sm' : 'md'}
@@ -294,7 +296,7 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
         >
           {showGuide
             ? 'Hide xStation export guide'
-            : 'How to export your CSV report from XTB?'}
+            : 'How to export your Excel (.xlsx) report from XTB?'}
         </button>
 
         {hasData && !confirmReset && (
@@ -368,10 +370,10 @@ export const XtbCard = ({ accountId, compact = false }: XtbCardProps) => {
               .
             </li>
             <li>
-              Choose <strong className="text-[var(--text-2)]">CSV</strong>{' '}
-              format and upload the file here. Duplicate cash operations are
-              skipped automatically, and open positions are enriched with live
-              Yahoo Finance quotes and daily change tracking.
+              Upload the downloaded <strong className="text-[var(--text-2)]">.xlsx</strong>{' '}
+              file here. Duplicate cash operations are skipped automatically,
+              and open positions are enriched with live Yahoo Finance quotes and
+              daily change tracking.
             </li>
           </ol>
         </Surface>

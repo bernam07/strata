@@ -609,3 +609,241 @@ export const parseXtbReport = (csvText: string): XtbParsedReport => {
     instruments,
   };
 };
+
+const decodeXmlEntities = (str: string): string =>
+  str
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
+const colLettersToIndex = (letters: string): number => {
+  let idx = 0;
+  for (let i = 0; i < letters.length; i += 1) {
+    idx = idx * 26 + (letters.charCodeAt(i) - 64);
+  }
+  return idx - 1;
+};
+
+const excelSerialToUtcString = (serial: number): string => {
+  const ms = Math.round((serial - 25569) * 86400 * 1000);
+  const iso = new Date(ms).toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 19)}`;
+};
+
+const escapeCsvField = (val: string): string => {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+};
+
+const inflateRawBytes = async (compressed: Uint8Array): Promise<string> => {
+  const ds = new DecompressionStream('deflate-raw');
+  const writer = ds.writable.getWriter();
+  const copy = new Uint8Array(compressed.byteLength);
+  copy.set(compressed);
+  void writer.write(copy);
+  void writer.close();
+  return new Response(ds.readable).text();
+};
+
+export const xlsxToCsvText = async (
+  input: ArrayBuffer | Uint8Array,
+): Promise<string> => {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  if (bytes.byteLength < 22 || view.getUint32(0, true) !== 0x04034b50) {
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  let eocdOffset = bytes.byteLength - 22;
+  while (eocdOffset >= 0 && view.getUint32(eocdOffset, true) !== 0x06054b50) {
+    eocdOffset -= 1;
+  }
+  if (eocdOffset < 0) {
+    throw new Error('Invalid XLSX archive: missing central directory.');
+  }
+
+  const entryCount = view.getUint16(eocdOffset + 10, true);
+  let cdOffset = view.getUint32(eocdOffset + 16, true);
+  const decoder = new TextDecoder('utf-8');
+  const xmlFiles = new Map<string, string>();
+
+  for (let i = 0; i < entryCount; i += 1) {
+    if (view.getUint32(cdOffset, true) !== 0x02014b50) break;
+    const method = view.getUint16(cdOffset + 10, true);
+    const compSize = view.getUint32(cdOffset + 20, true);
+    const nameLen = view.getUint16(cdOffset + 28, true);
+    const extraLen = view.getUint16(cdOffset + 30, true);
+    const commentLen = view.getUint16(cdOffset + 32, true);
+    const localHeaderOffset = view.getUint32(cdOffset + 42, true);
+
+    const name = decoder.decode(
+      bytes.subarray(cdOffset + 46, cdOffset + 46 + nameLen),
+    );
+    cdOffset += 46 + nameLen + extraLen + commentLen;
+
+    if (!name.endsWith('.xml') && !name.endsWith('.rels')) continue;
+
+    const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+    const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+    const compData = bytes.subarray(dataStart, dataStart + compSize);
+
+    const text =
+      method === 8
+        ? await inflateRawBytes(compData)
+        : decoder.decode(compData);
+    xmlFiles.set(name, text);
+  }
+
+  // 1. Parse sharedStrings.xml
+  const sharedStrings: string[] = [];
+  const sstXml = xmlFiles.get('xl/sharedStrings.xml') ?? '';
+  for (const siMatch of sstXml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+    const inner = siMatch[1] ?? '';
+    const parts: string[] = [];
+    for (const tMatch of inner.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)) {
+      parts.push(decodeXmlEntities(tMatch[1] ?? ''));
+    }
+    sharedStrings.push(parts.join(''));
+  }
+
+  // 2. Parse styles.xml to identify date/time cell styles
+  const dateStyleIndices = new Set<number>();
+  const stylesXml = xmlFiles.get('xl/styles.xml') ?? '';
+  if (stylesXml) {
+    const customDateFmtIds = new Set<number>();
+    for (const fmtMatch of stylesXml.matchAll(
+      /<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g,
+    )) {
+      const id = Number(fmtMatch[1]);
+      const code = (fmtMatch[2] ?? '').toLowerCase();
+      if (code.includes('yy') || code.includes('dd') || code.includes('hh')) {
+        customDateFmtIds.add(id);
+      }
+    }
+    const cellXfsMatch = stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/);
+    if (cellXfsMatch) {
+      let idx = 0;
+      for (const xfMatch of (cellXfsMatch[1] ?? '').matchAll(/<xf\b([^>]*?)(?:\/>|>[\s\S]*?<\/xf>)/g)) {
+        const attrs = xfMatch[1] ?? '';
+        const numFmtMatch = attrs.match(/numFmtId="(\d+)"/);
+        if (numFmtMatch) {
+          const fmtId = Number(numFmtMatch[1]);
+          if (
+            (fmtId >= 14 && fmtId <= 22) ||
+            (fmtId >= 45 && fmtId <= 47) ||
+            customDateFmtIds.has(fmtId)
+          ) {
+            dateStyleIndices.add(idx);
+          }
+        }
+        idx += 1;
+      }
+    }
+  }
+
+  // 3. Resolve worksheet names and paths
+  const relsXml = xmlFiles.get('xl/_rels/workbook.xml.rels') ?? '';
+  const targetByRelId = new Map<string, string>();
+  for (const relMatch of relsXml.matchAll(/<Relationship\b([^>]*?)\/?>/g)) {
+    const attrs = relMatch[1] ?? '';
+    const id = attrs.match(/Id="([^"]+)"/)?.[1];
+    const target = attrs.match(/Target="([^"]+)"/)?.[1];
+    if (id && target) {
+      const normalized = target.startsWith('xl/')
+        ? target
+        : `xl/${target.replace(/^\/+/, '')}`;
+      targetByRelId.set(id, normalized);
+    }
+  }
+
+  const workbookXml = xmlFiles.get('xl/workbook.xml') ?? '';
+  const sheets: { name: string; path: string }[] = [];
+  for (const sheetMatch of workbookXml.matchAll(/<sheet\b([^>]*?)\/?>/g)) {
+    const attrs = sheetMatch[1] ?? '';
+    const name = decodeXmlEntities(attrs.match(/name="([^"]+)"/)?.[1] ?? 'Sheet');
+    const rId = attrs.match(/r:id="([^"]+)"/)?.[1];
+    const path = (rId && targetByRelId.get(rId)) || `xl/worksheets/sheet${sheets.length + 1}.xml`;
+    if (xmlFiles.has(path)) {
+      sheets.push({ name, path });
+    }
+  }
+
+  if (sheets.length === 0) {
+    for (const key of xmlFiles.keys()) {
+      if (key.startsWith('xl/worksheets/sheet') && key.endsWith('.xml')) {
+        sheets.push({ name: key, path: key });
+      }
+    }
+  }
+
+  // 4. Convert each worksheet into CSV lines
+  const outputLines: string[] = [];
+  for (const sheet of sheets) {
+    outputLines.push(`=== Sheet: ${sheet.name} ===`);
+    const sheetXml = xmlFiles.get(sheet.path) ?? '';
+    for (const rowMatch of sheetXml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+      const rowInner = rowMatch[1] ?? '';
+      const cells: string[] = [];
+      for (const cellMatch of rowInner.matchAll(
+        /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,
+      )) {
+        const attrs = cellMatch[1] ?? '';
+        const body = cellMatch[2] ?? '';
+        const ref = attrs.match(/\br="([A-Z]+)\d+"/)?.[1];
+        const colIdx = ref ? colLettersToIndex(ref) : cells.length;
+        const cellType = attrs.match(/\bt="([^"]+)"/)?.[1] ?? 'n';
+        const styleAttr = attrs.match(/\bs="(\d+)"/)?.[1];
+        const styleIdx = styleAttr !== undefined ? Number(styleAttr) : null;
+
+        let val = '';
+        if (cellType === 'inlineStr') {
+          const tMatch = body.match(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/);
+          val = tMatch ? decodeXmlEntities(tMatch[1] ?? '') : '';
+        } else {
+          const vMatch = body.match(/<v>([\s\S]*?)<\/v>/);
+          const rawV = vMatch ? (vMatch[1] ?? '').trim() : '';
+          if (cellType === 's') {
+            val = sharedStrings[Number(rawV)] ?? '';
+          } else if (
+            rawV !== '' &&
+            styleIdx !== null &&
+            dateStyleIndices.has(styleIdx) &&
+            Number.isFinite(Number(rawV))
+          ) {
+            val = excelSerialToUtcString(Number(rawV));
+          } else {
+            val = decodeXmlEntities(rawV);
+          }
+        }
+
+        while (cells.length <= colIdx) cells.push('');
+        cells[colIdx] = val;
+      }
+      outputLines.push(cells.map(escapeCsvField).join(','));
+    }
+    outputLines.push('');
+  }
+
+  return outputLines.join('\n');
+};
+
+export const parseXtbFile = async (
+  input: string | ArrayBuffer | Uint8Array,
+): Promise<XtbParsedReport> => {
+  if (typeof input === 'string') {
+    return parseXtbReport(input);
+  }
+  const csvText = await xlsxToCsvText(input);
+  return parseXtbReport(csvText);
+};
+

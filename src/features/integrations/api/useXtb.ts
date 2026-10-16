@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  parseXtbReport,
+  parseXtbFile,
   xtbTickerToYahooSymbol,
   type XtbParsedReport,
 } from '@/core/importers/xtb';
@@ -374,10 +374,12 @@ export const useImportXtbReport = () => {
 
   return useMutation({
     mutationFn: async (input: {
-      csvText: string;
+      fileData?: string | ArrayBuffer | Uint8Array;
+      csvText?: string;
       accountId?: string;
     }): Promise<ImportXtbResult> => {
-      const parsed = parseXtbReport(input.csvText);
+      const payload = input.fileData ?? input.csvText ?? '';
+      const parsed = await parseXtbFile(payload);
       if (
         parsed.openPositions.length === 0 &&
         parsed.cashOperations.length === 0 &&
