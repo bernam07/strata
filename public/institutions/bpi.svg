@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="bpi"><rect width="100" height="100" rx="26" fill="#0A5EA6"/><text x="50" y="50" dy="0.35em" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="26" fill="#ffffff">BPI</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="BPI">
+  <defs>
+    <linearGradient id="bpi-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7941D"/>
+      <stop offset="100%" stop-color="#E64A19"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bpi-bg)"/>
+  <g fill="#FFFFFF" transform="translate(50, 50)">
+    <path d="M2,-4 C6,-18 18,-26 26,-26 C26,-16 18,-4 6,0 C18,4 28,12 28,20 C16,22 6,14 0,4 C-4,16 -12,26 -20,28 C-22,18 -16,6 -4,2 C-16,-2 -24,-10 -24,-20 C-14,-20 -4,-14 2,-4 Z"/>
+  </g>
+</svg>

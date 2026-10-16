@@ -429,7 +429,7 @@ const refresh = async (
   const errors: string[] = [];
   let holdingsQuery = db
     .from('holdings')
-    .select('user_id, instrument_id, quantity, average_price, current_price, currency');
+    .select('*');
   if (userId) holdingsQuery = holdingsQuery.eq('user_id', userId);
   const { data: holdings } = await holdingsQuery;
   if (!holdings || holdings.length === 0) return { updated: 0, stale: 0, errors };
@@ -532,16 +532,22 @@ const refresh = async (
       }
     }
 
+    const provider = String((holding as Record<string, unknown>).provider ?? 't212');
     validHoldingPrice.set(
-      `${holding.user_id}:${holding.instrument_id}`,
+      `${holding.user_id}:${holding.instrument_id}:${provider}`,
       convertedPrice,
     );
 
-    await db
+    let updateQuery = db
       .from('holdings')
       .update({ current_price: convertedPrice, previous_close: convertedPrev })
       .eq('user_id', holding.user_id)
       .eq('instrument_id', holding.instrument_id);
+    if ('provider' in holding) {
+      updateQuery = updateQuery.eq('provider', provider);
+    }
+    await updateQuery;
+
     priceRows.push({
       user_id: holding.user_id,
       instrument_id: holding.instrument_id,
@@ -552,20 +558,31 @@ const refresh = async (
   });
   if (priceRows.length > 0) await db.rpc('upsert_prices', { p_rows: priceRows });
 
-  const byUser = new Map<string, { free: number; market: number; stale: number }>();
+  const byUserProvider = new Map<
+    string,
+    { userId: string; provider: string; free: number; market: number; stale: number }
+  >();
   let brokersQuery = db
     .from('broker_accounts')
-    .select('user_id, free')
-    .eq('provider', 't212');
+    .select('user_id, provider, free');
   if (userId) brokersQuery = brokersQuery.eq('user_id', userId);
   const { data: brokers } = await brokersQuery;
-  for (const b of brokers ?? [])
-    byUser.set(b.user_id, { free: Number(b.free), market: 0, stale: 0 });
+  for (const b of brokers ?? []) {
+    const prov = String(b.provider || 't212');
+    byUserProvider.set(`${b.user_id}:${prov}`, {
+      userId: b.user_id,
+      provider: prov,
+      free: Number(b.free),
+      market: 0,
+      stale: 0,
+    });
+  }
   for (const holding of holdings) {
-    const entry = byUser.get(holding.user_id);
+    const prov = String((holding as Record<string, unknown>).provider ?? 't212');
+    const entry = byUserProvider.get(`${holding.user_id}:${prov}`);
     if (!entry) continue;
     const validPrice = validHoldingPrice.get(
-      `${holding.user_id}:${holding.instrument_id}`,
+      `${holding.user_id}:${holding.instrument_id}:${prov}`,
     );
     // Use the validated fresh quote when we have one, else the last-known stored price,
     // so a holding that failed to quote cleanly isn't dropped or corrupted.
@@ -574,18 +591,26 @@ const refresh = async (
     if (validPrice === undefined) entry.stale += 1;
     entry.market += Number(holding.quantity) * price * rate(holding.currency);
   }
-  // Keep the broker account total in step with the live Portfolio value: free
-  // cash + holdings at the same prices the Portfolio shows. But only overwrite
-  // the authoritative account total when every holding priced cleanly this run.
-  // A partial refresh (some quotes failed) would silently drift from Trading
-  // 212's real figure, so we leave the last authoritative total in place rather
-  // than corrupt it — a T212 sync always resets both to T212's own numbers.
-  for (const [uid, entry] of byUser) {
+
+  for (const entry of byUserProvider.values()) {
     if (entry.stale > 0) continue;
-    await db.rpc('set_broker_total', {
-      p_user: uid,
-      p_total: round2(entry.free + entry.market),
-    });
+    await db
+      .from('broker_accounts')
+      .update({
+        total: round2(entry.free + entry.market),
+        synced_at: new Date().toISOString(),
+      })
+      .eq('user_id', entry.userId)
+      .eq('provider', entry.provider);
+  }
+
+  const byUser = new Map<string, { free: number; market: number; stale: number }>();
+  for (const entry of byUserProvider.values()) {
+    const agg = byUser.get(entry.userId) ?? { free: 0, market: 0, stale: 0 };
+    agg.free += entry.free;
+    agg.market += entry.market;
+    agg.stale += entry.stale;
+    byUser.set(entry.userId, agg);
   }
 
   await recordSnapshots(db, byUser).catch(() => undefined);
@@ -1100,6 +1125,13 @@ Deno.serve(async (req) => {
               logo_path: '/institutions/edenred.svg',
               sort_order: 105,
             },
+            {
+              id: 'xtb',
+              display_name: 'XTB',
+              brand_color: '#E30613',
+              logo_path: '/institutions/xtb.svg',
+              sort_order: 15,
+            },
           ],
           { onConflict: 'id' },
         );
@@ -1126,6 +1158,13 @@ Deno.serve(async (req) => {
             brand_color: '#F72717',
             logo_path: '/institutions/edenred.svg',
             sort_order: 105,
+          },
+          {
+            id: 'xtb',
+            display_name: 'XTB',
+            brand_color: '#E30613',
+            logo_path: '/institutions/xtb.svg',
+            sort_order: 15,
           },
         ],
         { onConflict: 'id' },

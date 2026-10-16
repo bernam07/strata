@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="moey"><rect width="100" height="100" rx="26" fill="#FF6A13"/><text x="50" y="50" dy="0.35em" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="46" fill="#ffffff">m</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="moey!">
+  <defs>
+    <linearGradient id="moey-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#BAEF53"/>
+      <stop offset="100%" stop-color="#8AD82B"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#moey-bg)"/>
+  <!-- M -->
+  <path fill="#0D4028" d="M22 148V111h11l11 24 11-24h11v37h-8.5v-23L46 146h-4l-11.5-21v23H22z"/>
+  <!-- O (iconic oversized ring) -->
+  <circle cx="115" cy="129.5" r="41" fill="none" stroke="#0D4028" stroke-width="14"/>
+  <!-- e -->
+  <path fill="#0D4028" d="M184 149c-11.5 0-19.5-8-19.5-19.5S172.5 110 184 110c11.2 0 18.8 7.8 18.8 18.8 0 1.3-.1 2.5-.3 3.4h-29c1.2 5.4 5.2 8.8 11 8.8 4.4 0 7.7-1.9 9.7-5l7.2 4.2c-3.3 5.5-9.4 8.8-17.4 8.8zm-10.3-23h20.2c-1-4.8-4.6-7.8-9.9-7.8-5.2 0-9 3-10.3 7.8z"/>
+  <!-- y -->
+  <path fill="#0D4028" d="M219.5 134.5L204 111h10.5l9.8 15.6 9.8-15.6H244l-15.5 23.5V148h-9v-13.5z"/>
+</svg>

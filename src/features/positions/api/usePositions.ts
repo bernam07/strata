@@ -3,9 +3,10 @@ import {
   derivePositions,
   type Position,
 } from '@/core/positions/derivePositions';
-import { money, mul, ratio, subtract } from '@/core/money/money';
+import { div, money, mul, ratio, subtract, zero } from '@/core/money/money';
 import { supabase } from '@/db/supabase';
 import { toTransaction } from '@/db/mappers';
+import { getLocalXtbState } from '@/features/integrations/api/useXtb';
 
 export interface InstrumentMeta {
   id: string;
@@ -99,20 +100,37 @@ export const useHolding = (instrumentId: string) =>
       const { data, error } = await supabase
         .from('holdings')
         .select('quantity, average_price, current_price, currency')
-        .eq('instrument_id', instrumentId)
-        .maybeSingle();
+        .eq('instrument_id', instrumentId);
       if (error) throw error;
-      if (!data) return null;
-      const averagePrice = Number(data.average_price);
-      const rawCurrent = Number(data.current_price);
+      const rows = data ?? [];
+      if (rows.length === 0) {
+        const local = getLocalXtbState()?.holdings.find(
+          (h) => h.instrumentId === instrumentId,
+        );
+        if (!local) return null;
+        return {
+          quantity: local.quantity,
+          averagePrice: local.averagePrice,
+          currentPrice: local.currentPrice,
+          currency: local.currency,
+        };
+      }
+      const first = rows[0]!;
+      const totalQty = rows.reduce((s, r) => s + Number(r.quantity), 0);
+      const totalCost = rows.reduce(
+        (s, r) => s + Number(r.quantity) * Number(r.average_price),
+        0,
+      );
+      const averagePrice = totalQty > 0 ? totalCost / totalQty : Number(first.average_price);
+      const rawCurrent = Number(first.current_price);
       const currentPrice = isSanePrice(rawCurrent, averagePrice)
         ? rawCurrent
         : averagePrice;
       return {
-        quantity: Number(data.quantity),
+        quantity: totalQty,
         averagePrice,
         currentPrice,
-        currency: data.currency,
+        currency: first.currency,
       };
     },
   });
@@ -125,12 +143,30 @@ export const useInstruments = () =>
         .from('instruments')
         .select('id, ticker, isin, name, currency, yahoo_symbol, sector');
       if (error) throw error;
-      return new Map((data ?? []).map((row) => [row.id, row]));
+      const map = new Map<string, InstrumentMeta>(
+        (data ?? []).map((row) => [row.id, row]),
+      );
+      const localXtb = getLocalXtbState();
+      for (const h of localXtb?.holdings ?? []) {
+        if (!map.has(h.instrumentId)) {
+          map.set(h.instrumentId, {
+            id: h.instrumentId,
+            ticker: h.ticker,
+            isin: null,
+            name: h.name,
+            currency: h.currency,
+            yahoo_symbol: h.yahooSymbol,
+            sector: h.sector,
+          });
+        }
+      }
+      return map;
     },
   });
 
 export interface PositionsData {
   positions: Position[];
+  byProvider: Map<string, Position[]>;
   instruments: Map<string, InstrumentMeta>;
   fromBroker: boolean;
 }
@@ -143,44 +179,158 @@ const latestByKey = <T>(rows: T[], key: (row: T) => string): Map<string, T> => {
   return map;
 };
 
+interface RawHoldingRow {
+  instrument_id: string;
+  provider?: string;
+  quantity: string | number;
+  average_price: string | number;
+  current_price: string | number;
+  previous_close: string | number | null;
+  currency: string;
+}
+
+const fetchHoldingsWithProviderFallback = async (): Promise<RawHoldingRow[]> => {
+  const withProvider = await supabase
+    .from('holdings')
+    .select(
+      'instrument_id, provider, quantity, average_price, current_price, previous_close, currency',
+    );
+  if (!withProvider.error && withProvider.data) {
+    return withProvider.data as RawHoldingRow[];
+  }
+  const withoutProvider = await supabase
+    .from('holdings')
+    .select(
+      'instrument_id, quantity, average_price, current_price, previous_close, currency',
+    );
+  return (withoutProvider.data ?? []) as RawHoldingRow[];
+};
+
+const mergePositionsByInstrument = (rawPositions: Position[]): Position[] => {
+  const grouped = new Map<string, Position[]>();
+  for (const pos of rawPositions) {
+    const bucket = grouped.get(pos.instrumentId) ?? [];
+    bucket.push(pos);
+    grouped.set(pos.instrumentId, bucket);
+  }
+
+  const merged: Position[] = [];
+  for (const [instrumentId, list] of grouped.entries()) {
+    if (list.length === 1) {
+      merged.push(list[0]!);
+      continue;
+    }
+    let quantity = zero();
+    let costBasis = zero();
+    let marketValue = zero();
+    let hasDay = false;
+    let dayChangeSum = zero();
+
+    for (const item of list) {
+      quantity = quantity.plus(item.quantity);
+      costBasis = costBasis.plus(item.costBasis);
+      marketValue = marketValue.plus(item.marketValue ?? item.costBasis);
+      if (item.dayChange !== null) {
+        hasDay = true;
+        dayChangeSum = dayChangeSum.plus(item.dayChange);
+      }
+    }
+
+    const averageCost = quantity.isZero() ? zero() : div(costBasis, quantity);
+    const unrealized = subtract(marketValue, costBasis);
+    const unrealizedPct = ratio(unrealized, costBasis);
+    const prevMarket = subtract(marketValue, dayChangeSum);
+    const dayChange = hasDay ? dayChangeSum : null;
+    const dayChangePct =
+      hasDay && !prevMarket.isZero() ? ratio(dayChangeSum, prevMarket) : null;
+
+    merged.push({
+      instrumentId,
+      quantity,
+      averageCost,
+      costBasis,
+      marketValue,
+      unrealized,
+      unrealizedPct,
+      dayChange,
+      dayChangePct,
+    });
+  }
+  return merged;
+};
+
 export const usePositions = () =>
   useQuery<PositionsData>({
     queryKey: ['positions'],
     queryFn: async () => {
-      const [holdingsRes, instrumentsRes, pricesRes, fxRes] =
-        await Promise.all([
-          supabase
-            .from('holdings')
-            .select(
-              'instrument_id, quantity, average_price, current_price, previous_close, currency',
-            ),
-          supabase.from('instruments').select('id, ticker, isin, name, currency, yahoo_symbol, sector'),
-          supabase
-            .from('prices')
-            .select('instrument_id, close, currency, as_of')
-            .order('as_of', { ascending: false })
-            .limit(200),
-          supabase
-            .from('fx_rates')
-            .select('base, rate, as_of')
-            .eq('quote', 'EUR')
-            .order('as_of', { ascending: false })
-            .limit(25),
-        ]);
+      const [dbHoldings, instrumentsRes, pricesRes, fxRes] = await Promise.all([
+        fetchHoldingsWithProviderFallback(),
+        supabase
+          .from('instruments')
+          .select('id, ticker, isin, name, currency, yahoo_symbol, sector'),
+        supabase
+          .from('prices')
+          .select('instrument_id, close, currency, as_of')
+          .order('as_of', { ascending: false })
+          .limit(200),
+        supabase
+          .from('fx_rates')
+          .select('base, rate, as_of')
+          .eq('quote', 'EUR')
+          .order('as_of', { ascending: false })
+          .limit(25),
+      ]);
 
       if (instrumentsRes.error) throw instrumentsRes.error;
 
       const instruments = new Map<string, InstrumentMeta>(
         (instrumentsRes.data ?? []).map((row) => [row.id, row]),
       );
+
+      const holdings: RawHoldingRow[] = [...dbHoldings];
+      const localXtb = getLocalXtbState();
+      if (localXtb && localXtb.holdings.length > 0) {
+        for (const h of localXtb.holdings) {
+          if (!instruments.has(h.instrumentId)) {
+            instruments.set(h.instrumentId, {
+              id: h.instrumentId,
+              ticker: h.ticker,
+              isin: null,
+              name: h.name,
+              currency: h.currency,
+              yahoo_symbol: h.yahooSymbol,
+              sector: h.sector,
+            });
+          }
+          const alreadyInDb = holdings.some(
+            (row) =>
+              row.instrument_id === h.instrumentId &&
+              (row.provider ?? 't212') === 'xtb',
+          );
+          if (!alreadyInDb) {
+            holdings.push({
+              instrument_id: h.instrumentId,
+              provider: 'xtb',
+              quantity: h.quantity,
+              average_price: h.averagePrice,
+              current_price: h.currentPrice,
+              previous_close: h.previousClose,
+              currency: h.currency,
+            });
+          }
+        }
+      }
+
       const latestFx = latestByKey(fxRes.data ?? [], (row) => row.base);
       const fxRate = (currency: string) =>
         currency === 'EUR' ? '1' : (latestFx.get(currency)?.rate ?? '1');
 
-      const holdings = holdingsRes.data ?? [];
       if (holdings.length > 0) {
         const pricesList = pricesRes.data ?? [];
-        const positions: Position[] = holdings.map((holding) => {
+        const byProvider = new Map<string, Position[]>();
+
+        const rawPositions: Position[] = holdings.map((holding) => {
+          const provider = holding.provider ?? 't212';
           const fx = money(fxRate(holding.currency));
           const quantity = money(holding.quantity);
           const avgNum = Number(holding.average_price);
@@ -236,8 +386,10 @@ export const usePositions = () =>
             dayChange = mul(quantity, subtract(currentEur, previousEur));
             dayChangePct = ratio(subtract(currentEur, previousEur), previousEur);
           }
-          return {
+
+          const pos: Position = {
             instrumentId: holding.instrument_id,
+            provider,
             quantity,
             averageCost,
             costBasis,
@@ -247,8 +399,16 @@ export const usePositions = () =>
             dayChange,
             dayChangePct,
           };
+
+          const providerList = byProvider.get(provider) ?? [];
+          providerList.push(pos);
+          byProvider.set(provider, providerList);
+
+          return pos;
         });
-        return { positions, instruments, fromBroker: true };
+
+        const positions = mergePositionsByInstrument(rawPositions);
+        return { positions, byProvider, instruments, fromBroker: true };
       }
 
       const transactionsRes = await supabase
@@ -271,6 +431,11 @@ export const usePositions = () =>
         },
         fxRate,
       );
-      return { positions, instruments, fromBroker: false };
+      return {
+        positions,
+        byProvider: new Map(),
+        instruments,
+        fromBroker: false,
+      };
     },
   });

@@ -4,6 +4,8 @@ import type { BalanceByAccount } from '@/core/balances/deriveBalances';
 import { money } from '@/core/money/money';
 import { supabase } from '@/db/supabase';
 
+import { getLocalXtbState } from '@/features/integrations/api/useXtb';
+
 export interface BrokerSnapshot {
   free: string;
   invested: string;
@@ -11,8 +13,9 @@ export interface BrokerSnapshot {
   total: string;
 }
 
-const providerByInstitution: Record<string, string> = {
+export const providerByInstitution: Record<string, string> = {
   trading212: 't212',
+  xtb: 'xtb',
 };
 
 export const useBrokerAccounts = () =>
@@ -23,7 +26,7 @@ export const useBrokerAccounts = () =>
         .from('broker_accounts')
         .select('provider, free, invested, ppl, total');
       if (error) throw error;
-      return new Map(
+      const map = new Map<string, BrokerSnapshot>(
         (data ?? []).map((row) => {
           const authoritativeTotal =
             Number(row.free) + Number(row.invested) + Number(row.ppl);
@@ -39,6 +42,16 @@ export const useBrokerAccounts = () =>
           ];
         }),
       );
+      const localXtb = getLocalXtbState();
+      if (localXtb && !map.has('xtb')) {
+        map.set('xtb', {
+          free: localXtb.freeCash.toFixed(4),
+          invested: localXtb.invested.toFixed(4),
+          ppl: localXtb.ppl.toFixed(4),
+          total: localXtb.total.toFixed(4),
+        });
+      }
+      return map;
     },
   });
 

@@ -10,7 +10,11 @@ import {
   useDeleteAccount,
   useRenameAccount,
 } from './api/useAccounts';
-import { applyBrokerBalances, useBrokerAccounts } from './api/useBrokerAccounts';
+import {
+  applyBrokerBalances,
+  providerByInstitution,
+  useBrokerAccounts,
+} from './api/useBrokerAccounts';
 import { getInstitution } from './institutions';
 import { InstitutionLogo } from './components/InstitutionLogo';
 import { AccountTargetCard } from './components/AccountTargetCard';
@@ -29,6 +33,8 @@ import {
 import { useInstruments, usePositions } from '@/features/positions/api/usePositions';
 import { PositionRow } from '@/features/positions/components/PositionRow';
 import { TransactionList } from '@/features/transactions/components/TransactionList';
+import { XtbCard } from '@/features/integrations/XtbCard';
+import { useDeleteXtbHolding } from '@/features/integrations/api/useXtb';
 import { Button } from '@/ui/Button';
 import { BottomSheet } from '@/ui/BottomSheet';
 import { Card } from '@/ui/Card';
@@ -54,6 +60,7 @@ export const AccountDetailPage = () => {
   const delTx = useDeleteTransaction();
   const remove = useDeleteAccount();
   const rename = useRenameAccount();
+  const deleteXtbHolding = useDeleteXtbHolding();
   const [adding, setAdding] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [prefill, setPrefill] = useState<TransactionPrefill | null>(null);
@@ -66,7 +73,14 @@ export const AccountDetailPage = () => {
   const account = accounts.find((entry) => entry.id === id);
   const isInvestment = account?.type === 'investment';
   const [historyOpen, setHistoryOpen] = useState(false);
-  const positions = isInvestment ? positionsQuery.data?.positions ?? [] : [];
+  const brokerProvider = account
+    ? providerByInstitution[account.institutionId]
+    : undefined;
+  const positions = isInvestment
+    ? brokerProvider
+      ? (positionsQuery.data?.byProvider.get(brokerProvider) ?? [])
+      : (positionsQuery.data?.positions ?? [])
+    : [];
 
   const startRename = () => {
     if (!account) return;
@@ -199,6 +213,10 @@ export const AccountDetailPage = () => {
         />
       )}
 
+      {account?.institutionId === 'xtb' && (
+        <XtbCard accountId={account.id} compact />
+      )}
+
       <BottomSheet
         open={Boolean(editingTx) && Boolean(account)}
         onClose={() => setEditingTx(null)}
@@ -247,13 +265,39 @@ export const AccountDetailPage = () => {
                 ),
               )
               .map((position) => (
-                <PositionRow
+                <div
                   key={position.instrumentId}
-                  position={position}
-                  instrument={positionsQuery.data?.instruments.get(
-                    position.instrumentId,
+                  className="flex flex-col gap-1"
+                >
+                  <PositionRow
+                    position={position}
+                    instrument={positionsQuery.data?.instruments.get(
+                      position.instrumentId,
+                    )}
+                  />
+                  {account?.institutionId === 'xtb' && (
+                    <div className="flex justify-end px-2">
+                      <button
+                        type="button"
+                        disabled={deleteXtbHolding.isPending}
+                        onClick={() => {
+                          const inst = positionsQuery.data?.instruments.get(
+                            position.instrumentId,
+                          );
+                          const label = inst?.name ?? inst?.ticker ?? 'this holding';
+                          if (window.confirm(`Remove ${label} from XTB holdings?`)) {
+                            deleteXtbHolding.mutate(position.instrumentId, {
+                              onSuccess: () => toast(`${label} removed`),
+                            });
+                          }
+                        }}
+                        className="tap text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--negative)]"
+                      >
+                        Remove position
+                      </button>
+                    </div>
                   )}
-                />
+                </div>
               ))}
           </div>
         </div>

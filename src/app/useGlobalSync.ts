@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/db/supabase';
+import { refreshLocalXtbQuotes } from '@/features/integrations/api/useXtb';
 import { toast } from '@/ui/toast';
 
 export const useGlobalSync = () => {
@@ -29,9 +30,12 @@ export const useGlobalSync = () => {
         }
       }
 
-      await supabase.functions
-        .invoke('market', { body: { action: 'refresh' } })
-        .catch(() => undefined);
+      await Promise.all([
+        supabase.functions
+          .invoke('market', { body: { action: 'refresh' } })
+          .catch(() => undefined),
+        refreshLocalXtbQuotes().catch(() => undefined),
+      ]);
 
       return { inserted, t212Connected: Boolean(cred) };
     },

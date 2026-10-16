@@ -12,6 +12,7 @@ export type FxLookup = (currency: string) => string;
 
 export interface Position {
   instrumentId: string;
+  provider?: string;
   quantity: Money;
   averageCost: Money;
   costBasis: Money;

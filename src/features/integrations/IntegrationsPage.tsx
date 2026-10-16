@@ -23,6 +23,7 @@ import { WidgetCard } from './WidgetCard';
 import { RebrickableCard } from './RebrickableCard';
 import { BricksetCard } from './BricksetCard';
 import { TheWatchApiCard } from './TheWatchApiCard';
+import { XtbCard } from './XtbCard';
 import { SecretField } from './SecretField';
 import { CardTitle } from '@/ui/Heading';
 
@@ -127,7 +128,7 @@ export const IntegrationsPage = () => {
 
       <PageHeader
         title="Integrations"
-        subtitle="Connect Trading 212, Rebrickable & Brickset for automated portfolio sync, and configure mobile widgets and alerts."
+        subtitle="Connect Trading 212, XTB, Rebrickable & Brickset for portfolio sync, and configure mobile widgets and alerts."
       />
 
       <section className="flex flex-col gap-4">
@@ -504,6 +505,7 @@ export const IntegrationsPage = () => {
         )}
       </Card>
 
+        <XtbCard />
         <RebrickableCard />
         <BricksetCard />
         <TheWatchApiCard />

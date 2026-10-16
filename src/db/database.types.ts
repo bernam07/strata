@@ -155,10 +155,13 @@ export interface Database {
           t212_ticker?: string | null;
           name: string;
           currency?: string;
+          yahoo_symbol?: string | null;
+          sector?: string | null;
         };
         Update: {
           isin?: string | null;
           name?: string;
+          yahoo_symbol?: string | null;
           sector?: string | null;
         };
         Relationships: [];
@@ -341,6 +344,7 @@ export interface Database {
         Row: {
           user_id: string;
           instrument_id: string;
+          provider?: string;
           quantity: string;
           average_price: string;
           current_price: string;
@@ -351,6 +355,7 @@ export interface Database {
         Insert: {
           user_id?: string;
           instrument_id: string;
+          provider?: string;
           quantity: string;
           average_price: string;
           current_price: string;
@@ -358,10 +363,12 @@ export interface Database {
           currency?: string;
         };
         Update: {
+          provider?: string;
           quantity?: string;
           average_price?: string;
           current_price?: string;
           previous_close?: string | null;
+          currency?: string;
         };
         Relationships: [];
       };
